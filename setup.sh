@@ -7,26 +7,27 @@ function install_dependency {
 
 function node_install {
     echo " - Node install: $1"
-    npm install -g $1  > /dev/null
+    sudo npm install -g $1  > /dev/null
 }
 
 
-cho "+ apt-get update"
+echo "+ apt-get update"
 apt-get update > /dev/null
 
-echo "+ intall node"
+sudo apt-get --purge remove node
+
+echo "+ Prepare this machine to get node ..."
+curl -sL https://deb.nodesource.com/setup | sudo bash -
+
 install_dependency nodejs
 
-echo "+ intall typescript"
+sudo ln -s /usr/bin/nodejs /usr/bin/node
+
+install_dependency npm
+
 node_install typescript
-
-echo "+ intall express"
 node_install express
-
-echo "+ intall gulp"
 node_install gulp
-
-echo "+ intall bower"
 node_install bower
 
 echo "= System Provision Complete "
