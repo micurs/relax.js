@@ -14,6 +14,8 @@ function node_install {
 echo "+ apt-get update"
 apt-get update > /dev/null
 
+install_dependency git-core
+
 sudo apt-get --purge remove node
 
 echo "+ Prepare this machine to get node ..."
@@ -26,6 +28,8 @@ sudo ln -s /usr/bin/nodejs /usr/bin/node
 install_dependency npm
 
 node_install typescript
+node_install tsd
+
 node_install express
 node_install gulp
 node_install bower
