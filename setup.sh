@@ -12,25 +12,26 @@ function node_install {
 
 
 echo "+ apt-get update"
-apt-get update > /dev/null
+sudo apt-get update > /dev/null
 
+install_dependency build-essential
 install_dependency git-core
 
-sudo apt-get --purge remove node
 
 echo "+ Prepare this machine to get node ..."
+sudo apt-get --purge remove node
 curl -sL https://deb.nodesource.com/setup | sudo bash -
-
 install_dependency nodejs
+#sudo ln -s /usr/bin/nodejs /usr/bin/node
 
-sudo ln -s /usr/bin/nodejs /usr/bin/node
+# install_dependency npm
 
-install_dependency npm
-
+node_install node-gyp
 node_install typescript
 node_install tsd
 
 node_install express
+node_install express-generator
 node_install gulp
 node_install bower
 
