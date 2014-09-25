@@ -10,6 +10,15 @@
     },
     "express/express.d.ts": {
       "commit": "c8b6954f449bd252ee42592fe471f14b1995cffb"
+    },
+    "underscore/underscore.d.ts": {
+      "commit": "fe50484fda542dcdb0b47ee0ef20d7676a9630f1"
+    },
+    "bootstrap/bootstrap.d.ts": {
+      "commit": "fe50484fda542dcdb0b47ee0ef20d7676a9630f1"
+    },
+    "moment/moment.d.ts": {
+      "commit": "fe50484fda542dcdb0b47ee0ef20d7676a9630f1"
     }
   }
 }
