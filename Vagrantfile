@@ -9,5 +9,5 @@ Vagrant.configure("2") do |config|
 
   config.vm.synced_folder ".", "/micurs.com"
   config.vm.provision :shell, :path => "setup.sh",  privileged: true
-  config.vm.provision :shell, :path => "init.sh",  privileged: false
+  config.vm.provision :shell, :path => "init.sh",  privileged: false, run: "always"
 end

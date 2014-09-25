@@ -3,14 +3,14 @@ echo "========== Initialize micurs.com ==============="
 
 function gulp_install {
     echo " - Node install: $1"
-    npm install $1 --save-dev  > /dev/null
+    npm install $1 --save-dev  --no-bin-link > /dev/null
 }
 
-echo "- Restore/Update all type definitions in typings"
+echo "+ Restore/Update all type definitions in typings"
 cd /micurs.com
 tsd reinstall --save --overwrite
 
-echo "- Npm install packages in package.json"
+echo "+ Npm install packages in package.json"
 cd site
 gulp_install gulp-typescript-compiler
 gulp_install gulp-less
