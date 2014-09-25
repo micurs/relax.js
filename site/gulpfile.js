@@ -5,15 +5,20 @@ var print = require('gulp-print');
 var tsc  = require('gulp-typescript-compiler');
 
 
-
-gulp.task('typescript', function() {
-  return gulp.src( [ '*.ts', '**/*.ts' ] )
+gulp.task('ts_server', function() {
+  return gulp.src( [ '*.ts', '**/*.ts', '!./public/**/*.ts', '!./node_modules/**/*.ts' ] )
              .pipe( print() )
              .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: false, logErrors: true } ) )
+             .pipe(uglify());
+});
+
+gulp.task('ts_client', function() {
+  return gulp.src( [ './public/**/*.ts' ] )
              .pipe( print() )
+             .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: false, logErrors: true } ) )
              .pipe(uglify());
 });
 
 
 // Default Task
-gulp.task('default', ['typescript']);
+gulp.task( 'default', ['ts_server','ts_client'] );
