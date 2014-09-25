@@ -1,0 +1,21 @@
+{
+  "name": "micurs.com",
+  "version": "0.0.1",
+  "description": "Michele Ursino personal site",
+  "authors": [
+    "Michele Ursino"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "public/components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.2.0",
+    "underscore": "~1.7.0"
+  }
+}
