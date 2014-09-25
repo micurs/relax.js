@@ -8,7 +8,7 @@ var tsc  = require('gulp-tsc');
 gulp.task('ts_server', function() {
   return gulp.src( [ '*.ts', '**/*.ts', '!./public/**/*.ts', '!./node_modules/**/*.ts' ] )
           .pipe( print(function(filepath) { return "TSC server side: " + filepath; } ) )
-          .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: false, emitError: false } ) )
+          .pipe( tsc( {  module: 'commonjs', target: 'ES5', sourcemap: false, emitError: false } ) )
           .pipe(gulp.dest('./'))
           .pipe( print(function(filepath) { return "Result: " + filepath; } ) );
 });
