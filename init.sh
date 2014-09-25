@@ -12,7 +12,7 @@ tsd reinstall --save --overwrite
 
 echo "+ Npm install packages in package.json"
 cd site
-gulp_install gulp-typescript-compiler
+gulp_install gulp-tsc
 gulp_install gulp-less
 gulp_install gulp-uglify
 gulp_install gulp-rename
