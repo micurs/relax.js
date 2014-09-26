@@ -10,3 +10,15 @@ The overall stack includes:
 * express: the node.js web framework
 * gulp: the build manager
 * bower: the package manager
+
+
+
+ToDo
+======================
+
+# setup gulp to watch typescript
+# get angular basic to work
+# import bootstrap javascript
+# select layout
+# build resume in json format
+
