@@ -1,8 +1,9 @@
-///<reference path='../typings/node/node.d.ts' />
-///<reference path='../typings/express/express.d.ts' />
+///<reference path='../../typings/node/node.d.ts' />
+///<reference path='../../typings/express/express.d.ts' />
 
+// ============================================================
 // Typescript main express application
-// ------------------------------------------------------------
+// ============================================================
 
 var express = require('express');
 var path = require('path');
@@ -42,7 +43,9 @@ app.use(function(req, res, next) {
     next(res);
 });
 
-// error handlers
+
+// Error handlers
+
 
 // development error handler
 // will print stacktrace
