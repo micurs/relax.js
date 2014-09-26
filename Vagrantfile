@@ -2,7 +2,7 @@ Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/trusty64"
   config.vm.provider "virtualbox" do |v|
     v.name = "micurs.com"
-    v.memory = 1024
+    v.memory = 2048
     v.cpus = 4
   end
   config.vm.network "forwarded_port", guest: 3000, host: 3000
