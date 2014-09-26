@@ -16,9 +16,12 @@ The overall stack includes:
 ToDo
 ======================
 
-# setup gulp to watch typescript
-# get angular basic to work
-# import bootstrap javascript
-# select layout
-# build resume in json format
+
+- setup gulp to watch typescript
+- get angular basic to work
+- import bootstrap javascript
+- select layout
+- build resume in json format
+- use angular to display resume 
+- explore foundation as alternative to bootstrap http://foundation.zurb.com/
 
