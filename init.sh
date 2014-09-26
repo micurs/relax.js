@@ -10,8 +10,10 @@ echo "+ Restore/Update all type definitions in typings"
 cd /micurs.com
 tsd reinstall --save --overwrite
 
-echo "+ Npm install packages in package.json"
+
 cd site
+
+echo "+ Npm install packages in package.json"
 # gulp_install gulp
 # gulp_install gulp-tsc
 # gulp_install gulp-less
@@ -20,3 +22,6 @@ cd site
 # gulp_install gulp-watch
 # gulp_install gulp-minify-css
 npm install
+
+echo "+ Bower install client-side components in bower.json"
+bower install
