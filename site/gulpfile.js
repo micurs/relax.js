@@ -23,11 +23,10 @@ function onError(error) { handleError.call(this, 'error', error);}
 function onWarning(error) { handleError.call(this, 'warning', error);}
 
 gulp.task('ts_server', function() {
-  // gulp.src( [ '*.ts', '**/*.ts', '!./public/**/*.ts', '!./node_modules/**/*.ts' ] )
-  return gulp.src( [ './tsSrc/*.ts' ] )
+  return gulp.src( [ './src/*.ts' ] )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
           .pipe( tsc( {  module: 'commonjs', target: 'ES5', sourcemap: false, emitError: false } ) )
-          .pipe(gulp.dest('./'))
+          .pipe(gulp.dest('./bin'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
 });
@@ -43,7 +42,7 @@ gulp.task('ts_client', function() {
 
 gulp.task( 'watch', function() {
   fatalLevel = fatalLevel || 'off';
-  gulp.watch( [ '*.ts', '**/*.ts', '!./public/**/*.ts', '!./node_modules/**/*.ts' ] ,  ['ts_server'] );
+  gulp.watch( [ './src/*.ts' ] ,  ['ts_server'] );
   gulp.watch( [ './public/**/*.ts' ] ,  ['ts_client'] );
 });
 
