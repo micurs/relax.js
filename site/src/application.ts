@@ -1,25 +1,49 @@
+///<reference path='../../typings/node/node.d.ts' />
 ///<reference path='./../../typings/underscore/underscore.d.ts' />
 ///<reference path='./../../typings/q/Q.d.ts' />
+///<reference path='./../../typings/mime/mime.d.ts' />
 
-var fs = require('fs');
-var Q = require('q');
+import fs = require('fs');
+import Q = require('q');
+import mime = require('mime');
 
-import _ = require("underscore");
+var _ = require("underscore");
 
 // Application Resources
-export module resources {
+export module Resources {
 
-  export class home {
+  export interface Resource {
+    get() : Q.Promise<string> ;
+  }
+
+  export function get( filename: string ) : Q.Promise< Buffer > {
+    var laterAction = Q.defer< Buffer >();
+    var staticFile = '.'+filename;
+    console.log('[static get] Reading file: '+ staticFile );
+    fs.readFile( staticFile, function( err : Error, content : Buffer ) {
+      if ( err )
+        laterAction.reject( filename + ' not found');
+      else
+        console.log('[static get] OK! ');
+        laterAction.resolve(content);
+    });
+    return laterAction.promise;
+  }
+
+  export class Home implements Resource {
+
     msg : string;
+
     constructor( msg: string ) {
       this.msg = msg;
     }
+
     get() : Q.Promise<string> {
       var self = this;
-      var laterAction = Q.defer();
-      var template = __dirname+'/../src/home._';
+      var laterAction = Q.defer<string>();
+      var template = "./src/home._"; // __dirname+'/../src/home._';
       console.log('Reading file: '+ template );
-      fs.readFile( template, "utf-8", function( err : boolean, content : string ) {
+      fs.readFile( template, "utf-8", function( err : Error, content : string ) {
         if (err) {
           laterAction.reject("File home._ not found");
         }
