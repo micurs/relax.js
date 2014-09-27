@@ -1,0 +1,6 @@
+<html>
+<body>
+  <h1>Riposo 0.0.1</h1>
+  <p><%= msg %></p>
+</body>
+</html>
