@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 echo "========== Initialize micurs.com ==============="
 
-function gulp_install {
+echo "= HOSTS UPDATE"
+
+cat <<END >>.node_modules
+/micurs.com/site/public/components
+END
+
+function node_install {
     echo " - Node install: $1"
     npm install $1 --save-dev  --no-bin-link > /dev/null
 }
