@@ -28,6 +28,9 @@
     },
     "mime/mime.d.ts": {
       "commit": "eef872b96a458fde22571def5a368a867de9901b"
+    },
+    "chalk/chalk.d.ts": {
+      "commit": "eef872b96a458fde22571def5a368a867de9901b"
     }
   }
 }

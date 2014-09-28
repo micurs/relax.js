@@ -29,9 +29,7 @@ install_dependency nodejs
 node_install node-gyp
 node_install typescript
 node_install tsd
-
-#node_install express
-#node_install express-generator
+node_install node-inspector
 node_install gulp
 node_install bower
 

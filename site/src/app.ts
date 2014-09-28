@@ -2,15 +2,19 @@
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./application.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
+///<reference path='./../../typings/chalk/chalk.d.ts' />
 
 import http = require("http");
 import q = require('q');
 import mime = require('mime');
+import chalk = require('chalk');
+
 import app = require("./application");
 import controller = require("./controller");
 
 var portNumber : number = 3000;
 
+// Create the resources for the site
 var home = new app.Resources.Home("Hello World");
 
 function respondHtml( response: http.ServerResponse, content : string ) {
@@ -55,4 +59,5 @@ var appSrv = http.createServer( (request, response) => {
   }
 });
 
+console.log( chalk.red('[server]  Start listening on port 3000') );
 appSrv.listen(portNumber);
