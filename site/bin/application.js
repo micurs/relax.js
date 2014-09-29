@@ -2,6 +2,7 @@
 ///<reference path='./../../typings/underscore/underscore.d.ts' />
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
+// System and third party import
 var fs = require('fs');
 var Q = require('q');
 
@@ -9,6 +10,9 @@ var _ = require("underscore");
 
 // Application Resources
 (function (Resources) {
+    
+
+    // generic get for a static file
     function get(filename) {
         var laterAction = Q.defer();
         var staticFile = '.' + filename;

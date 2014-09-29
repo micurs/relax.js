@@ -3,19 +3,21 @@
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
 
+// System and third party import
 import fs = require('fs');
 import Q = require('q');
 import mime = require('mime');
-
-var _ = require("underscore");
+import _ = require("underscore");
 
 // Application Resources
 export module Resources {
 
+  // Generic interface for a resource
   export interface Resource {
     get() : Q.Promise<string> ;
   }
 
+  // generic get for a static file
   export function get( filename: string ) : Q.Promise< Buffer > {
     var laterAction = Q.defer< Buffer >();
     var staticFile = '.'+filename;

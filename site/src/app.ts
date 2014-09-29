@@ -4,11 +4,14 @@
 ///<reference path='./../../typings/mime/mime.d.ts' />
 ///<reference path='./../../typings/chalk/chalk.d.ts' />
 
+// System and third party import
 import http = require("http");
 import q = require('q');
 import mime = require('mime');
 import chalk = require('chalk');
+import _ = require("underscore");
 
+// Local import
 import app = require("./application");
 import controller = require("./controller");
 

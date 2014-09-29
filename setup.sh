@@ -27,10 +27,17 @@ install_dependency nodejs
 # install_dependency npm
 
 node_install node-gyp
+echo ' - use tsc to compile typescript to node js file'
 node_install typescript
+echo ' - use tsd to search downlaod and mainitain typescript type declaration file'
 node_install tsd
+echo ' - use node-inspector to access debug with chorome http://localhost:8080/debug?port5858'
 node_install node-inspector
+echo ' - use gulp to compile node typescript files, less etc.'
 node_install gulp
+echo ' - use bower to download and update client siode package'
 node_install bower
+echo ' - use nodemon to reload source code everytime they change'
+node_install nodemon
 
 echo "= System Provision Complete "

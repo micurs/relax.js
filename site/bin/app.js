@@ -3,11 +3,13 @@
 ///<reference path='./application.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
 ///<reference path='./../../typings/chalk/chalk.d.ts' />
+// System and third party import
 var http = require("http");
 
 var mime = require('mime');
 var chalk = require('chalk');
 
+// Local import
 var app = require("./application");
 var controller = require("./controller");
 
