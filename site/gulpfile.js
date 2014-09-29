@@ -28,7 +28,7 @@ gulp.task('ts_server', function() {
   return gulp.src( [ './src/*.ts' ] )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
           .pipe( tsc( {  module: 'commonjs', target: 'ES5', sourcemap: false, emitError: false } ) )
-          .pipe(gulp.dest('./bin'));
+          .pipe(gulp.dest('./bin'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
 });
@@ -37,7 +37,7 @@ gulp.task('ts_client', function() {
   return gulp.src( [ './public/**/*.ts' ] )
           .pipe( print( function(filepath) { return "TS client file: " + filepath; } ) )
           .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: true, emitError: false } ) )
-          .pipe(gulp.dest('./'));
+          .pipe(gulp.dest('./'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) );
 });
 
