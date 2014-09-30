@@ -50,8 +50,11 @@ var _ = require("underscore");
                 console.log('[View] Compiling ' + templateFilename);
 
                 // TODO: Error management needed here
+                //console.log('[View] Original content '+content);
                 var compiled = _.template(content);
                 var fullContent = new Buffer(compiled(viewData), 'utf-8');
+
+                //console.log('[View] compiled content '+fullContent);
                 console.log('[View] done.');
                 laterAct.resolve({ data: fullContent, mimeType: 'utf-8' });
             }
