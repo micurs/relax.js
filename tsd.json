@@ -31,6 +31,9 @@
     },
     "chalk/chalk.d.ts": {
       "commit": "eef872b96a458fde22571def5a368a867de9901b"
+    },
+    "underscore.string/underscore.string.d.ts": {
+      "commit": "b2171552576bc574b97a9fd2ae5f037172049d7b"
     }
   }
 }
