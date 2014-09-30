@@ -9,63 +9,98 @@ import Q = require('q');
 import mime = require('mime');
 import _ = require("underscore");
 
+import controller = require("./controller"); // routing functions
+
 // Application Resources
 export module Resources {
 
+  export class Embodiment {
+    data : Buffer;
+    mimeType: string;
+  }
+
   // Generic interface for a resource
   export interface Resource {
-    get() : Q.Promise<string> ;
+    get( route? : controller.Routing.Route ) : Q.Promise<Embodiment> ;
   }
 
   // generic get for a static file
-  export function get( filename: string ) : Q.Promise< Buffer > {
-    var laterAction = Q.defer< Buffer >();
+  export function viewStatic( filename: string ) : Q.Promise< Embodiment > {
+    var mtype = mime.lookup(filename);
+    var laterAction = Q.defer< Embodiment >();
     var staticFile = '.'+filename;
     fs.readFile( staticFile, function( err : Error, content : Buffer ) {
       if ( err )
         laterAction.reject( filename + ' not found');
       else
-        console.log('[static get] '+ staticFile );
+        console.log('[static view] '+ staticFile );
         // console.log('[static get] OK! ');
-        laterAction.resolve(content);
+        laterAction.resolve( { data: content, mimeType: mtype } );
     });
     return laterAction.promise;
   }
 
-  export class ViewResource {
-
-    constructor( private viewName: string ) { }
-
-    // Return a promise that will return the full content of the view + the viewdata.
-    view( viewData: any ) : Q.Promise<string> {
-      var laterAct = Q.defer<string>();
-      var templateFilename = './views/'+this.viewName+'._';
-      fs.readFile( templateFilename, "utf-8", function( err : Error, content : string ) {
-        if (err) {
-          laterAct.reject('[ViewResource] File '+ templateFilename +' not found');
-        }
-        else {
-          console.log('[ViewResource] Compiling '+templateFilename);
-          // TODO: Error management needed here
-          var compiled = _.template(content);
-          var fullContent : string = compiled(viewData);
-          console.log('[ViewResource] done.');
-          laterAct.resolve(fullContent);
-        }
-      });
-      return laterAct.promise;
-    }
+  // Return a promise that will return the full content of the view + the viewdata.
+  export function view( viewName: string, viewData: any ) : Q.Promise< Embodiment > {
+    var laterAct = Q.defer<Embodiment>();
+    var templateFilename = './views/'+this.viewName+'._';
+    fs.readFile( templateFilename, 'utf-8', function( err : Error, content : string ) {
+      if (err) {
+        laterAct.reject('[View] File '+ templateFilename +' not found');
+      }
+      else {
+        console.log('[View] Compiling '+templateFilename);
+        // TODO: Error management needed here
+        var compiled = _.template(content);
+        var fullContent = new Buffer( compiled(viewData) , 'utf-8') ;
+        console.log('[View] done.');
+        laterAct.resolve( { data: fullContent, mimeType: 'utf-8' }  );
+      }
+    });
+    return laterAct.promise;
   }
 
-  export class Home extends ViewResource implements Resource {
+  // Root object for the application is the Site.
+  // The site is in itself a Resource and is accessed via the root / in a url.
+  export class Site implements Resource {
+    private static _instance : Site = null;
+    private static _name : string = 'home';
+    private static _version : string = '0.0.1';
 
-    constructor( public msg: string ) {
-      super('home');
+    constructor() {
+      if(Site._instance){
+        throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
+      }
+      Site._instance = this;
     }
 
-    get() : Q.Promise<string> {
+    public static $():Site
+    {
+      if(Site._instance === null) {
+        Site._instance = new Site();
+      }
+      return Site._instance;
+    }
+
+    get( route? : controller.Routing.Route ) : Q.Promise< Embodiment > {
+      console.log('[Routing.fromUrl] '+request.url+' has '+ resources.length + ' nodes' );
+
+      if ( route.isPublic )
+        return viewStatic( route.pathname );
+      else
+        return view(Site._name,this);
+    }
+
+  }
+
+  export class Home implements Resource {
+
+    constructor( public msg: string ) {
+    }
+
+    get() : Q.Promise<Embodiment> {
       // Here we compute/fetch/create the view data.
-      return super.view(this);
+      return view('home',this);
     }
   }
 }

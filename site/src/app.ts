@@ -14,14 +14,17 @@ import controller = require("./controller"); // routing functions
 
 var portNumber : number = 3000;
 
-var home = new app.Resources.Home("Hello World");
+var site = app.Resources.Site.$();
 
+// var home = new app.Resources.Home("Hello World");
+/*
 function respondHtml( response: http.ServerResponse, content : string ) {
   response.writeHead( 200, {"Content-Type": "text/html" , 'Content-Length': Buffer.byteLength(content, 'utf8') } );
   response.write(content);
   response.end();
-}
-function respondBin( response: http.ServerResponse, content : Buffer, mtype: string ) {
+}*/
+
+function respond( response: http.ServerResponse, content : Buffer, mtype: string ) {
   response.writeHead(200, { 'Content-Type' : mtype, 'Content-Length': content.length } );
   response.write(content);
   response.end();
@@ -32,22 +35,17 @@ var appSrv = http.createServer( (request, response) => {
   // here we need to route the call to the appropriate class:
   var route : controller.Routing.Route = controller.Routing.fromUrl(request);
 
-  if ( route.isPublic ) {
-    var mtype = mime.lookup(route.pathname);
-    app.Resources.get( route.pathname )
-    .then( (content : Buffer ) => { respondBin(response,content, mtype ); } )
-  }
-  else
-  {
-    home.get()
-      .then( ( content: string ) => { respondHtml(response,content); } )
-      .fail(function (error) {
-        response.writeHead(404, {"Content-Type": "text/html"} );
-        response.write(error);
-        response.end();
-      })
-      .done();
-  }
+  site.get( route )
+    .then( ( rep : app.Resources.Embodiment ) => {
+      respond(response, rep.data, rep.mimeType );
+    })
+    .fail(function (error) {
+      response.writeHead(404, {"Content-Type": "text/html"} );
+      response.write(error);
+      response.end();
+    })
+    .done();
+
 });
 
 appSrv.listen(portNumber);

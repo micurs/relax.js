@@ -3,7 +3,7 @@
   <link href="/public/components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
 </head>
 <body>
-  <h1>Riposo 0.0.1</h1>
-  <p><%= msg %></p>
+  <h1><%= _name %> Version:<%= _version %></h1>
+  <p>Welcome!</p>
 </body>
 </html>

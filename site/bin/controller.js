@@ -25,22 +25,24 @@ var _ = require('underscore');
     function fromUrl(request) {
         console.log('[Routing.fromUrl] ' + request.url);
 
-        var reqToRoute = url.parse(request.url, true);
-        var resources = reqToRoute.pathname.split('/');
+        if (!request.url)
+            request.url = '/';
 
-        console.log('[Routing.fromUrl] Route has #' + resources.length);
-        console.log('[Routing.fromUrl] ' + _.reduce(resources, function (mem, item) {
-            return mem += ' , ' + item;
-        }));
+        var reqToRoute = url.parse(request.url, true);
         var extension = path.extname(reqToRoute.pathname);
-        console.log('[Routing.fromUrl] ' + extension);
-        if (resources[1] == 'public' || extension.length > 0) {
-            console.log('[Routing.fromUrl] Public request');
-            return { isPublic: true, pathname: reqToRoute.pathname, query: reqToRoute.search };
-        } else {
+        var resources = reqToRoute.pathname.split('/');
+        resources = _.filter(resources, function (res) {
+            return res.length > 0;
+        });
+
+        console.log('[Routing.fromUrl] ' + request.url + ' has ' + resources.length + ' nodes');
+        if (resources.length === 0 || extension.length === 0) {
             // Here we need to do some magic!
-            console.log('[Routing.fromUrl] Resource request');
+            console.log('[Routing.fromUrl] ' + request.url + ' is a Dynamic Resource');
             return { isPublic: false, pathname: reqToRoute.pathname, query: reqToRoute.search };
+        } else {
+            console.log('[Routing.fromUrl] ' + request.url + ' is a Static Resource');
+            return { isPublic: true, pathname: reqToRoute.pathname, query: reqToRoute.search };
         }
     }
     Routing.fromUrl = fromUrl;
