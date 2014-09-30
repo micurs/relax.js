@@ -21,43 +21,51 @@ export module Resources {
   export function get( filename: string ) : Q.Promise< Buffer > {
     var laterAction = Q.defer< Buffer >();
     var staticFile = '.'+filename;
-    console.log('[static get] Reading file: '+ staticFile );
     fs.readFile( staticFile, function( err : Error, content : Buffer ) {
       if ( err )
         laterAction.reject( filename + ' not found');
       else
-        console.log('[static get] OK! ');
+        console.log('[static get] '+ staticFile );
+        // console.log('[static get] OK! ');
         laterAction.resolve(content);
     });
     return laterAction.promise;
   }
 
-  export class Home implements Resource {
+  export class ViewResource {
 
-    msg : string;
+    constructor( private viewName: string ) { }
 
-    constructor( msg: string ) {
-      this.msg = msg;
+    // Return a promise that will return the full content of the view + the viewdata.
+    view( viewData: any ) : Q.Promise<string> {
+      var laterAct = Q.defer<string>();
+      var templateFilename = './views/'+this.viewName+'._';
+      fs.readFile( templateFilename, "utf-8", function( err : Error, content : string ) {
+        if (err) {
+          laterAct.reject('[ViewResource] File '+ templateFilename +' not found');
+        }
+        else {
+          console.log('[ViewResource] Compiling '+templateFilename);
+          // TODO: Error management needed here
+          var compiled = _.template(content);
+          var fullContent : string = compiled(viewData);
+          console.log('[ViewResource] done.');
+          laterAct.resolve(fullContent);
+        }
+      });
+      return laterAct.promise;
+    }
+  }
+
+  export class Home extends ViewResource implements Resource {
+
+    constructor( public msg: string ) {
+      super('home');
     }
 
     get() : Q.Promise<string> {
-      var self = this;
-      var laterAction = Q.defer<string>();
-      var template = "./src/home._"; // __dirname+'/../src/home._';
-      console.log('Reading file: '+ template );
-      fs.readFile( template, "utf-8", function( err : Error, content : string ) {
-        if (err) {
-          laterAction.reject("File home._ not found");
-        }
-        else {
-          console.log("Compiling ...");
-          var compiled = _.template(content);
-          var fullContent : string = compiled(self);
-          console.log("done.");
-          laterAction.resolve(fullContent);
-        }
-      });
-      return laterAction.promise;
+      // Here we compute/fetch/create the view data.
+      return super.view(this);
     }
   }
 }

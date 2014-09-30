@@ -2,29 +2,26 @@
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./application.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
-///<reference path='./../../typings/chalk/chalk.d.ts' />
-// System and third party import
 var http = require("http");
 
 var mime = require('mime');
-var chalk = require('chalk');
 
-// Local import
+// App specific module
 var app = require("./application");
 var controller = require("./controller");
 
+//import app = require("./micurs_com"); // specific resources for this site
 var portNumber = 3000;
 
-// Create the resources for the site
 var home = new app.Resources.Home("Hello World");
 
 function respondHtml(response, content) {
-    response.writeHead(200, { "Content-Type": "text/html" });
+    response.writeHead(200, { "Content-Type": "text/html", 'Content-Length': Buffer.byteLength(content, 'utf8') });
     response.write(content);
     response.end();
 }
 function respondBin(response, content, mtype) {
-    response.writeHead(200, { 'Content-Type': mtype });
+    response.writeHead(200, { 'Content-Type': mtype, 'Content-Length': content.length });
     response.write(content);
     response.end();
 }
@@ -33,14 +30,6 @@ var appSrv = http.createServer(function (request, response) {
     console.log('Recv ' + request.url);
 
     // here we need to route the call to the appropriate class:
-    // --------------------------------------------------------------
-    // GET /home/users?id=100
-    // becomes
-    // home.users.get(100)
-    // PUT /home/users?id=100
-    // becomes
-    //  home.users.put( 100, data)
-    // --------------------------------------------------------------
     var route = controller.Routing.fromUrl(request);
 
     if (route.isPublic) {
@@ -59,5 +48,4 @@ var appSrv = http.createServer(function (request, response) {
     }
 });
 
-console.log(chalk.red('[server]  Start listening on port 3000'));
 appSrv.listen(portNumber);

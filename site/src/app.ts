@@ -2,31 +2,27 @@
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./application.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
-///<reference path='./../../typings/chalk/chalk.d.ts' />
 
-// System and third party import
 import http = require("http");
 import q = require('q');
 import mime = require('mime');
-import chalk = require('chalk');
-import _ = require("underscore");
 
-// Local import
+// App specific module
 import app = require("./application");
-import controller = require("./controller");
+import controller = require("./controller"); // routing functions
+//import app = require("./micurs_com"); // specific resources for this site
 
 var portNumber : number = 3000;
 
-// Create the resources for the site
 var home = new app.Resources.Home("Hello World");
 
 function respondHtml( response: http.ServerResponse, content : string ) {
-  response.writeHead(200, {"Content-Type": "text/html"} );
+  response.writeHead( 200, {"Content-Type": "text/html" , 'Content-Length': Buffer.byteLength(content, 'utf8') } );
   response.write(content);
   response.end();
 }
 function respondBin( response: http.ServerResponse, content : Buffer, mtype: string ) {
-  response.writeHead(200, { 'Content-Type' : mtype } );
+  response.writeHead(200, { 'Content-Type' : mtype, 'Content-Length': content.length } );
   response.write(content);
   response.end();
 }
@@ -34,14 +30,6 @@ function respondBin( response: http.ServerResponse, content : Buffer, mtype: str
 var appSrv = http.createServer( (request, response) => {
   console.log('Recv '+request.url);
   // here we need to route the call to the appropriate class:
-  // --------------------------------------------------------------
-  // GET /home/users?id=100
-  // becomes
-  // home.users.get(100)
-  // PUT /home/users?id=100
-  // becomes
-  //  home.users.put( 100, data)
-  // --------------------------------------------------------------
   var route : controller.Routing.Route = controller.Routing.fromUrl(request);
 
   if ( route.isPublic ) {
@@ -62,5 +50,4 @@ var appSrv = http.createServer( (request, response) => {
   }
 });
 
-console.log( chalk.red('[server]  Start listening on port 3000') );
 appSrv.listen(portNumber);
