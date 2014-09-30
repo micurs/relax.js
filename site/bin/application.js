@@ -24,13 +24,12 @@ var _ = require("underscore");
         var mtype = mime.lookup(filename);
         var laterAction = Q.defer();
         var staticFile = '.' + filename;
+        console.log('[static view] ' + staticFile);
         fs.readFile(staticFile, function (err, content) {
             if (err)
                 laterAction.reject(filename + ' not found');
             else
-                console.log('[static view] ' + staticFile);
-
-            // console.log('[static get] OK! ');
+                console.log('[static view] done');
             laterAction.resolve({ data: content, mimeType: mtype });
         });
         return laterAction.promise;
@@ -40,9 +39,12 @@ var _ = require("underscore");
     // Return a promise that will return the full content of the view + the viewdata.
     function view(viewName, viewData) {
         var laterAct = Q.defer();
-        var templateFilename = './views/' + this.viewName + '._';
+        var templateFilename = './views/' + viewName + '._';
+        console.log('[view] template: "' + viewName + '"\t\tdata:' + JSON.stringify(viewData));
+        console.log('[view] template file name: "' + templateFilename + '" ');
         fs.readFile(templateFilename, 'utf-8', function (err, content) {
             if (err) {
+                console.log('[View] File ' + templateFilename + ' not found');
                 laterAct.reject('[View] File ' + templateFilename + ' not found');
             } else {
                 console.log('[View] Compiling ' + templateFilename);
@@ -62,6 +64,8 @@ var _ = require("underscore");
     // The site is in itself a Resource and is accessed via the root / in a url.
     var Site = (function () {
         function Site() {
+            this._name = 'home';
+            this._version = '0.0.1';
             if (Site._instance) {
                 throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
             }
@@ -75,14 +79,18 @@ var _ = require("underscore");
         };
 
         Site.prototype.get = function (route) {
-            if (route.isPublic)
+            var contextLog = '[' + this._name + '.get] ';
+            console.log(contextLog + 'Fetching the resource : [ ' + route.path + ' ]');
+
+            if (route.static) {
+                console.log(contextLog + 'Static Route -> fetching the file: ' + route.pathname);
                 return viewStatic(route.pathname);
-            else
-                return view(Site._name, this);
+            } else {
+                console.log(contextLog + 'Dynamic Route -> follow the path');
+                return view(this._name, this);
+            }
         };
         Site._instance = null;
-        Site._name = 'home';
-        Site._version = '0.0.1';
         return Site;
     })();
     Resources.Site = Site;

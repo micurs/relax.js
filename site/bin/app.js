@@ -27,7 +27,8 @@ function respond(response, content, mtype) {
 }
 
 var appSrv = http.createServer(function (request, response) {
-    console.log('Recv ' + request.url);
+    console.log('\n========================');
+    console.log('Received request for :' + request.url);
 
     // here we need to route the call to the appropriate class:
     var route = controller.Routing.fromUrl(request);

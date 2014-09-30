@@ -29,12 +29,12 @@ export module Resources {
     var mtype = mime.lookup(filename);
     var laterAction = Q.defer< Embodiment >();
     var staticFile = '.'+filename;
+    console.log('[static view] '+ staticFile );
     fs.readFile( staticFile, function( err : Error, content : Buffer ) {
       if ( err )
         laterAction.reject( filename + ' not found');
       else
-        console.log('[static view] '+ staticFile );
-        // console.log('[static get] OK! ');
+        console.log('[static view] done' );
         laterAction.resolve( { data: content, mimeType: mtype } );
     });
     return laterAction.promise;
@@ -43,9 +43,12 @@ export module Resources {
   // Return a promise that will return the full content of the view + the viewdata.
   export function view( viewName: string, viewData: any ) : Q.Promise< Embodiment > {
     var laterAct = Q.defer<Embodiment>();
-    var templateFilename = './views/'+this.viewName+'._';
+    var templateFilename = './views/'+viewName+'._';
+    console.log('[view] template: "'+viewName+'"\t\tdata:'+ JSON.stringify(viewData) );
+    console.log('[view] template file name: "'+templateFilename+'" ');
     fs.readFile( templateFilename, 'utf-8', function( err : Error, content : string ) {
       if (err) {
+        console.log('[View] File '+ templateFilename +' not found');
         laterAct.reject('[View] File '+ templateFilename +' not found');
       }
       else {
@@ -64,8 +67,8 @@ export module Resources {
   // The site is in itself a Resource and is accessed via the root / in a url.
   export class Site implements Resource {
     private static _instance : Site = null;
-    private static _name : string = 'home';
-    private static _version : string = '0.0.1';
+    private _name : string = 'home';
+    private _version : string = '0.0.1';
 
     constructor() {
       if(Site._instance){
@@ -83,12 +86,17 @@ export module Resources {
     }
 
     get( route? : controller.Routing.Route ) : Q.Promise< Embodiment > {
-      console.log('[Routing.fromUrl] '+request.url+' has '+ resources.length + ' nodes' );
+      var contextLog = '['+this._name+'.get] ';
+      console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
-      if ( route.isPublic )
+      if ( route.static ) {
+        console.log( contextLog + 'Static Route -> fetching the file: '+ route.pathname );
         return viewStatic( route.pathname );
-      else
-        return view(Site._name,this);
+      }
+      else {
+        console.log( contextLog + 'Dynamic Route -> follow the path' );
+        return view(this._name,this);
+      }
     }
 
   }
