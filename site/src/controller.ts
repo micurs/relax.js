@@ -9,6 +9,7 @@ import _ = require('underscore');
 export module Routing {
 
   export class Route {
+    verb: string;
     static : boolean = true; // if true it means this rout is mapping to a file
     pathname : string;
     path : string[];
