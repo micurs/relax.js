@@ -20,6 +20,7 @@ tsd reinstall --save --overwrite
 cd site
 
 echo "+ Npm install packages in package.json"
+# npm install gulp
 # gulp_install gulp
 # gulp_install gulp-tsc
 # gulp_install gulp-less
@@ -27,7 +28,7 @@ echo "+ Npm install packages in package.json"
 # gulp_install gulp-rename
 # gulp_install gulp-watch
 # gulp_install gulp-minify-css
-npm install
+npm install -no-bin-link
 
 echo "+ Bower install client-side components in bower.json"
 bower install
