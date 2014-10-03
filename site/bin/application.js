@@ -67,7 +67,7 @@ var _ = require("underscore");
     // The site is in itself a Resource and is accessed via the root / in a url.
     var Site = (function () {
         function Site() {
-            this._name = 'home';
+            this.Name = "site";
             this._version = '0.0.1';
             if (Site._instance) {
                 throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
@@ -81,8 +81,13 @@ var _ = require("underscore");
             return Site._instance;
         };
 
+        Site.prototype.addResource = function (resource) {
+            var name = resource.Name;
+            return false;
+        };
+
         Site.prototype.get = function (route) {
-            var contextLog = '[' + this._name + '.get] ';
+            var contextLog = '[' + this.Name + '.get] ';
             console.log(contextLog + 'Fetching the resource : [ ' + route.path + ' ]');
 
             if (route.static) {
@@ -90,7 +95,7 @@ var _ = require("underscore");
                 return viewStatic(route.pathname);
             } else {
                 console.log(contextLog + 'Dynamic Route -> follow the path');
-                return view(this._name, this);
+                return view(this.Name, this);
             }
         };
         Site._instance = null;

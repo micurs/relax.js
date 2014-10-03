@@ -21,6 +21,7 @@ export module Resources {
 
   // Generic interface for a resource
   export interface Resource {
+    Name: string;
     get( route? : controller.Routing.Route ) : Q.Promise<Embodiment> ;
   }
 
@@ -69,7 +70,7 @@ export module Resources {
   // The site is in itself a Resource and is accessed via the root / in a url.
   export class Site implements Resource {
     private static _instance : Site = null;
-    private _name : string = 'home';
+    public Name: string = "site";
     private _version : string = '0.0.1';
 
     constructor() {
@@ -87,8 +88,13 @@ export module Resources {
       return Site._instance;
     }
 
+    addResource( resource : Resource ) : Boolean {
+      var name = resource.Name;
+      return false;
+    }
+
     get( route? : controller.Routing.Route ) : Q.Promise< Embodiment > {
-      var contextLog = '['+this._name+'.get] ';
+      var contextLog = '['+this.Name+'.get] ';
       console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
       if ( route.static ) {
@@ -97,7 +103,7 @@ export module Resources {
       }
       else {
         console.log( contextLog + 'Dynamic Route -> follow the path' );
-        return view(this._name,this);
+        return view(this.Name,this);
       }
     }
 
