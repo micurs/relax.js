@@ -4,6 +4,7 @@
 ///<reference path='./../../typings/mime/mime.d.ts' />
 
 // System and third party import
+import http = require("http");
 import fs = require('fs');
 import Q = require('q');
 import mime = require('mime');
@@ -15,14 +16,25 @@ import controller = require("./controller"); // routing functions
 export module Resources {
 
   export class Embodiment {
-    data : Buffer;
-    mimeType: string;
+    constructor( private data : Buffer, private mimeType: string ) { }
+
+    serve(response: http.ServerResponse) : void {
+      response.writeHead(200, { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length } );
+      response.write(this.data);
+      response.end();
+    }
   }
 
   // Generic interface for a resource
   export interface Resource {
     Name: string;
     get( route : controller.Routing.Route ) : Q.Promise<Embodiment> ;
+  }
+
+  function respond( response: http.ServerResponse, content : Buffer, mtype: string ) {
+    response.writeHead(200, { 'Content-Type' : mtype, 'Content-Length': content.length } );
+    response.write(content);
+    response.end();
   }
 
   // generic get for a static file
@@ -36,7 +48,7 @@ export module Resources {
         laterAction.reject( filename + ' not found');
       else
         console.log('[static view] done' );
-        laterAction.resolve( { data: content, mimeType: mtype } );
+        laterAction.resolve( new Embodiment( content, mtype ) );
     });
     return laterAction.promise;
   }
@@ -60,7 +72,7 @@ export module Resources {
           var fullContent = new Buffer( compiled(viewData) , 'utf-8') ;
           //console.log('[View] compiled content '+fullContent);
           console.log('[View] done.');
-          laterAct.resolve( { data: fullContent, mimeType: 'utf-8' }  );
+          laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
         }
         catch( e ) {
           laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
@@ -81,7 +93,7 @@ export module Resources {
 
     constructor( public siteName:string ) {
       if(Site._instance){
-        throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
+        throw new Error("Error: Only one site is allowed.");
       }
       Site._instance = this;
     }
@@ -98,6 +110,26 @@ export module Resources {
       this._resources[resource.Name] = resource;
       console.log( 'Resources : [ '+ JSON.stringify(_.values(this._resources)) +' ]' );
       return false;
+    }
+
+    serve( port:number = 3000 ) {
+      return http.createServer( (request, response) => {
+        console.log('\n========================');
+        console.log('Received request for :'+request.url);
+        // here we need to route the call to the appropriate class:
+        var route : controller.Routing.Route = controller.Routing.fromUrl(request);
+
+        this.get( route )
+          .then( ( rep : Embodiment ) => {
+            rep.serve(response);
+          })
+          .fail(function (error) {
+            response.writeHead(404, {"Content-Type": "text/html"} );
+            response.write(error);
+            response.end();
+          })
+          .done();
+      });
     }
 
     get( route : controller.Routing.Route ) : Q.Promise< Embodiment > {

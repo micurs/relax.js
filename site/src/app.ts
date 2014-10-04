@@ -1,11 +1,4 @@
 ///<reference path='../../typings/node/node.d.ts' />
-///<reference path='./../../typings/q/Q.d.ts' />
-///<reference path='./application.ts' />
-///<reference path='./../../typings/mime/mime.d.ts' />
-
-import http = require("http");
-import q = require('q');
-import mime = require('mime');
 
 // App specific module
 import app = require("./application");
@@ -14,32 +7,10 @@ import controller = require("./controller"); // routing functions
 
 var portNumber : number = 3000;
 
+// Create the application by assembling the resources
 var site = app.Resources.Site.$('micurs.com');
 site.addResource( new app.Resources.HtmlView('home'));
 
-function respond( response: http.ServerResponse, content : Buffer, mtype: string ) {
-  response.writeHead(200, { 'Content-Type' : mtype, 'Content-Length': content.length } );
-  response.write(content);
-  response.end();
-}
-
-var appSrv = http.createServer( (request, response) => {
-  console.log('\n========================');
-  console.log('Received request for :'+request.url);
-  // here we need to route the call to the appropriate class:
-  var route : controller.Routing.Route = controller.Routing.fromUrl(request);
-
-  site.get( route )
-    .then( ( rep : app.Resources.Embodiment ) => {
-      respond(response, rep.data, rep.mimeType );
-    })
-    .fail(function (error) {
-      response.writeHead(404, {"Content-Type": "text/html"} );
-      response.write(error);
-      response.end();
-    })
-    .done();
-
-});
-
+// Serve the app on the network
+var appSrv = site.serve();
 appSrv.listen(portNumber);

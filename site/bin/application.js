@@ -3,21 +3,37 @@
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
 // System and third party import
+var http = require("http");
 var fs = require('fs');
 var Q = require('q');
 var mime = require('mime');
 var _ = require("underscore");
 
+var controller = require("./controller");
+
 // Application Resources
 (function (Resources) {
     var Embodiment = (function () {
-        function Embodiment() {
+        function Embodiment(data, mimeType) {
+            this.data = data;
+            this.mimeType = mimeType;
         }
+        Embodiment.prototype.serve = function (response) {
+            response.writeHead(200, { 'Content-Type': this.mimeType, 'Content-Length': this.data.length });
+            response.write(this.data);
+            response.end();
+        };
         return Embodiment;
     })();
     Resources.Embodiment = Embodiment;
 
     
+
+    function respond(response, content, mtype) {
+        response.writeHead(200, { 'Content-Type': mtype, 'Content-Length': content.length });
+        response.write(content);
+        response.end();
+    }
 
     // generic get for a static file
     function viewStatic(filename) {
@@ -30,7 +46,7 @@ var _ = require("underscore");
                 laterAction.reject(filename + ' not found');
             else
                 console.log('[static view] done');
-            laterAction.resolve({ data: content, mimeType: mtype });
+            laterAction.resolve(new Embodiment(content, mtype));
         });
         return laterAction.promise;
     }
@@ -55,7 +71,7 @@ var _ = require("underscore");
 
                     //console.log('[View] compiled content '+fullContent);
                     console.log('[View] done.');
-                    laterAct.resolve({ data: fullContent, mimeType: 'utf-8' });
+                    laterAct.resolve(new Embodiment(fullContent, 'utf-8'));
                 } catch (e) {
                     laterAct.reject('<h1>[View] View Compile Error</h1><pre>' + _.escape(content) + '</pre><p style="color:red; font-weight:bold;">' + e + '</p>');
                 }
@@ -74,7 +90,7 @@ var _ = require("underscore");
             this._resources = {};
             this._version = '0.0.1';
             if (Site._instance) {
-                throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
+                throw new Error("Error: Only one site is allowed.");
             }
             Site._instance = this;
         }
@@ -89,6 +105,26 @@ var _ = require("underscore");
             this._resources[resource.Name] = resource;
             console.log('Resources : [ ' + JSON.stringify(_.values(this._resources)) + ' ]');
             return false;
+        };
+
+        Site.prototype.serve = function (port) {
+            var _this = this;
+            if (typeof port === "undefined") { port = 3000; }
+            return http.createServer(function (request, response) {
+                console.log('\n========================');
+                console.log('Received request for :' + request.url);
+
+                // here we need to route the call to the appropriate class:
+                var route = controller.Routing.fromUrl(request);
+
+                _this.get(route).then(function (rep) {
+                    rep.serve(response);
+                }).fail(function (error) {
+                    response.writeHead(404, { "Content-Type": "text/html" });
+                    response.write(error);
+                    response.end();
+                }).done();
+            });
         };
 
         Site.prototype.get = function (route) {
