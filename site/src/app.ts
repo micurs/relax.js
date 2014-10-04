@@ -14,7 +14,7 @@ import controller = require("./controller"); // routing functions
 
 var portNumber : number = 3000;
 
-var site = app.Resources.Site.$();
+var site = app.Resources.Site.$('micurs.com');
 site.addResource( new app.Resources.HtmlView('home'));
 
 function respond( response: http.ServerResponse, content : Buffer, mtype: string ) {

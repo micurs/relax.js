@@ -48,15 +48,17 @@ var _ = require("underscore");
                 laterAct.reject('[View] File ' + templateFilename + ' not found');
             } else {
                 console.log('[View] Compiling ' + templateFilename);
+                try  {
+                    //console.log('[View] Original content '+content);
+                    var compiled = _.template(content);
+                    var fullContent = new Buffer(compiled(viewData), 'utf-8');
 
-                // TODO: Error management needed here
-                //console.log('[View] Original content '+content);
-                var compiled = _.template(content);
-                var fullContent = new Buffer(compiled(viewData), 'utf-8');
-
-                //console.log('[View] compiled content '+fullContent);
-                console.log('[View] done.');
-                laterAct.resolve({ data: fullContent, mimeType: 'utf-8' });
+                    //console.log('[View] compiled content '+fullContent);
+                    console.log('[View] done.');
+                    laterAct.resolve({ data: fullContent, mimeType: 'utf-8' });
+                } catch (e) {
+                    laterAct.reject('<h1>[View] View Compile Error</h1><pre>' + _.escape(content) + '</pre><p style="color:red; font-weight:bold;">' + e + '</p>');
+                }
             }
         });
         return laterAct.promise;
@@ -66,23 +68,26 @@ var _ = require("underscore");
     // Root object for the application is the Site.
     // The site is in itself a Resource and is accessed via the root / in a url.
     var Site = (function () {
-        function Site() {
+        function Site(siteName) {
+            this.siteName = siteName;
             this.Name = "site";
+            this._resources = {};
             this._version = '0.0.1';
             if (Site._instance) {
                 throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
             }
             Site._instance = this;
         }
-        Site.$ = function () {
+        Site.$ = function (name) {
             if (Site._instance === null) {
-                Site._instance = new Site();
+                Site._instance = new Site(name);
             }
             return Site._instance;
         };
 
         Site.prototype.addResource = function (resource) {
-            var name = resource.Name;
+            this._resources[resource.Name] = resource;
+            console.log('Resources : [ ' + JSON.stringify(_.values(this._resources)) + ' ]');
             return false;
         };
 
@@ -94,7 +99,19 @@ var _ = require("underscore");
                 console.log(contextLog + 'Static Route -> fetching the file: ' + route.pathname);
                 return viewStatic(route.pathname);
             } else {
-                console.log(contextLog + 'Dynamic Route -> follow the path');
+                console.log(contextLog + 'Dynamic Route -> following the path ');
+                if (route.path.length > 1) {
+                    if (route.path[1] in this._resources) {
+                        console.log(contextLog + 'Found resource for ' + route.path[1]);
+                        var partialRoute = _.clone(route);
+                        partialRoute.path = route.path;
+                        return this._resources[route.path[1]].get(partialRoute);
+                    }
+                }
+
+                //var resArray:Resource[] = _.map<any,Resource>( this._resources, function(item, key) { return item; } );
+                //var list:string = _.reduce<Resource,string>( _.values(this._resources), (m :string ,item) => m+= "<li>"+item.Name+"</li>"  );
+                console.log(contextLog + 'Resources : [ ' + JSON.stringify(_.values(this._resources)) + ' ]');
                 return view(this.Name, this);
             }
         };
@@ -103,16 +120,21 @@ var _ = require("underscore");
     })();
     Resources.Site = Site;
 
-    var Home = (function () {
-        function Home(msg) {
-            this.msg = msg;
+    var HtmlView = (function () {
+        function HtmlView(viewName) {
+            this.viewName = viewName;
+            this.Name = "site";
+            this.Name = viewName;
         }
-        Home.prototype.get = function () {
+        HtmlView.prototype.get = function (route) {
+            var contextLog = '[' + this.Name + '.get] ';
+            console.log(contextLog + 'Fetching the resource : [ ' + route.path + ' ]');
+
             // Here we compute/fetch/create the view data.
-            return view('home', this);
+            return view(this.Name, this);
         };
-        return Home;
+        return HtmlView;
     })();
-    Resources.Home = Home;
+    Resources.HtmlView = HtmlView;
 })(exports.Resources || (exports.Resources = {}));
 var Resources = exports.Resources;

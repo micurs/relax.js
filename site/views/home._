@@ -1,9 +1,12 @@
 <html>
 <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="/public/components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
 </head>
 <body>
-  <h1>Relax Version:<%= _version %></h1>
-  <p>Welcome to <%= Name %>!</p>
+  <h1><%= Name %></h1>
+  <p>Welcome to a relax site home</p>
 </body>
 </html>

@@ -11,15 +11,9 @@ var controller = require("./controller");
 //import app = require("./micurs_com"); // specific resources for this site
 var portNumber = 3000;
 
-var site = app.Resources.Site.$();
+var site = app.Resources.Site.$('micurs.com');
+site.addResource(new app.Resources.HtmlView('home'));
 
-// var home = new app.Resources.Home("Hello World");
-/*
-function respondHtml( response: http.ServerResponse, content : string ) {
-response.writeHead( 200, {"Content-Type": "text/html" , 'Content-Length': Buffer.byteLength(content, 'utf8') } );
-response.write(content);
-response.end();
-}*/
 function respond(response, content, mtype) {
     response.writeHead(200, { 'Content-Type': mtype, 'Content-Length': content.length });
     response.write(content);

@@ -22,7 +22,7 @@ export module Resources {
   // Generic interface for a resource
   export interface Resource {
     Name: string;
-    get( route? : controller.Routing.Route ) : Q.Promise<Embodiment> ;
+    get( route : controller.Routing.Route ) : Q.Promise<Embodiment> ;
   }
 
   // generic get for a static file
@@ -54,13 +54,17 @@ export module Resources {
       }
       else {
         console.log('[View] Compiling '+templateFilename);
-        // TODO: Error management needed here
-        //console.log('[View] Original content '+content);
-        var compiled = _.template(content);
-        var fullContent = new Buffer( compiled(viewData) , 'utf-8') ;
-        //console.log('[View] compiled content '+fullContent);
-        console.log('[View] done.');
-        laterAct.resolve( { data: fullContent, mimeType: 'utf-8' }  );
+        try {
+          //console.log('[View] Original content '+content);
+          var compiled = _.template(content);
+          var fullContent = new Buffer( compiled(viewData) , 'utf-8') ;
+          //console.log('[View] compiled content '+fullContent);
+          console.log('[View] done.');
+          laterAct.resolve( { data: fullContent, mimeType: 'utf-8' }  );
+        }
+        catch( e ) {
+          laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
+        }
       }
     });
     return laterAct.promise;
@@ -71,29 +75,32 @@ export module Resources {
   export class Site implements Resource {
     private static _instance : Site = null;
     public Name: string = "site";
+
+    private _resources:any = {};
     private _version : string = '0.0.1';
 
-    constructor() {
+    constructor( public siteName:string ) {
       if(Site._instance){
         throw new Error("Error: Instantiation failed: Use SingletonDemo.getInstance() instead of new.");
       }
       Site._instance = this;
     }
 
-    public static $():Site
+    public static $( name:string ):Site
     {
       if(Site._instance === null) {
-        Site._instance = new Site();
+        Site._instance = new Site(name);
       }
       return Site._instance;
     }
 
     addResource( resource : Resource ) : Boolean {
-      var name = resource.Name;
+      this._resources[resource.Name] = resource;
+      console.log( 'Resources : [ '+ JSON.stringify(_.values(this._resources)) +' ]' );
       return false;
     }
 
-    get( route? : controller.Routing.Route ) : Q.Promise< Embodiment > {
+    get( route : controller.Routing.Route ) : Q.Promise< Embodiment > {
       var contextLog = '['+this.Name+'.get] ';
       console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
@@ -102,21 +109,37 @@ export module Resources {
         return viewStatic( route.pathname );
       }
       else {
-        console.log( contextLog + 'Dynamic Route -> follow the path' );
-        return view(this.Name,this);
+        console.log( contextLog + 'Dynamic Route -> following the path ' );
+        if ( route.path.length > 1 ) {
+          if ( route.path[1] in this._resources ) {
+            console.log( contextLog + 'Found resource for '+ route.path[1] );
+            var partialRoute = _.clone(route);
+            partialRoute.path = route.path;
+            return this._resources[route.path[1]].get( partialRoute );
+          }
+        }
+        //var resArray:Resource[] = _.map<any,Resource>( this._resources, function(item, key) { return item; } );
+        //var list:string = _.reduce<Resource,string>( _.values(this._resources), (m :string ,item) => m+= "<li>"+item.Name+"</li>"  );
+        console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources)) +' ]' );
+        return view(this.Name, this );
       }
     }
 
   }
 
-  export class Home implements Resource {
+  export class HtmlView implements Resource {
+    public Name: string = "site";
 
-    constructor( public msg: string ) {
+    constructor( public viewName: string ) {
+      this.Name = viewName;
     }
 
-    get() : Q.Promise<Embodiment> {
+    get( route : controller.Routing.Route ) : Q.Promise< Embodiment > {
+      var contextLog = '['+this.Name+'.get] ';
+      console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
+
       // Here we compute/fetch/create the view data.
-      return view('home',this);
+      return view(this.Name,this);
     }
   }
 }
