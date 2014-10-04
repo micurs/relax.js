@@ -15,14 +15,7 @@ import controller = require("./controller"); // routing functions
 var portNumber : number = 3000;
 
 var site = app.Resources.Site.$();
-
-// var home = new app.Resources.Home("Hello World");
-/*
-function respondHtml( response: http.ServerResponse, content : string ) {
-  response.writeHead( 200, {"Content-Type": "text/html" , 'Content-Length': Buffer.byteLength(content, 'utf8') } );
-  response.write(content);
-  response.end();
-}*/
+site.addResource( new app.Resources.HtmlView('home'));
 
 function respond( response: http.ServerResponse, content : Buffer, mtype: string ) {
   response.writeHead(200, { 'Content-Type' : mtype, 'Content-Length': content.length } );
