@@ -10,6 +10,7 @@ var portNumber : number = 3000;
 // Create the application by assembling the resources
 var site = app.Resources.Site.$('micurs.com');
 site.addResource( new app.Resources.HtmlView('home','layout'));
+site.addResource( new app.Resources.Data('resume'));
 
 // Serve the app on the network
 var appSrv = site.serve();

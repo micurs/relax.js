@@ -52,58 +52,57 @@ export module Resources {
     return laterAction.promise;
   }
 
+  function emitCompileViewError( content: string, err: TypeError, filename: string ) : string {
+    var fname = '[view error]';
+    var errTitle = _.str.sprintf('<h1>%s Error while compiling: %s </h1>',fname, filename );
+    var errMsg = _.str.sprintf('<p style="font-weight:bold;">Error: <span style="color:red;">%s</span></p>',_.escape(err.message) );
+    var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
+    return _.str.sprintf('%s%s%s',errTitle,errMsg,code);
+  }
+
   // Return a promise that will return the full content of the view + the viewdata.
   // -------------------------------------------------------------------------------
   export function view( viewName: string,
                         viewData: any,
                         layoutName?: string ) : Q.Promise< Embodiment > {
     var fname = '[view]';
+    var readFile = Q.denodeify(fs.readFile);
     var laterAct = Q.defer<Embodiment>();
     var templateFilename = './views/'+viewName+'._';
-    // console.log('[view] template: "'+viewName+'"\t\tdata:'+ JSON.stringify(viewData) );
-    console.log( _.str.sprintf('%s %s',fname,templateFilename) );
-    fs.readFile( templateFilename, 'utf-8', function( err : Error, content : string ) {
-      if (err) {
-        var errStr = _.str.sprintf('%s File %s not found',fname, templateFilename );
-        console.log( errStr);
-        laterAct.reject( errStr );
-      }
-      else {
-        // read the layout container
-        if ( layoutName !== undefined ) {
-          var layoutFilename = './views/_'+layoutName+'._';
-          // console.log('[view] layout: "'+layoutName+'"\t\tdata:'+ JSON.stringify(viewData) );
-          console.log('[view] layout file name: "'+layoutFilename+'" ');
-          fs.readFile( layoutFilename, 'utf-8', function( err : Error, outerContent : string ) {
-            if (err) {
-              console.log('[View] Layout Contaier File '+ layoutName +' not found');
-              laterAct.reject('[View] Layout Contaier File '+ layoutName +' not found');
-            }
-            else {
-              console.log('[View] Compiling composite view '+layoutFilename+' >> '+templateFilename);
-              try {
-                var innerContent = new Buffer( _.template(content)(viewData), 'utf-8' );
-                var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
-                laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
-              }
-              catch( e ) {
-                laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
-              }
-            }
-          });
+    if ( layoutName !== undefined ) {
+      var layoutFilename = './views/_'+layoutName+'._';
+      Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ), readFile( layoutFilename,  { 'encoding':'utf8'} ) ])
+      .spread( ( content: string, outerContent : string) => {
+        try {
+          console.log(_.str.sprintf('%s Compiling composite view %s in %s',fname,layoutFilename,templateFilename));
+          var innerContent = new Buffer( _.template(content)(viewData), 'utf-8' );
+          var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
+          laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
         }
-        else {
-          console.log('[View] Compiling single view '+templateFilename);
-          try {
-            var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
-            laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
-          }
-          catch( e ) {
-            laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
-          }
+        catch( e ) {
+          laterAct.reject( emitCompileViewError(content,e, templateFilename +' in '+ layoutFilename) );
         }
-      }
-    });
+      })
+      .catch( (err : Error ) => {
+        laterAct.reject( emitCompileViewError('N/A',err, templateFilename +' in '+ layoutFilename ) );
+      });
+    }
+    else {
+      readFile( templateFilename,  { 'encoding':'utf8'} )
+      .then( ( content:string ) => {
+        try {
+          console.log(_.str.sprintf('%s Compiling view %s',fname, templateFilename));
+          var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
+          laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
+        }
+        catch( e ) {
+          laterAct.reject( emitCompileViewError(content,e, templateFilename ) );
+        }
+      })
+      .catch( ( err : Error ) => {
+        laterAct.reject( emitCompileViewError('N/A',err, templateFilename ) );
+      });
+    }
     return laterAct.promise;
   }
 
@@ -136,7 +135,7 @@ export module Resources {
       resource['_version'] = this._version;
       resource['siteName'] = this.siteName;
       this._resources[resource.Name] = resource;
-      console.log( 'Resources : [ '+ JSON.stringify(_.values(this._resources)) +' ]' );
+      console.log( _.str.sprintf('[addResource] : %s', JSON.stringify(_.keys(this._resources)) ) );
       return false;
     }
 
@@ -185,6 +184,23 @@ export module Resources {
       }
     }
 
+  }
+
+  export class Data implements Resource {
+    constructor( public Name: string ) {}
+    get( route: controller.Routing.Route )  : Q.Promise< Embodiment > {
+      var later = Q.defer< Embodiment>();
+      var readFile = Q.denodeify(fs.readFile);
+      var dataFile = './data/'+this.Name+'.json';
+      readFile( dataFile)
+        .then( (content: Buffer ) => {
+          later.resolve(new Embodiment(content, 'application/json' ));
+        })
+        .catch( ( err : Error ) => {
+          later.reject( emitCompileViewError('N/A',err, dataFile ) );
+        });
+      return later.promise;
+    }
   }
 
   export class HtmlView implements Resource {
