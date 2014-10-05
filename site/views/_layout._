@@ -1,0 +1,17 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/public/components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <!-- Bootstrap theme -->
+  <link href="/public/components/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet">
+  <title><%= name %></title>
+</head>
+<body>
+  <div class="container">
+    <%= page %>
+  </div>
+  <script src="/public/components/bootstrap/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 ///<reference path='../../typings/node/node.d.ts' />
 ///<reference path='./../../typings/underscore/underscore.d.ts' />
+///<reference path='./../../typings/underscore.string/underscore.string.d.ts' />
 ///<reference path='./../../typings/q/Q.d.ts' />
 ///<reference path='./../../typings/mime/mime.d.ts' />
 
@@ -9,6 +10,7 @@ import fs = require('fs');
 import Q = require('q');
 import mime = require('mime');
 import _ = require("underscore");
+_.str = require('underscore.string');
 
 import controller = require("./controller"); // routing functions
 
@@ -23,59 +25,82 @@ export module Resources {
       response.write(this.data);
       response.end();
     }
+
   }
 
   // Generic interface for a resource
+  // --------------------------------------
   export interface Resource {
     Name: string;
     get( route : controller.Routing.Route ) : Q.Promise<Embodiment> ;
   }
 
-  function respond( response: http.ServerResponse, content : Buffer, mtype: string ) {
-    response.writeHead(200, { 'Content-Type' : mtype, 'Content-Length': content.length } );
-    response.write(content);
-    response.end();
-  }
-
   // generic get for a static file
+  // -------------------------------------------------------------------------------
   export function viewStatic( filename: string ) : Q.Promise< Embodiment > {
+    var fname = '[view static]';
     var mtype = mime.lookup(filename);
     var laterAction = Q.defer< Embodiment >();
     var staticFile = '.'+filename;
-    console.log('[static view] '+ staticFile );
+    console.log( _.str.sprintf('%s %s',fname,staticFile) );
     fs.readFile( staticFile, function( err : Error, content : Buffer ) {
       if ( err )
         laterAction.reject( filename + ' not found');
       else
-        console.log('[static view] done' );
         laterAction.resolve( new Embodiment( content, mtype ) );
     });
     return laterAction.promise;
   }
 
   // Return a promise that will return the full content of the view + the viewdata.
-  export function view( viewName: string, viewData: any ) : Q.Promise< Embodiment > {
+  // -------------------------------------------------------------------------------
+  export function view( viewName: string,
+                        viewData: any,
+                        layoutName?: string ) : Q.Promise< Embodiment > {
+    var fname = '[view]';
     var laterAct = Q.defer<Embodiment>();
     var templateFilename = './views/'+viewName+'._';
-    console.log('[view] template: "'+viewName+'"\t\tdata:'+ JSON.stringify(viewData) );
-    console.log('[view] template file name: "'+templateFilename+'" ');
+    // console.log('[view] template: "'+viewName+'"\t\tdata:'+ JSON.stringify(viewData) );
+    console.log( _.str.sprintf('%s %s',fname,templateFilename) );
     fs.readFile( templateFilename, 'utf-8', function( err : Error, content : string ) {
       if (err) {
-        console.log('[View] File '+ templateFilename +' not found');
-        laterAct.reject('[View] File '+ templateFilename +' not found');
+        var errStr = _.str.sprintf('%s File %s not found',fname, templateFilename );
+        console.log( errStr);
+        laterAct.reject( errStr );
       }
       else {
-        console.log('[View] Compiling '+templateFilename);
-        try {
-          //console.log('[View] Original content '+content);
-          var compiled = _.template(content);
-          var fullContent = new Buffer( compiled(viewData) , 'utf-8') ;
-          //console.log('[View] compiled content '+fullContent);
-          console.log('[View] done.');
-          laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
+        // read the layout container
+        if ( layoutName !== undefined ) {
+          var layoutFilename = './views/_'+layoutName+'._';
+          // console.log('[view] layout: "'+layoutName+'"\t\tdata:'+ JSON.stringify(viewData) );
+          console.log('[view] layout file name: "'+layoutFilename+'" ');
+          fs.readFile( layoutFilename, 'utf-8', function( err : Error, outerContent : string ) {
+            if (err) {
+              console.log('[View] Layout Contaier File '+ layoutName +' not found');
+              laterAct.reject('[View] Layout Contaier File '+ layoutName +' not found');
+            }
+            else {
+              console.log('[View] Compiling composite view '+layoutFilename+' >> '+templateFilename);
+              try {
+                var innerContent = new Buffer( _.template(content)(viewData), 'utf-8' );
+                var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
+                laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
+              }
+              catch( e ) {
+                laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
+              }
+            }
+          });
         }
-        catch( e ) {
-          laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
+        else {
+          console.log('[View] Compiling single view '+templateFilename);
+          try {
+            var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
+            laterAct.resolve( new Embodiment( fullContent, 'utf-8' ));
+          }
+          catch( e ) {
+            laterAct.reject( '<h1>[View] View Compile Error</h1><pre>'+_.escape(content)+'</pre><p style="color:red; font-weight:bold;">'+ e +'</p>'  );
+          }
         }
       }
     });
@@ -84,6 +109,7 @@ export module Resources {
 
   // Root object for the application is the Site.
   // The site is in itself a Resource and is accessed via the root / in a url.
+  // ----------------------------------------------------------------------------
   export class Site implements Resource {
     private static _instance : Site = null;
     public Name: string = "site";
@@ -107,6 +133,8 @@ export module Resources {
     }
 
     addResource( resource : Resource ) : Boolean {
+      resource['_version'] = this._version;
+      resource['siteName'] = this.siteName;
       this._resources[resource.Name] = resource;
       console.log( 'Resources : [ '+ JSON.stringify(_.values(this._resources)) +' ]' );
       return false;
@@ -162,7 +190,7 @@ export module Resources {
   export class HtmlView implements Resource {
     public Name: string = "site";
 
-    constructor( public viewName: string ) {
+    constructor( public viewName: string, public layout?: string ) {
       this.Name = viewName;
     }
 
@@ -171,7 +199,7 @@ export module Resources {
       console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
       // Here we compute/fetch/create the view data.
-      return view(this.Name,this);
+      return view(this.Name,this, this.layout );
     }
   }
 }
