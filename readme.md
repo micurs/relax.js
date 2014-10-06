@@ -24,18 +24,22 @@ I use the PowerShell running in admin mode to install it:
 iex ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1'))
 ```
 
-After that you can install Vagrant:
+After that you can install VirtiualBox and Vagrant with two simple commands:
 
 ```
 choco install virtualbox
 choco install vagrant
 ```
 
-To run virtual-box through Vagrant on PC make sure you disable hyper-v on Windows 8.1
+To run virtual-box through Vagrant on PC make sure you *disable hyper-v* on Windows 8.1
 
 http://superuser.com/questions/540055/convenient-way-to-enable-disable-hyper-v-in-windows-8
 
-Now you can close the admin console. Open a regular command prompt or powershell and CD on the directory of the project and type:
+Now you can close the admin console. Open a regular command prompt or powershell and CD on the directory of the project to start the VM running the site:
+
+```
+vagrant up
+```
 
 Install on Mac
 ======================
