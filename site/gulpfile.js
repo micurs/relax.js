@@ -44,9 +44,10 @@ gulp.task('ts_client', function() {
 });
 
 gulp.task('styles', function() {
-    gulp.src(['./public/stylesheets/*.less'])
-        .pipe(less({ relativeUrls : true }))
-        .pipe(sourcemaps.write('.'))
+    gulp.src(['./public/stylesheets/*.less'], { base: './public/stylesheets/' })
+        .pipe(sourcemaps.init())
+          .pipe( less({ relativeUrls : true }).on('error', console.error) ) 
+        .pipe(sourcemaps.write('.', { sourceRoot: '/public/stylesheets/' } ))
         // .pipe(minifyCSS())
         .pipe(gulp.dest('./public/stylesheets'));
 });
