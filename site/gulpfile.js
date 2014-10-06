@@ -5,6 +5,7 @@ var tsc  = require('gulp-tsc');
 var gutil = require('gulp-util');
 var jshint = require('gulp-jshint');
 var stylish = require('jshint-stylish');
+var less = require('gulp-less');
 
 var ERROR_LEVELS = ['error', 'warning'];
 
@@ -41,6 +42,14 @@ gulp.task('ts_client', function() {
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) );
 });
 
+gulp.task('styles', function() {
+    gulp.src(['./public/stylesheets/*.less'])
+        .pipe(less({ relativeUrls : true }))
+        //.pipe(sourcemaps.write())
+        // .pipe(minifyCSS())
+        .pipe(gulp.dest('./public/stylesheets'));
+});
+
 gulp.task('lint', function() {
   return gulp.src('./bin/*.js')
     .pipe(jshint())
@@ -52,8 +61,9 @@ gulp.task( 'watch', function() {
   fatalLevel = fatalLevel || 'off';
   gulp.watch( [ './src/*.ts' ] ,  ['ts_server'] );
   gulp.watch( [ './public/**/*.ts' ] ,  ['ts_client'] );
-gulp.watch( [ './bin/**/*.js' ] ,  ['lint'] );
+  gulp.watch( [ './public/stylesheets/*.less' ] ,  ['styles'] );
+  //gulp.watch( [ './bin/**/*.js' ] ,  ['lint'] );
 });
 
 // Default Task
-gulp.task( 'default', [ 'ts_server','ts_client', 'lint' ] );
+gulp.task( 'default', [ 'ts_server','ts_client', 'styles', 'lint' ] );
