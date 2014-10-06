@@ -16,6 +16,7 @@
   ],
   "dependencies": {
     "bootstrap": "~3.2.0",
-    "underscore": "~1.7.0"
+    "underscore": "~1.7.0",
+    "fontawesome": "~4.2.0"
   }
 }

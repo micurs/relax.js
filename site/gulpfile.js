@@ -5,6 +5,7 @@ var tsc  = require('gulp-tsc');
 var gutil = require('gulp-util');
 var jshint = require('gulp-jshint');
 var stylish = require('jshint-stylish');
+var sourcemaps = require('gulp-sourcemaps');
 var less = require('gulp-less');
 
 var ERROR_LEVELS = ['error', 'warning'];
@@ -45,7 +46,7 @@ gulp.task('ts_client', function() {
 gulp.task('styles', function() {
     gulp.src(['./public/stylesheets/*.less'])
         .pipe(less({ relativeUrls : true }))
-        //.pipe(sourcemaps.write())
+        .pipe(sourcemaps.write('.'))
         // .pipe(minifyCSS())
         .pipe(gulp.dest('./public/stylesheets'));
 });
