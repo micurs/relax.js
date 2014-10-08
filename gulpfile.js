@@ -29,7 +29,12 @@ function onWarning(error) { handleError.call(this, 'warning', error);}
 gulp.task('relaxjs', function() {
   return gulp.src( [ './relaxjs/src/*.ts' ] )
           .pipe( print(function(filepath) { return "relaxjs file: " + filepath; } ) )
-          .pipe( tsc( {  module: 'commonjs', target: 'ES5', sourcemap: false, emitError: false } ) )
+          .pipe( tsc( {  module: 'commonjs',
+                         target: 'ES5',
+                         declaration: true,
+                         sourcemap: false,
+                         emitError: false,
+                         outDir: './relaxjs/bin/' } ) )
           .pipe(gulp.dest('./relaxjs/bin'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
@@ -39,7 +44,7 @@ gulp.task('ts_server', function() {
   return gulp.src( [ './site/src/*.ts' ] )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
           .pipe( tsc( {  module: 'commonjs', target: 'ES5', sourcemap: false, emitError: false } ) )
-          .pipe(gulp.dest('./bin'))
+          .pipe(gulp.dest('./site/bin'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
 });
@@ -48,7 +53,7 @@ gulp.task('ts_client', function() {
   return gulp.src( [ './site/public/**/*.ts' ] )
           .pipe( print( function(filepath) { return "TS client file: " + filepath; } ) )
           .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: true, emitError: false } ) )
-          .pipe(gulp.dest('./'))
+          .pipe(gulp.dest('./site/public/javascript'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) );
 });
 
@@ -58,7 +63,7 @@ gulp.task('styles', function() {
           .pipe( less({ relativeUrls : true }).on('error', console.error) )
         .pipe(sourcemaps.write('.', { sourceRoot: '/public/stylesheets/' } ))
         // .pipe(minifyCSS())
-        .pipe(gulp.dest('./public/stylesheets'));
+        .pipe(gulp.dest('./site/public/stylesheets'));
 });
 
 gulp.task('lint', function() {
