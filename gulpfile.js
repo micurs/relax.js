@@ -41,29 +41,33 @@ gulp.task('relaxjs', function() {
 });
 
 gulp.task('ts_server', function() {
-  return gulp.src( [ './site/src/*.ts' ] )
+  return gulp.src( [ 'site/src/*.ts' ] )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
-          .pipe( tsc( {  module: 'commonjs', target: 'ES5', sourcemap: false, emitError: false } ) )
-          .pipe(gulp.dest('./site/bin'))
+          .pipe( tsc( {  module: 'commonjs',
+                         target: 'ES5',
+                         sourcemap: false,
+                         emitError: false,
+                         outDir: 'site/bin/' } ) )
+          .pipe(gulp.dest('site/bin'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
 });
 
 gulp.task('ts_client', function() {
-  return gulp.src( [ './site/public/**/*.ts' ] )
+  return gulp.src( [ 'site/public/**/*.ts' ] )
           .pipe( print( function(filepath) { return "TS client file: " + filepath; } ) )
           .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: true, emitError: false } ) )
-          .pipe(gulp.dest('./site/public/javascript'))
+          .pipe(gulp.dest('site/public/javascript'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) );
 });
 
 gulp.task('styles', function() {
-    gulp.src(['./site/public/stylesheets/*.less'], { base: './public/stylesheets/' })
+    gulp.src(['site/public/stylesheets/*.less'], { base: 'site/public/stylesheets/' })
         .pipe(sourcemaps.init())
           .pipe( less({ relativeUrls : true }).on('error', console.error) )
-        .pipe(sourcemaps.write('.', { sourceRoot: '/public/stylesheets/' } ))
+        .pipe(sourcemaps.write('.', { sourceRoot: 'site/public/stylesheets/' } ))
         // .pipe(minifyCSS())
-        .pipe(gulp.dest('./site/public/stylesheets'));
+        .pipe(gulp.dest('site/public/stylesheets'));
 });
 
 gulp.task('lint', function() {

@@ -1,11 +1,15 @@
 ///<reference path='../../typings/node/node.d.ts' />
+/* ///<reference path='../../relaxjs/bin/relaxjs.d.ts' /> */
 
 // App specific module
-import app = require("./application");
-import controller = require("./controller"); // routing functions
+// import relax = require("./../../relaxjs/src/relaxjs");
+
+//import app = require("./application");
+//import controller = require("./controller"); // routing functions
 //import app = require("./micurs_com"); // specific resources for this site
 
 var portNumber : number = 3000;
+
 
 // Create the application by assembling the resources
 var site = app.Resources.Site.$('micurs.com');

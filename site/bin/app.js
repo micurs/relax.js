@@ -1,7 +1,9 @@
 ///<reference path='../../typings/node/node.d.ts' />
+/* ///<reference path='../../relaxjs/bin/relaxjs.d.ts' /> */
 // App specific module
-var app = require("./application");
-
+// import relax = require("./../../relaxjs/src/relaxjs");
+//import app = require("./application");
+//import controller = require("./controller"); // routing functions
 //import app = require("./micurs_com"); // specific resources for this site
 var portNumber = 3000;
 
