@@ -1,4 +1,4 @@
-///<reference path='../../typings/node/node.d.ts' />
+///<reference path='./../../typings/node/node.d.ts' />
 ///<reference path='./../../typings/underscore/underscore.d.ts' />
 ///<reference path='./../../typings/underscore.string/underscore.string.d.ts' />
 ///<reference path='./../../typings/q/Q.d.ts' />
@@ -54,3 +54,12 @@ export class Embodiment {
   }
 
 }
+
+/*
+var relaxjs = {
+  Route: r.Route,
+  Embodiment: r.Embodiment
+}
+
+export = relaxjs;
+*/
