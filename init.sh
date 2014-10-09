@@ -3,7 +3,7 @@ echo "========== Initialize micurs.com ==============="
 
 echo "= HOSTS UPDATE"
 
-cat <<END >>.node_modules
+cat <<END >.node_modules
 /micurs.com/site/public/components
 END
 
