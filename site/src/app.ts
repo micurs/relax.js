@@ -1,8 +1,12 @@
-///<reference path='../../typings/node/node.d.ts' />
-/* ///<reference path='../../relaxjs/bin/relaxjs.d.ts' /> */
+///<reference path='./../../typings/node/node.d.ts' />
+///<reference path='./../../typings/underscore/underscore.d.ts' />
+///<reference path='./../../typings/underscore.string/underscore.string.d.ts' />
+///<reference path='./../../typings/q/Q.d.ts' />
+///<reference path='./../../typings/mime/mime.d.ts' />
 
 // App specific module
-// import relax = require("./../../relaxjs/src/relaxjs");
+import Q = require('q');
+import relaxjs = require("./relaxjs");
 
 //import app = require("./application");
 //import controller = require("./controller"); // routing functions
@@ -12,9 +16,9 @@ var portNumber : number = 3000;
 
 
 // Create the application by assembling the resources
-var site = app.Resources.Site.$('micurs.com');
-site.addResource( new app.Resources.HtmlView('home','layout'));
-site.addResource( new app.Resources.Data('resume'));
+var site = relaxjs.Site.$('micurs.com');
+site.addResource( new relaxjs.Resources.HtmlView('home','layout'));
+site.addResource( new relaxjs.Resources.Data('resume'));
 
 // Serve the app on the network
 var appSrv = site.serve();
