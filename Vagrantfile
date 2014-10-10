@@ -8,7 +8,8 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 3000, host: 3000
   config.vm.network "forwarded_port", guest: 8080, host: 8080
 
-  config.vm.synced_folder ".", "/micurs.com"
+  config.vm.synced_folder "./site", "/micurs.com"
+  config.vm.synced_folder "./relaxjs", "/relaxjs"
   config.vm.provision :shell, :path => "setup.sh",  privileged: true
   config.vm.provision :shell, :path => "init.sh",  privileged: false, run: "always"
 end

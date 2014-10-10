@@ -39,5 +39,8 @@ echo ' - use bower to download and update client siode package'
 node_install bower
 echo ' - use nodemon to reload source code everytime they change'
 node_install nodemon
+echo ' - use midnight commander to easily navigate the filesystem and copy/move files around'
+node_install mc
+
 
 echo "= System Provision Complete "

@@ -1,9 +1,24 @@
-///<reference path='./../../typings/node/node.d.ts' />
-///<reference path='./../../typings/underscore/underscore.d.ts' />
-///<reference path='./../../typings/underscore.string/underscore.string.d.ts' />
-///<reference path='./../../typings/q/Q.d.ts' />
-///<reference path='./../../typings/mime/mime.d.ts' />
+///<reference path='../typings/node/node.d.ts' />
+///<reference path='../typings/underscore/underscore.d.ts' />
+///<reference path='../typings/underscore.string/underscore.string.d.ts' />
+///<reference path='../typings/q/Q.d.ts' />
+///<reference path='../typings/mime/mime.d.ts' />
+///<reference path='../node_modules/relaxjs/dist/relaxjs.d.ts' /> */
 
+import r = require('relaxjs'); //
+
+console.log( r.relax() );
+
+var p = new r.Resource('pippo');
+p.pippo();
+
+
+/*
+var res = new relaxjs.Resources('pippo');
+res.pippo();
+*/
+
+/*
 // App specific module
 import Q = require('q');
 import relaxjs = require("./relaxjs");
@@ -23,3 +38,4 @@ site.addResource( new relaxjs.Resources.Data('resume'));
 // Serve the app on the network
 var appSrv = site.serve();
 appSrv.listen(portNumber);
+*/

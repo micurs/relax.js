@@ -1,7 +1,9 @@
-Micurs.com
+Relaxjs frameworks + samples
 ==================================
 
-micurs.com is a site running on node/express completely written in Typescript.
+This repo contains the relaxjs node module and multiple simple examples (tests) making use of this framework.
+
+micurs.com is a full site running on node/express completely written in Typescript built on top of relaxjs.
 
 The overall stack includes:
 
@@ -74,7 +76,7 @@ Within Ubuntu you can launch the site:
 
 ```
 cd /micurs.com/site
-node bin/app.js
+npm start
 ```
 
 If the Javascript files are obsolete use gulp to compile the original typescript files:
@@ -82,16 +84,3 @@ If the Javascript files are obsolete use gulp to compile the original typescript
 ```
 gulp
 ```
-
-
-ToDo
-======================
-
-- setup gulp to watch typescript [done]
-- setup tsd to get typeinfo [done]
-- build basic routing algorithm to call verbs methods on class resources.
-- import bootstrap javascript
-- select layout
-- build resume in json format
-- use angular to display resume
-- get angular basic to work

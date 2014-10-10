@@ -60,36 +60,36 @@ gulp.task('relaxjs_compile', function() {
 */
 
 gulp.task('site_server', function() {
-  return gulp.src( [ 'site/src/*.ts' ] )
+  return gulp.src( [ './src/*.ts' ] )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
           .pipe( tsc( {  module: 'commonjs',
                          target: 'ES5',
                          sourcemap: false,
                          emitError: false,
-                         outDir: 'site/bin/' } ) )
-          .pipe(gulp.dest('site/bin'))
+                         outDir: './bin/' } ) )
+          .pipe(gulp.dest('./bin'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
 });
 
 gulp.task('site_client', function() {
-  return gulp.src( [ 'site/public/**/*.ts' ] )
+  return gulp.src( [ './public/**/*.ts' ] )
           .pipe( print( function(filepath) { return "TS client file: " + filepath; } ) )
           .pipe( tsc( {  module: 'amd', target: 'ES5', sourcemap: true, emitError: false } ) )
-          .pipe(gulp.dest('site/public/javascript'))
+          .pipe(gulp.dest('./public/javascript'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) );
 });
 
 gulp.task('site_styles', function() {
-    gulp.src(['site/public/stylesheets/*.less'], { base: 'site/public/stylesheets/' })
+    gulp.src(['./public/stylesheets/*.less'], { base: './public/stylesheets/' })
         .pipe(sourcemaps.init())
           .pipe( less({ relativeUrls : true }).on('error', console.error) )
-        .pipe(sourcemaps.write('.', { sourceRoot: 'site/public/stylesheets/' } ))
+        .pipe(sourcemaps.write('.', { sourceRoot: './public/stylesheets/' } ))
         // .pipe(minifyCSS())
-        .pipe(gulp.dest('site/public/stylesheets'));
+        .pipe(gulp.dest('./public/stylesheets'));
 });
 
-gulp.task('lint', function() {
+gulp.task('lint', ['site_server' ], function() {
   return gulp.src('./bin/*.js')
     .pipe(jshint())
     .pipe(jshint.reporter(stylish));
@@ -99,11 +99,11 @@ gulp.task('lint', function() {
 gulp.task( 'watch', function() {
   fatalLevel = fatalLevel || 'off';
   //gulp.watch( [ './relaxjs/src/*.ts' ], ['relaxjs' ] )
-  gulp.watch( [ './site/src/*.ts' ] ,  ['site_server'] );
-  gulp.watch( [ './site/public/**/*.ts' ] ,  ['site_client'] );
-  gulp.watch( [ './site/public/stylesheets/*.less' ] ,  ['site_styles'] );
+  gulp.watch( [ './src/*.ts' ] ,  ['site_server'] );
+  gulp.watch( [ './public/**/*.ts' ] ,  ['site_client'] );
+  gulp.watch( [ './public/stylesheets/*.less' ] ,  ['site_styles'] );
   //gulp.watch( [ './bin/**/*.js' ] ,  ['lint'] );
 });
 
 // Default Task
-gulp.task( 'default', [ 'site_server','site_client', 'site_styles', 'lint' ] );
+gulp.task( 'default', [ 'site_client', 'site_styles', 'lint' ] );
