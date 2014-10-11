@@ -14,6 +14,7 @@ END
 
 echo "= relaxjs update and compile"
 cd /relaxjs
+sudo npm link --no-bin-link
 echo "+ Restore/Update all type definitions in typings"
 tsd reinstall --save --overwrite
 echo "+ Npm install packages in package.json"
@@ -21,8 +22,9 @@ npm install --no-bin-link
 
 
 echo "= micurs.com update and compile"
-echo "+ Restore/Update all type definitions in typings"
 cd /micurs.com
+sudo npm link /relaxjs
+echo "+ Restore/Update all type definitions in typings"
 tsd reinstall --save --overwrite
 echo "+ Npm install packages in package.json"
 npm install --no-bin-link

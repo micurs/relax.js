@@ -59,15 +59,17 @@ gulp.task('relaxjs_compile', function() {
 });
 */
 
+var serverSources = [ './src/app.ts' ] ;
+
 gulp.task('site_server', function() {
-  return gulp.src( [ './src/*.ts' ] )
+  return gulp.src( serverSources )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
           .pipe( tsc( {  module: 'commonjs',
                          target: 'ES5',
                          sourcemap: false,
                          emitError: false,
                          outDir: './bin/' } ) )
-          .pipe(gulp.dest('./bin'))
+          .pipe(gulp.dest('./bin/'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );
 });
@@ -99,7 +101,7 @@ gulp.task('lint', ['site_server' ], function() {
 gulp.task( 'watch', function() {
   fatalLevel = fatalLevel || 'off';
   //gulp.watch( [ './relaxjs/src/*.ts' ], ['relaxjs' ] )
-  gulp.watch( [ './src/*.ts' ] ,  ['site_server'] );
+  gulp.watch( serverSources ,  ['site_server'] );
   gulp.watch( [ './public/**/*.ts' ] ,  ['site_client'] );
   gulp.watch( [ './public/stylesheets/*.less' ] ,  ['site_styles'] );
   //gulp.watch( [ './bin/**/*.js' ] ,  ['lint'] );

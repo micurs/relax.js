@@ -1,23 +1,22 @@
-/* ///<reference path='../typings/node/node.d.ts' /> */
-//require('typescript-require');
+///<reference path='../typings/node/node.d.ts' />
 
+//require('typescript-require');
+// import Routing = require("./Routing"); */
 
 
 export class Resource {
   constructor( private name: string ) {}
   pippo() : void {
-    console.log(this.name);
+    console.log('Resource:'+this.name);
   }
 }
 
-  // export var Routing = require('./Routing');
-
+export class Route {
+  constructor( private name: string ) {}
+  paperino() : void {
+    console.log('My name is:'+this.name);
+  }
+}
 export function relax() : string {
-  return 'This is relaxjs node module';
+  return 'Congratulation: this is relaxjs a node module written in Typescript';
 }
-
-/*
-declare module "relaxjs" {
-  export = relaxjs;
-}
-*/

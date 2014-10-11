@@ -45,13 +45,13 @@ gulp.task('relaxjs', ['relaxjs_compile'], function() {
 var typescript_options = {
   module: 'commonjs',
   target: 'ES5',
-  // declaration: true,
+  declaration: false,
   sourcemap: false,
   emitError: false,
   removeComments: true,
   outDir: './dist' };
 
-var sources = [ './src/*.ts' ];
+var sources = [ './src/relaxjs.ts' ];
 var dests = [ './dist/*.js' ];
 
 
