@@ -23,7 +23,6 @@ npm install --no-bin-link
 
 echo "= micurs.com update and compile"
 cd /micurs.com
-sudo npm link /relaxjs
 echo "+ Restore/Update all type definitions in typings"
 tsd reinstall --save --overwrite
 echo "+ Npm install packages in package.json"

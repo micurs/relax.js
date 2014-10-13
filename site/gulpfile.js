@@ -58,17 +58,21 @@ gulp.task('relaxjs_compile', function() {
           ;
 });
 */
+var typescript_options = {
+  module: 'commonjs',
+  target: 'ES5',
+  declaration: false,
+  sourcemap: false,
+  emitError: false,
+  removeComments: true,
+  outDir: './bin' };
 
 var serverSources = [ './src/app.ts' ] ;
 
 gulp.task('site_server', function() {
   return gulp.src( serverSources )
           .pipe( print(function(filepath) { return "TS server file: " + filepath; } ) )
-          .pipe( tsc( {  module: 'commonjs',
-                         target: 'ES5',
-                         sourcemap: false,
-                         emitError: false,
-                         outDir: './bin/' } ) )
+          .pipe( tsc( typescript_options ) )
           .pipe(gulp.dest('./bin/'))
           .pipe( print(function(filepath) { return "Compiled to: " + filepath; } ) )
           .on('error', onError );

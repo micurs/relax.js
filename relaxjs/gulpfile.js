@@ -51,12 +51,20 @@ var typescript_options = {
   removeComments: true,
   outDir: './dist' };
 
-var sources = [ './src/relaxjs.ts' ];
+var sources_to_compile = [ './src/relaxjs.ts',
+                           './src/internals.ts',
+                           './src/resources.ts',
+                           './src/routing.ts' ];
+var sources_to_copy = [ './src/relaxjs.d.ts' ];
 var dests = [ './dist/*.js' ];
 
+gulp.task('relaxjs_copy', function() {
+  return gulp.src( sources_to_copy )
+        .pipe(gulp.dest('./dist'));
+});
 
 gulp.task('relaxjs_compile', function() {
-  return gulp.src( sources )
+  return gulp.src( sources_to_compile )
           .pipe( print(function(filepath) { return "relaxjs file: " + filepath; } ) )
           .pipe( tsc( typescript_options ) )
           .pipe(gulp.dest('./dist'))
@@ -65,7 +73,7 @@ gulp.task('relaxjs_compile', function() {
 });
 
 
-gulp.task('lint', ['relaxjs_compile' ], function() {
+gulp.task('lint', ['relaxjs_compile', 'relaxjs_copy' ], function() {
   return gulp.src(dests)
     .pipe(jshint())
     .pipe(jshint.reporter(stylish));
@@ -74,7 +82,8 @@ gulp.task('lint', ['relaxjs_compile' ], function() {
 
 gulp.task( 'watch', function() {
   fatalLevel = fatalLevel || 'off';
-  gulp.watch( sources ,  ['relaxjs_compile'] );
+  gulp.watch( sources_to_compile ,  ['relaxjs_compile'] );
+  gulp.watch( sources_to_copy ,  ['relaxjs_copy'] );
 });
 
 // Default Task
