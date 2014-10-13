@@ -75,7 +75,7 @@ vagrant ssh
 Within Ubuntu you can launch the site:
 
 ```
-cd /micurs.com/site
+cd /micurs.com
 npm start
 ```
 
