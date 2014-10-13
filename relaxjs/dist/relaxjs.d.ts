@@ -40,8 +40,8 @@ declare module "relaxjs" {
 
     constructor( siteName:string );
     public static $( name:string ):Site;
-    addResource( resource : Resource ) : Boolean ;
-    serve( port:number ) ;
+    addResource( resource : Resource ) : Boolean;
+    serve( port:number );
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
   }
 

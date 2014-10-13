@@ -46,7 +46,7 @@ export class HtmlView implements relaxjs.Resource {
 
   get( route : routing.Route ) : Q.Promise< relaxjs.Embodiment > {
     var contextLog = '['+this.Name+'.get] ';
-    console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
+    console.log( _.str.sprintf('%s Fetching resource : [ %s ]',route.path,contextLog) );
 
     // Here we compute/fetch/create the view data.
     return internals.viewDynamic(this.Name,this, this.layout );

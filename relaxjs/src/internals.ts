@@ -9,6 +9,8 @@
 import fs = require('fs');
 import mime = require('mime');
 import Q = require('q');
+import _ = require("underscore");
+_.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
 
@@ -48,13 +50,19 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
 export function viewDynamic( viewName: string,
                       viewData: any,
                       layoutName?: string ) : Q.Promise< relaxjs.Embodiment > {
-  var fname = '[view]';
-  var readFile = Q.denodeify(fs.readFile);
+  var fname = '[view] ';
   var laterAct = Q.defer< relaxjs.Embodiment >();
+  var readFile = Q.denodeify(fs.readFile);
+
+  // console.log( _.str.sprintf('%s  dynamic %s for %s',fname,viewName,JSON.stringify(viewData,null,'  ') ) );
   var templateFilename = './views/'+viewName+'._';
+  if ( viewName = 'site') {
+    templateFilename = __dirname+'/../views/'+viewName+'._';
+  }
   if ( layoutName !== undefined ) {
     var layoutFilename = './views/_'+layoutName+'._';
-    Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ), readFile( layoutFilename,  { 'encoding':'utf8'} ) ])
+    Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
+             readFile( layoutFilename,    { 'encoding':'utf8'} ) ])
     .spread( ( content: string, outerContent : string) => {
       try {
         console.log(_.str.sprintf('%s Compiling composite view %s in %s',fname,layoutFilename,templateFilename));
@@ -86,5 +94,6 @@ export function viewDynamic( viewName: string,
       laterAct.reject( emitCompileViewError('N/A',err, templateFilename ) );
     });
   }
+
   return laterAct.promise;
 }

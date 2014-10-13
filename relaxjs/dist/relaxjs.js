@@ -16,6 +16,7 @@ var Embodiment = (function () {
         this.mimeType = mimeType;
     }
     Embodiment.prototype.serve = function (response) {
+        console.log('[serve] lenght:' + this.data.length);
         response.writeHead(200, { 'Content-Type': this.mimeType, 'Content-Length': this.data.length });
         response.write(this.data);
         response.end();
@@ -53,7 +54,6 @@ var Site = (function () {
         console.log('Site ' + this.siteName + ' listening on port:' + port);
         return http.createServer(function (request, response) {
             console.log('\n========================');
-            console.log('Received request for :' + request.url);
             var route = routing.fromUrl(request);
             _this.get(route).then(function (rep) {
                 rep.serve(response);
@@ -66,22 +66,20 @@ var Site = (function () {
     };
     Site.prototype.get = function (route) {
         var contextLog = '[' + this.Name + '.get] ';
-        console.log(contextLog + 'Fetching the resource : [ ' + route.path + ' ]');
         if (route.static) {
-            console.log(contextLog + 'Static Route -> fetching the file: ' + route.pathname);
+            console.log(contextLog + 'Static -> ' + route.pathname);
             return internals.viewStatic(route.pathname);
         }
         else {
-            console.log(contextLog + 'Dynamic Route -> following the path ');
+            console.log(contextLog + 'Dynamic -> following the path... ');
             if (route.path.length > 1) {
                 if (route.path[1] in this._resources) {
-                    console.log(contextLog + 'Found resource for ' + route.path[1]);
+                    console.log(contextLog + 'Found Resource for ' + route.path[1]);
                     var partialRoute = _.clone(route);
                     partialRoute.path = route.path;
                     return this._resources[route.path[1]].get(partialRoute);
                 }
             }
-            console.log(contextLog + 'Resources : [ ' + JSON.stringify(_.values(this._resources)) + ' ]');
             return internals.viewDynamic(this.Name, this);
         }
     };

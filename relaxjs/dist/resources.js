@@ -31,7 +31,7 @@ var HtmlView = (function () {
     }
     HtmlView.prototype.get = function (route) {
         var contextLog = '[' + this.Name + '.get] ';
-        console.log(contextLog + 'Fetching the resource : [ ' + route.path + ' ]');
+        console.log(_.str.sprintf('%s Fetching resource : [ %s ]', route.path, contextLog));
         return internals.viewDynamic(this.Name, this, this.layout);
     };
     return HtmlView;

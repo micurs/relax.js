@@ -1,6 +1,8 @@
 var fs = require('fs');
 var mime = require('mime');
 var Q = require('q');
+var _ = require("underscore");
+_.str = require('underscore.string');
 var relaxjs = require('./relaxjs');
 function emitCompileViewError(content, err, filename) {
     var fname = '[view error]';
@@ -26,10 +28,13 @@ function viewStatic(filename) {
 }
 exports.viewStatic = viewStatic;
 function viewDynamic(viewName, viewData, layoutName) {
-    var fname = '[view]';
-    var readFile = Q.denodeify(fs.readFile);
+    var fname = '[view] ';
     var laterAct = Q.defer();
+    var readFile = Q.denodeify(fs.readFile);
     var templateFilename = './views/' + viewName + '._';
+    if (viewName = 'site') {
+        templateFilename = __dirname + '/../views/' + viewName + '._';
+    }
     if (layoutName !== undefined) {
         var layoutFilename = './views/_' + layoutName + '._';
         Q.all([readFile(templateFilename, { 'encoding': 'utf8' }), readFile(layoutFilename, { 'encoding': 'utf8' })]).spread(function (content, outerContent) {

@@ -39,6 +39,7 @@ export class Embodiment {
   constructor( private data : Buffer, private mimeType: string ) { }
 
   serve(response: http.ServerResponse) : void {
+    console.log('[serve] lenght:'+this.data.length);
     response.writeHead(200, { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length } );
     response.write(this.data);
     response.end();
@@ -83,12 +84,12 @@ export class Site implements Resource {
     console.log('Site '+ this.siteName + ' listening on port:'+ port );
     return http.createServer( (request, response) => {
       console.log('\n========================');
-      console.log('Received request for :'+request.url);
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(request);
 
       this.get( route )
         .then( ( rep : Embodiment ) => {
+
           rep.serve(response);
         })
         .fail(function (error) {
@@ -102,25 +103,23 @@ export class Site implements Resource {
 
   get( route : routing.Route ) : Q.Promise< Embodiment > {
     var contextLog = '['+this.Name+'.get] ';
-    console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
+    // console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
     if ( route.static ) {
-      console.log( contextLog + 'Static Route -> fetching the file: '+ route.pathname );
+      console.log( contextLog + 'Static -> '+ route.pathname );
       return internals.viewStatic( route.pathname );
     }
     else {
-      console.log( contextLog + 'Dynamic Route -> following the path ' );
+      console.log( contextLog + 'Dynamic -> following the path... ' );
       if ( route.path.length > 1 ) {
         if ( route.path[1] in this._resources ) {
-          console.log( contextLog + 'Found resource for '+ route.path[1] );
+          console.log( contextLog + 'Found Resource for '+ route.path[1] );
           var partialRoute = _.clone(route);
           partialRoute.path = route.path;
           return this._resources[route.path[1]].get( partialRoute );
         }
       }
-      //var resArray:Resource[] = _.map<any,Resource>( this._resources, function(item, key) { return item; } );
-      //var list:string = _.reduce<Resource,string>( _.values(this._resources), (m :string ,item) => m+= "<li>"+item.Name+"</li>"  );
-      console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources)) +' ]' );
+      // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );
       return internals.viewDynamic(this.Name, this );
     }
   }

@@ -25,7 +25,7 @@ var site = r.Site.$('micurs.com');
 
 // Serve the app on the network
 var appSrv = site.serve(portNumber);
-site.addResource( new r.resources.HtmlView('home','layout'));
+//site.addResource( new r.resources.HtmlView('home','layout'));
 
 appSrv.listen(portNumber);
 
