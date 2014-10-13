@@ -25,11 +25,17 @@ export function relax() : void {
   console.log('relax');
 }
 
+
 // Generic interface for a resource
 // ===================================================================================
 export interface Resource {
-  Name: string;
+  name(): string;
   get( route : routing.Route ) : Q.Promise<Embodiment> ;
+  addResource( res : Resource ) : boolean;
+}
+
+export interface ResourceMap {
+  [name: string]: Resource;
 }
 
 // Every resource is converted to their embodiment before they can be served
@@ -51,10 +57,9 @@ export class Embodiment {
 // The site is in itself a Resource and is accessed via the root / in a url.
 // ===================================================================================
 export class Site implements Resource {
+  private _name: string = "site";
+  public _resources:ResourceMap = {};
   private static _instance : Site = null;
-  public Name: string = "site";
-
-  private _resources:any = {};
   private _version : string = '0.0.1';
 
   constructor( public siteName:string ) {
@@ -64,6 +69,8 @@ export class Site implements Resource {
     Site._instance = this;
   }
 
+  name(): string { return this._name; }
+
   public static $( name:string ):Site
   {
     if(Site._instance === null) {
@@ -72,10 +79,10 @@ export class Site implements Resource {
     return Site._instance;
   }
 
-  addResource( resource : Resource ) : Boolean {
+  addResource( resource : Resource ) : boolean {
     resource['_version'] = this._version;
     resource['siteName'] = this.siteName;
-    this._resources[resource.Name] = resource;
+    this._resources[resource.name()] = resource;
     console.log( _.str.sprintf('[addResource] : %s', JSON.stringify(_.keys(this._resources)) ) );
     return false;
   }
@@ -101,7 +108,7 @@ export class Site implements Resource {
   }
 
   get( route : routing.Route ) : Q.Promise< Embodiment > {
-    var contextLog = '['+this.Name+'.get] ';
+    var contextLog = '['+this.name()+'.get] ';
     // console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
     if ( route.static ) {
@@ -119,7 +126,7 @@ export class Site implements Resource {
         }
       }
       // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );
-      return internals.viewDynamic(this.Name, this );
+      return internals.viewDynamic(this.name(), this );
     }
   }
 }

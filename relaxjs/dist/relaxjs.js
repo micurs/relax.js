@@ -27,7 +27,7 @@ exports.Embodiment = Embodiment;
 var Site = (function () {
     function Site(siteName) {
         this.siteName = siteName;
-        this.Name = "site";
+        this._name = "site";
         this._resources = {};
         this._version = '0.0.1';
         if (Site._instance) {
@@ -35,6 +35,9 @@ var Site = (function () {
         }
         Site._instance = this;
     }
+    Site.prototype.name = function () {
+        return this._name;
+    };
     Site.$ = function (name) {
         if (Site._instance === null) {
             Site._instance = new Site(name);
@@ -44,7 +47,7 @@ var Site = (function () {
     Site.prototype.addResource = function (resource) {
         resource['_version'] = this._version;
         resource['siteName'] = this.siteName;
-        this._resources[resource.Name] = resource;
+        this._resources[resource.name()] = resource;
         console.log(_.str.sprintf('[addResource] : %s', JSON.stringify(_.keys(this._resources))));
         return false;
     };
@@ -63,7 +66,7 @@ var Site = (function () {
         });
     };
     Site.prototype.get = function (route) {
-        var contextLog = '[' + this.Name + '.get] ';
+        var contextLog = '[' + this.name() + '.get] ';
         if (route.static) {
             console.log(contextLog + 'Static -> ' + route.pathname);
             return internals.viewStatic(route.pathname);
@@ -78,7 +81,7 @@ var Site = (function () {
                     return this._resources[route.path[1]].get(partialRoute);
                 }
             }
-            return internals.viewDynamic(this.Name, this);
+            return internals.viewDynamic(this.name(), this);
         }
     };
     Site._instance = null;

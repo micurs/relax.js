@@ -27,38 +27,56 @@ declare module "relaxjs" {
   }
 
   export interface Resource {
-    Name: string;
+    name(): string;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
+    addResource( res : Resource ) : Boolean;
+  }
+
+  export interface ResourceMap {
+    [name: string]: Resource;
   }
 
   export class Site implements Resource {
     private static _instance : Site;
-    public Name: string;
+    private _name: string;
     public siteName:string;
-    private _resources:any;
+    private _resources:ResourceMap;
     private _version : string;
 
     constructor( siteName:string );
     public static $( name:string ):Site;
-    addResource( resource : Resource ) : Boolean;
-    serve( port:number );
+
+    serve() : http.Server ;
+
+    name(): string;
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
+    addResource( resource : Resource ) : boolean;
   }
 
   export function site( name : string ) : Site;
 
   // ===== resources =======================================================
   export module resources {
+
     export class Data implements Resource {
-      public Name: string;
+      private _name: string;
+      private _resources:ResourceMap;
+
       constructor( Name: string );
+      name() : string;
       get( route: routing.Route )  : Q.Promise< Embodiment >;
+      addResource( res : Resource ) : boolean ;
     }
+
     export class HtmlView implements Resource {
-      public Name: string;
+      private _name: string;
+      private _resources:ResourceMap;
       public layout: string;
+
       constructor( viewName: string, layout?: string );
+      name() : string;
       get( route : routing.Route ) : Q.Promise< Embodiment >;
+      addResource( res : Resource ) : boolean;
     }
 
   }

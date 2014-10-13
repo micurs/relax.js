@@ -20,11 +20,19 @@ import internals = require('./internals');
 
 // ===================================================================================
 export class Data implements relaxjs.Resource {
-  constructor( public Name: string ) {}
+  private _resources:relaxjs.ResourceMap = {};
+  private _name:string = '';
+
+  constructor( name: string ) { this._name = name; }
+
+  name(): string { return this._name; }
   get( route: routing.Route )  : Q.Promise< relaxjs.Embodiment > {
+    // <todo>return child resource if specified in the path</todo>
+
+    // Here we return the embodiment of the data representing this resource.
     var later = Q.defer< relaxjs.Embodiment >();
     var readFile = Q.denodeify(fs.readFile);
-    var dataFile = './data/'+this.Name+'.json';
+    var dataFile = './data/'+this.name()+'.json';
     readFile( dataFile)
       .then( (content: Buffer ) => {
         later.resolve(new relaxjs.Embodiment(content, 'application/json' ));
@@ -34,21 +42,30 @@ export class Data implements relaxjs.Resource {
       });
     return later.promise;
   }
+  addResource( res : relaxjs.Resource ) : boolean {
+    return false;
+  }
 }
 
 // ===================================================================================
 export class HtmlView implements relaxjs.Resource {
-  public Name: string = "site";
+  private _resources:relaxjs.ResourceMap = {};
+  private _name: string = '';
 
   constructor( public viewName: string, public layout?: string ) {
-    this.Name = viewName;
+    this._name = viewName;
   }
 
+  name(): string { return this._name; }
   get( route : routing.Route ) : Q.Promise< relaxjs.Embodiment > {
-    var contextLog = '['+this.Name+'.get] ';
+    var contextLog = _.str.sprintf('[%s] ',this.name());
     console.log( _.str.sprintf('%s Fetching resource : [ %s ]',route.path,contextLog) );
+    // <todo>return child resource if specified in the path</todo>
 
     // Here we compute/fetch/create the view data.
-    return internals.viewDynamic(this.Name,this, this.layout );
+    return internals.viewDynamic(this.name(),this, this.layout );
+  }
+  addResource( res : relaxjs.Resource ) : boolean {
+    return false;
   }
 }

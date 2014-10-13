@@ -5,19 +5,27 @@ _.str = require('underscore.string');
 var relaxjs = require('./relaxjs');
 var internals = require('./internals');
 var Data = (function () {
-    function Data(Name) {
-        this.Name = Name;
+    function Data(name) {
+        this._resources = {};
+        this._name = '';
+        this._name = name;
     }
+    Data.prototype.name = function () {
+        return this._name;
+    };
     Data.prototype.get = function (route) {
         var later = Q.defer();
         var readFile = Q.denodeify(fs.readFile);
-        var dataFile = './data/' + this.Name + '.json';
+        var dataFile = './data/' + this.name() + '.json';
         readFile(dataFile).then(function (content) {
             later.resolve(new relaxjs.Embodiment(content, 'application/json'));
         }).catch(function (err) {
             later.reject(internals.emitCompileViewError('N/A', err, dataFile));
         });
         return later.promise;
+    };
+    Data.prototype.addResource = function (res) {
+        return false;
     };
     return Data;
 })();
@@ -26,13 +34,20 @@ var HtmlView = (function () {
     function HtmlView(viewName, layout) {
         this.viewName = viewName;
         this.layout = layout;
-        this.Name = "site";
-        this.Name = viewName;
+        this._resources = {};
+        this._name = '';
+        this._name = viewName;
     }
+    HtmlView.prototype.name = function () {
+        return this._name;
+    };
     HtmlView.prototype.get = function (route) {
-        var contextLog = '[' + this.Name + '.get] ';
+        var contextLog = _.str.sprintf('[%s] ', this.name());
         console.log(_.str.sprintf('%s Fetching resource : [ %s ]', route.path, contextLog));
-        return internals.viewDynamic(this.Name, this, this.layout);
+        return internals.viewDynamic(this.name(), this, this.layout);
+    };
+    HtmlView.prototype.addResource = function (res) {
+        return false;
     };
     return HtmlView;
 })();
