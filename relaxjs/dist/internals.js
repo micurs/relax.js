@@ -17,12 +17,14 @@ function viewStatic(filename) {
     var mtype = mime.lookup(filename);
     var laterAction = Q.defer();
     var staticFile = '.' + filename;
-    console.log(_.str.sprintf('%s %s', fname, staticFile));
     fs.readFile(staticFile, function (err, content) {
-        if (err)
+        if (err) {
+            console.log(_.str.sprintf('%s ERROR file "%s" not found', fname, staticFile));
             laterAction.reject(filename + ' not found');
-        else
+        }
+        else {
             laterAction.resolve(new relaxjs.Embodiment(content, mtype));
+        }
     });
     return laterAction.promise;
 }

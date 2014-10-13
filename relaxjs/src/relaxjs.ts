@@ -39,7 +39,7 @@ export class Embodiment {
   constructor( private data : Buffer, private mimeType: string ) { }
 
   serve(response: http.ServerResponse) : void {
-    console.log('[serve] lenght:'+this.data.length);
+    console.log('[serve] bytes:'+this.data.length);
     response.writeHead(200, { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length } );
     response.write(this.data);
     response.end();
@@ -80,10 +80,9 @@ export class Site implements Resource {
     return false;
   }
 
-  serve( port:number = 3000 ) : http.Server {
-    console.log('Site '+ this.siteName + ' listening on port:'+ port );
+  serve() : http.Server {
     return http.createServer( (request, response) => {
-      console.log('\n========================');
+      console.log('\n');
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(request);
 
@@ -123,4 +122,8 @@ export class Site implements Resource {
       return internals.viewDynamic(this.Name, this );
     }
   }
+}
+
+export function site( name : string ) : Site {
+  return Site.$(name);
 }

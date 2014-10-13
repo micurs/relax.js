@@ -10,7 +10,8 @@ var Route = (function () {
 })();
 exports.Route = Route;
 function fromUrl(request) {
-    console.log('[Routing.fromUrl] Original Request: ' + request.url);
+    var fname = '[Routing.fromUrl] ';
+    console.log(fname + request.url);
     if (!request.url)
         request.url = '/';
     var reqToRoute = url.parse(request.url, true);
@@ -21,8 +22,7 @@ function fromUrl(request) {
     route.pathname = reqToRoute.pathname;
     route.query = reqToRoute.search;
     route.path = _.filter(resources, function (res) { return res.length > 0; });
-    console.log('[Routing.fromUrl] Path (' + route.path.length + ') -> ' + route.path);
-    console.log('[Routing.fromUrl] Extension: (' + extension + ')');
+    console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"', fname, route.path, extension));
     route.static = (extension.length > 0);
     return route;
 }

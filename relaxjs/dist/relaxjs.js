@@ -16,7 +16,7 @@ var Embodiment = (function () {
         this.mimeType = mimeType;
     }
     Embodiment.prototype.serve = function (response) {
-        console.log('[serve] lenght:' + this.data.length);
+        console.log('[serve] bytes:' + this.data.length);
         response.writeHead(200, { 'Content-Type': this.mimeType, 'Content-Length': this.data.length });
         response.write(this.data);
         response.end();
@@ -48,12 +48,10 @@ var Site = (function () {
         console.log(_.str.sprintf('[addResource] : %s', JSON.stringify(_.keys(this._resources))));
         return false;
     };
-    Site.prototype.serve = function (port) {
+    Site.prototype.serve = function () {
         var _this = this;
-        if (port === void 0) { port = 3000; }
-        console.log('Site ' + this.siteName + ' listening on port:' + port);
         return http.createServer(function (request, response) {
-            console.log('\n========================');
+            console.log('\n');
             var route = routing.fromUrl(request);
             _this.get(route).then(function (rep) {
                 rep.serve(response);
@@ -87,3 +85,7 @@ var Site = (function () {
     return Site;
 })();
 exports.Site = Site;
+function site(name) {
+    return Site.$(name);
+}
+exports.site = site;

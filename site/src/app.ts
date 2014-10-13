@@ -12,7 +12,7 @@
 // import http = require("http");
 // import url = require('url');
 
-require('typescript-require');
+//require('typescript-require');
 import r = require('relaxjs');
 
 var portNumber : number = 3000;
@@ -24,7 +24,7 @@ var site = r.Site.$('micurs.com');
 
 
 // Serve the app on the network
-var appSrv = site.serve(portNumber);
+var appSrv = site.serve();
 //site.addResource( new r.resources.HtmlView('home','layout'));
 
 appSrv.listen(portNumber);

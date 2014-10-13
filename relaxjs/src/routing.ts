@@ -31,7 +31,8 @@ export class Route {
 //  home.users.put( 100, data)
 // --------------------------------------------------------------
 export function fromUrl(request) : Route {
-  console.log('[Routing.fromUrl] Original Request: '+request.url);
+  var fname = '[Routing.fromUrl] ';
+  console.log(fname+request.url);
 
   if ( !request.url )
     request.url = '/';
@@ -45,8 +46,7 @@ export function fromUrl(request) : Route {
   route.pathname = reqToRoute.pathname;
   route.query = reqToRoute.search;
   route.path = _.filter( resources, (res) => res.length>0 );
-  console.log('[Routing.fromUrl] Path ('+route.path.length+') -> '+route.path );
-  console.log('[Routing.fromUrl] Extension: ('+extension+')' );
+  console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',fname, route.path, extension ) );
   route.static = ( extension.length>0 ) ;
   return route;
 }

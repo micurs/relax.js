@@ -45,6 +45,7 @@ declare module "relaxjs" {
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
   }
 
+  export function site( name : string ) : Site;
 
   // ===== resources =======================================================
   export module resources {
