@@ -23,10 +23,12 @@ So, for example, to access the 3rd user in users you will write:
 http://localhost:3000/users/user?idx=2
 ```
 
+In this example the collection of users is statically loaded. In Sample 03 we shows how to load resource dynamically in response to a http request.
+
 Implementation
 ------
 
-This example shows how to create a colletion resource : users and how to
+This example shows how to create a collection resource : users and how to
 add a list of child resources of type user.
 
 ```
