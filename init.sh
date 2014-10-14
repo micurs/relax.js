@@ -14,12 +14,18 @@ END
 
 echo "= relaxjs update and compile"
 cd /relaxjs
-sudo npm link --no-bin-link
 echo "+ Restore/Update all type definitions in typings"
 tsd reinstall --save --overwrite
 echo "+ Npm install packages in package.json"
 npm install --no-bin-link
+echo "+ Link this folder to the global node package directory..."
+sudo npm link --no-bin-link
 
+
+echo "= sample02 update and compile"
+cd /sample02
+npm install
+npm run typings
 
 echo "= micurs.com update and compile"
 cd /micurs.com
