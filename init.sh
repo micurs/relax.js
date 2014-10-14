@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-echo "========== Initialize micurs.com ==============="
+echo "========== Initialize Relax.js ==============="
 
 function node_install {
   echo " - Node install: $1"
@@ -12,7 +12,8 @@ cat <<END >.node_modules
 END
 
 
-echo "= relaxjs update and compile"
+echo .
+echo "= Relax.js update and compile"
 cd /relaxjs
 echo "+ Restore/Update all type definitions in typings"
 tsd reinstall --save --overwrite
@@ -22,11 +23,13 @@ echo "+ Link this folder to the global node package directory..."
 sudo npm link --no-bin-link
 
 
+echo .
 echo "= sample02 update and compile"
 cd /sample02
 npm install
 npm run typings
 
+echo .
 echo "= micurs.com update and compile"
 cd /micurs.com
 echo "+ Restore/Update all type definitions in typings"
