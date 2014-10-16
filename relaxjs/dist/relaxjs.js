@@ -50,6 +50,18 @@ var Container = (function () {
     Container.prototype.addResource = function (typeName, newRes) {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
+        newRes.setName(typeName);
+        var childArray = this._resources[typeName];
+        if (childArray === undefined)
+            this._resources[typeName] = [newRes];
+        else {
+            childArray.push(newRes);
+        }
+    };
+    Container.prototype.add = function (newRes) {
+        newRes['_version'] = site().version;
+        newRes['siteName'] = site().siteName;
+        var typeName = newRes.name();
         var childArray = this._resources[typeName];
         if (childArray === undefined)
             this._resources[typeName] = [newRes];
@@ -75,6 +87,9 @@ var Site = (function (_super) {
     }
     Site.prototype.name = function () {
         return this._name;
+    };
+    Site.prototype.setName = function (newName) {
+        this._name = newName;
     };
     Object.defineProperty(Site.prototype, "version", {
         get: function () {
@@ -117,15 +132,16 @@ var Site = (function (_super) {
             return internals.viewStatic(route.pathname);
         }
         else {
-            console.log(contextLog + 'Dynamic -> following the path... ');
             if (route.path.length > 1) {
-                if (route.path[1] in this._resources) {
-                    var partialRoute = _.clone(route);
-                    partialRoute.path.splice(0, 1);
-                    var childTypename = partialRoute.path[0];
-                    var childResource = _super.prototype.getFirstMatching.call(this, childTypename);
-                    console.log(_.str.sprintf('%s Found Resource for "%s" -> %s', contextLog, childTypename, childResource.name()));
-                    return childResource.get(partialRoute);
+                var innerRoute = route.stepThrough(1);
+                console.log('[TEST] newRoute is ' + innerRoute.getNextStep());
+                console.log(_.str.sprintf('%s Dynamic -> following the next step of innerRoute: "%s" ', contextLog, innerRoute.getNextStep()));
+                if (innerRoute.getNextStep() in this._resources) {
+                    var childResource = _super.prototype.getFirstMatching.call(this, innerRoute.getNextStep());
+                    if (childResource) {
+                        console.log(_.str.sprintf('%s Found Resource for "%s" -> %s', contextLog, innerRoute.getNextStep(), childResource.name()));
+                        return childResource.get(innerRoute);
+                    }
                 }
             }
             return internals.viewDynamic(this.name(), this);

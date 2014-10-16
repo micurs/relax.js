@@ -22,9 +22,20 @@ export class Route {
   query: string;
 
   // Create a new Route with a new path without the first item
-  purgeFirstNode() : Route {
-    // todo: create a new
-    return _.clone(this);
+  stepThrough( stpes: number ) : Route {
+    var newRoute : Route = new Route();
+    newRoute.verb = this.verb;
+    newRoute.path = _.map(this.path, _.clone);
+    newRoute.static = this.static;
+    newRoute.pathname = this.pathname;
+    newRoute.query = this.query;
+    newRoute.path.splice(0,stpes);
+    return newRoute;
+  }
+
+  getNextStep() : string {
+    console.log('[Route.nextStep] '+this.path[0] );
+    return this.path[0];
   }
 }
 
@@ -47,6 +58,7 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   var extension = path.extname(reqToRoute.pathname)
   var resources : string[] = reqToRoute.pathname.split('/');//.splice(0,1);
   resources.unshift('site');
+  resources.push('END')
 
   var route = new Route();
   route.pathname = reqToRoute.pathname;

@@ -34,6 +34,7 @@ export class Request {
 // Generic interface for a resource
 export interface Resource {
   name(): string;
+  setName( newName:string ) : void ;
   get( route : routing.Route ) : Q.Promise<Embodiment> ;
   post( route : routing.Route ) : Q.Promise<Embodiment> ;
 }
@@ -76,6 +77,7 @@ export class Container {
   addResource( typeName: string, newRes: Resource ) {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
+    newRes.setName(typeName);
     var childArray = this._resources[typeName];
     if ( childArray === undefined )
       this._resources[typeName] = [ newRes ];
@@ -83,6 +85,19 @@ export class Container {
       childArray.push(newRes);
     }
   }
+  // Add a resource of the given type as child
+  add( newRes: Resource ) {
+    newRes['_version'] = site().version;
+    newRes['siteName'] = site().siteName;
+    var typeName = newRes.name();
+    var childArray = this._resources[typeName];
+    if ( childArray === undefined )
+      this._resources[typeName] = [ newRes ];
+    else {
+      childArray.push(newRes);
+    }
+  }
+
 }
 
 // Root object for the application is the Site.
@@ -103,6 +118,7 @@ export class Site extends Container implements Resource {
   }
 
   name(): string { return this._name; }
+  setName( newName:string ) : void { this._name = newName; }
 
   get version():string {
     return this._version;
@@ -149,15 +165,16 @@ export class Site extends Container implements Resource {
       return internals.viewStatic( route.pathname );
     }
     else {
-      console.log( contextLog + 'Dynamic -> following the path... ' );
       if ( route.path.length > 1 ) {
-        if ( route.path[1] in this._resources ) {
-          var partialRoute = _.clone(route);
-          partialRoute.path.splice(0,1);
-          var childTypename = partialRoute.path[0];
-          var childResource = super.getFirstMatching(childTypename);
-          console.log(_.str.sprintf('%s Found Resource for "%s" -> %s',contextLog,childTypename,childResource.name() ));
-          return childResource.get( partialRoute );
+        var innerRoute : routing.Route = route.stepThrough(1);
+        console.log('[TEST] newRoute is '+ innerRoute.getNextStep() );
+        console.log( _.str.sprintf('%s Dynamic -> following the next step of innerRoute: "%s" ',contextLog, innerRoute.getNextStep() ) );
+        if ( innerRoute.getNextStep() in this._resources ) {
+          var childResource = super.getFirstMatching(innerRoute.getNextStep());
+          if ( childResource ) {
+            console.log(_.str.sprintf('%s Found Resource for "%s" -> %s',contextLog,innerRoute.getNextStep(),childResource.name() ));
+            return childResource.get( innerRoute );
+          }
         }
       }
       // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );

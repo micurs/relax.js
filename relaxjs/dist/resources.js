@@ -13,6 +13,9 @@ var Data = (function () {
     Data.prototype.name = function () {
         return this._name;
     };
+    Data.prototype.setName = function (newName) {
+        this._name = newName;
+    };
     Data.prototype.get = function (route) {
         var later = Q.defer();
         var readFile = Q.denodeify(fs.readFile);
@@ -37,10 +40,11 @@ var Data = (function () {
 exports.Data = Data;
 var HtmlView = (function () {
     function HtmlView(viewName, layout, moredata) {
-        this.viewName = viewName;
         this._resources = {};
         this._name = '';
+        this._template = '';
         this._name = viewName;
+        this._template = viewName;
         this._layout = layout;
         if (moredata)
             for (var attrname in moredata) {
@@ -50,10 +54,13 @@ var HtmlView = (function () {
     HtmlView.prototype.name = function () {
         return this._name;
     };
+    HtmlView.prototype.setName = function (newName) {
+        this._name = newName;
+    };
     HtmlView.prototype.get = function (route) {
-        var contextLog = _.str.sprintf('[HtmlView.%s] get', this.name());
+        var contextLog = _.str.sprintf('[HtmlView.%s] get', this._template);
         console.log(_.str.sprintf('%s Fetching resource : "%s"', contextLog, route.path));
-        return internals.viewDynamic(this.name(), this, this._layout);
+        return internals.viewDynamic(this._template, this, this._layout);
     };
     HtmlView.prototype.post = function (route) {
         var contextLog = '[' + this.name() + '.get] ';

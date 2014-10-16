@@ -26,6 +26,7 @@ export class Data implements relaxjs.Resource {
   constructor( name: string ) { this._name = name; }
 
   name(): string { return this._name; }
+  setName( newName:string ) : void { this._name = newName; }
 
   get( route: routing.Route ) : Q.Promise< relaxjs.Embodiment > {
     // <todo>return child resource if specified in the path</todo>
@@ -59,24 +60,28 @@ export class Data implements relaxjs.Resource {
 export class HtmlView implements relaxjs.Resource {
   private _resources:relaxjs.ResourceMap = {};
   private _name: string = '';
+  private _template: string = '';
   private _layout: string;
 
-  constructor( public viewName: string, layout?: string, moredata?: any ) {
+
+  constructor( viewName: string, layout?: string, moredata?: any ) {
     this._name = viewName;
+    this._template = viewName;
     this._layout = layout;
     if ( moredata )
       for (var attrname in moredata) { this[attrname] = moredata[attrname]; }
   }
 
   name(): string { return this._name; }
+  setName( newName:string ) : void { this._name = newName; }
 
   get(  route: routing.Route  ) : Q.Promise< relaxjs.Embodiment > {
-    var contextLog = _.str.sprintf('[HtmlView.%s] get',this.name());
+    var contextLog = _.str.sprintf('[HtmlView.%s] get',this._template );
     console.log( _.str.sprintf('%s Fetching resource : "%s"',contextLog,route.path) );
     // <todo>return child resource if specified in the path</todo>
 
     // Here we compute/fetch/create the view data.
-    return internals.viewDynamic(this.name(), this, this._layout );
+    return internals.viewDynamic(this._template, this, this._layout );
   }
 
   post( route: routing.Route  ) : Q.Promise< relaxjs.Embodiment > {
