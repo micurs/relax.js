@@ -6,6 +6,9 @@ var Route = (function () {
     function Route() {
         this.static = true;
     }
+    Route.prototype.purgeFirstNode = function () {
+        return _.clone(this);
+    };
     return Route;
 })();
 exports.Route = Route;

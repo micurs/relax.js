@@ -20,6 +20,12 @@ export class Route {
   pathname : string;
   path : string[];
   query: string;
+
+  // Create a new Route with a new path without the first item
+  purgeFirstNode() : Route {
+    // todo: create a new
+    return _.clone(this);
+  }
 }
 
 // --------------------------------------------------------------
