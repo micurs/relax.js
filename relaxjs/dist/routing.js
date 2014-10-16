@@ -11,7 +11,7 @@ var Route = (function () {
 exports.Route = Route;
 function fromUrl(request) {
     var fname = '[Routing.fromUrl] ';
-    console.log(fname + request.url);
+    console.log(_.str.sprintf('%s Routing url: %s', fname, request.url));
     if (!request.url)
         request.url = '/';
     var reqToRoute = url.parse(request.url, true);

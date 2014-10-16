@@ -4,7 +4,7 @@
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 
-
+import http = require("http");
 import fs = require('fs');
 import url = require('url');
 import path = require('path');
@@ -30,9 +30,9 @@ export class Route {
 // becomes
 //  home.users.put( 100, data)
 // --------------------------------------------------------------
-export function fromUrl(request) : Route {
+export function fromUrl( request: http.ServerRequest ) : Route {
   var fname = '[Routing.fromUrl] ';
-  console.log(fname+request.url);
+  console.log( _.str.sprintf('%s Routing url: %s',fname,request.url) );
 
   if ( !request.url )
     request.url = '/';

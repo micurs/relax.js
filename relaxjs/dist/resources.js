@@ -13,7 +13,7 @@ var Data = (function () {
     Data.prototype.name = function () {
         return this._name;
     };
-    Data.prototype.get = function (route) {
+    Data.prototype.get = function (rxReq) {
         var later = Q.defer();
         var readFile = Q.denodeify(fs.readFile);
         var dataFile = './data/' + this.name() + '.json';
@@ -23,6 +23,11 @@ var Data = (function () {
             later.reject(internals.emitCompileViewError('N/A', err, dataFile));
         });
         return later.promise;
+    };
+    Data.prototype.post = function (req) {
+        var contextLog = '[' + this.name() + '.get] ';
+        var laterAction = Q.defer();
+        return laterAction.promise;
     };
     Data.prototype.addResource = function (res) {
         return false;
@@ -41,10 +46,15 @@ var HtmlView = (function () {
     HtmlView.prototype.name = function () {
         return this._name;
     };
-    HtmlView.prototype.get = function (route) {
+    HtmlView.prototype.get = function (rxReq) {
         var contextLog = _.str.sprintf('[%s] ', this.name());
-        console.log(_.str.sprintf('%s Fetching resource : [ %s ]', route.path, contextLog));
+        console.log(_.str.sprintf('%s Fetching resource : [ %s ]', rxReq.route.path, contextLog));
         return internals.viewDynamic(this.name(), this, this.layout);
+    };
+    HtmlView.prototype.post = function (req) {
+        var contextLog = '[' + this.name() + '.get] ';
+        var laterAction = Q.defer();
+        return laterAction.promise;
     };
     HtmlView.prototype.addResource = function (res) {
         return false;
