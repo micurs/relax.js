@@ -13,7 +13,7 @@ var Data = (function () {
     Data.prototype.name = function () {
         return this._name;
     };
-    Data.prototype.get = function (rxReq) {
+    Data.prototype.get = function (route) {
         var later = Q.defer();
         var readFile = Q.denodeify(fs.readFile);
         var dataFile = './data/' + this.name() + '.json';
@@ -24,7 +24,7 @@ var Data = (function () {
         });
         return later.promise;
     };
-    Data.prototype.post = function (req) {
+    Data.prototype.post = function (route) {
         var contextLog = '[' + this.name() + '.get] ';
         var laterAction = Q.defer();
         return laterAction.promise;
@@ -36,22 +36,26 @@ var Data = (function () {
 })();
 exports.Data = Data;
 var HtmlView = (function () {
-    function HtmlView(viewName, layout) {
+    function HtmlView(viewName, layout, moredata) {
         this.viewName = viewName;
-        this.layout = layout;
         this._resources = {};
         this._name = '';
         this._name = viewName;
+        this._layout = layout;
+        if (moredata)
+            for (var attrname in moredata) {
+                this[attrname] = moredata[attrname];
+            }
     }
     HtmlView.prototype.name = function () {
         return this._name;
     };
-    HtmlView.prototype.get = function (rxReq) {
-        var contextLog = _.str.sprintf('[%s] ', this.name());
-        console.log(_.str.sprintf('%s Fetching resource : [ %s ]', rxReq.route.path, contextLog));
-        return internals.viewDynamic(this.name(), this, this.layout);
+    HtmlView.prototype.get = function (route) {
+        var contextLog = _.str.sprintf('[HtmlView.%s] get', this.name());
+        console.log(_.str.sprintf('%s Fetching resource : "%s"', contextLog, route.path));
+        return internals.viewDynamic(this.name(), this, this._layout);
     };
-    HtmlView.prototype.post = function (req) {
+    HtmlView.prototype.post = function (route) {
         var contextLog = '[' + this.name() + '.get] ';
         var laterAction = Q.defer();
         return laterAction.promise;

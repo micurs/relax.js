@@ -34,8 +34,8 @@ export class Request {
 // Generic interface for a resource
 export interface Resource {
   name(): string;
-  get( route : Request ) : Q.Promise<Embodiment> ;
-  post( route : Request ) : Q.Promise<Embodiment> ;
+  get( route : routing.Route ) : Q.Promise<Embodiment> ;
+  post( route : routing.Route ) : Q.Promise<Embodiment> ;
 }
 
 // A Resource map is a collection of Resource arrays.
@@ -46,7 +46,9 @@ export interface ResourceMap {
 
 // Every resource is converted to their embodiment before they can be served
 export class Embodiment {
+
   constructor( private data : Buffer, private mimeType: string ) { }
+
   serve(response: http.ServerResponse) : void {
     console.log('[serve] bytes:'+this.data.length);
     response.writeHead(200, { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length } );
@@ -71,12 +73,15 @@ export class Container {
     return childArray[0];
   }
   // Add a resource of the given type as child
-  addResource( typeName: string, res: Resource ) {
+  addResource( typeName: string, newRes: Resource ) {
+    newRes['_version'] = site().version;
+    newRes['siteName'] = site().siteName;
     var childArray = this._resources[typeName];
     if ( childArray === undefined )
-      this._resources[typeName] = [ res ];
-    else
-      childArray.push(res);
+      this._resources[typeName] = [ newRes ];
+    else {
+      childArray.push(newRes);
+    }
   }
 }
 
@@ -86,9 +91,11 @@ export class Site extends Container implements Resource {
   private _name: string = "site";
   private static _instance : Site = null;
   private _version : string = '0.0.1';
+  private _siteName : string = 'site';
 
-  constructor( public siteName:string ) {
+  constructor( siteName:string ) {
     super();
+    this._siteName = siteName;
     if(Site._instance){
       throw new Error("Error: Only one site is allowed.");
     }
@@ -97,33 +104,29 @@ export class Site extends Container implements Resource {
 
   name(): string { return this._name; }
 
-  public static $( name:string ) : Site
+  get version():string {
+    return this._version;
+  }
+  get siteName():string {
+    return this._siteName;
+  }
+
+  public static $( name?:string ):Site
   {
-    if(Site._instance === null) {
+    if(Site._instance === null && name ) {
       Site._instance = new Site(name);
     }
     return Site._instance;
   }
 
-/*
-  addResource( resource : Resource ) : boolean {
-    resource['_version'] = this._version;
-    resource['siteName'] = this.siteName;
-    this._resources[resource.name()].push(resource);
-    console.log( _.str.sprintf('[addResource] : %s', JSON.stringify(_.keys(this._resources)) ) );
-    return false;
-  }
-*/
-
-  // Return the server to be used to run this site.
   serve() : http.Server {
-    return http.createServer( ( msg: http.ServerRequest , response : http.ServerResponse ) => {
+    return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
       console.log('\n');
       // here we need to route the call to the appropriate class:
-      var rxReq : Request = new Request();
-      rxReq.route = routing.fromUrl(msg);
+      var route : routing.Route = routing.fromUrl(msg);
 
-      this.get( rxReq )
+      // TODO : add support for post, delete, update
+      this.get( route )
         .then( ( rep : Embodiment ) => {
 
           rep.serve(response);
@@ -137,25 +140,24 @@ export class Site extends Container implements Resource {
     });
   }
 
-  // Resource interface implementation starts here
-
-  get( req : Request ) : Q.Promise< Embodiment > {
+  get( route : routing.Route ) : Q.Promise< Embodiment > {
     var contextLog = '['+this.name()+'.get] ';
     // console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
 
-    if ( req.route.static ) {
-      console.log( contextLog + 'Static -> '+ req.route.pathname );
-      return internals.viewStatic( req.route.pathname );
+    if ( route.static ) {
+      console.log( contextLog + 'Static -> '+ route.pathname );
+      return internals.viewStatic( route.pathname );
     }
     else {
       console.log( contextLog + 'Dynamic -> following the path... ' );
-      if ( req.route.path.length > 1 ) {
-        if ( req.route.path[1] in this._resources ) {
-          console.log( contextLog + 'Found Resource for '+ req.route.path[1] );
-          var innerReq = _.clone(req);// We should remove the first item from the path in the innerReq
-          var childTypename = req.route.path[1];
+      if ( route.path.length > 1 ) {
+        if ( route.path[1] in this._resources ) {
+          var partialRoute = _.clone(route);
+          partialRoute.path.splice(0,1);
+          var childTypename = partialRoute.path[0];
           var childResource = super.getFirstMatching(childTypename);
-          return childResource.get( innerReq );
+          console.log(_.str.sprintf('%s Found Resource for "%s" -> %s',contextLog,childTypename,childResource.name() ));
+          return childResource.get( partialRoute );
         }
       }
       // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );
@@ -163,13 +165,14 @@ export class Site extends Container implements Resource {
     }
   }
 
-  post( req : Request ) : Q.Promise< Embodiment > {
+  post( req : routing.Route ) : Q.Promise< Embodiment > {
     var contextLog = '['+this.name()+'.get] ';
     var laterAction = Q.defer< Embodiment >();
     return laterAction.promise;
   }
+
 }
 
-export function site( name : string ) : Site {
+export function site( name?: string ) : Site {
   return Site.$(name);
 }

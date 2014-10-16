@@ -47,12 +47,15 @@ var Container = (function () {
         }
         return childArray[0];
     };
-    Container.prototype.addResource = function (typeName, res) {
+    Container.prototype.addResource = function (typeName, newRes) {
+        newRes['_version'] = site().version;
+        newRes['siteName'] = site().siteName;
         var childArray = this._resources[typeName];
         if (childArray === undefined)
-            this._resources[typeName] = [res];
-        else
-            childArray.push(res);
+            this._resources[typeName] = [newRes];
+        else {
+            childArray.push(newRes);
+        }
     };
     return Container;
 })();
@@ -61,9 +64,10 @@ var Site = (function (_super) {
     __extends(Site, _super);
     function Site(siteName) {
         _super.call(this);
-        this.siteName = siteName;
         this._name = "site";
         this._version = '0.0.1';
+        this._siteName = 'site';
+        this._siteName = siteName;
         if (Site._instance) {
             throw new Error("Error: Only one site is allowed.");
         }
@@ -72,8 +76,22 @@ var Site = (function (_super) {
     Site.prototype.name = function () {
         return this._name;
     };
+    Object.defineProperty(Site.prototype, "version", {
+        get: function () {
+            return this._version;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Site.prototype, "siteName", {
+        get: function () {
+            return this._siteName;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Site.$ = function (name) {
-        if (Site._instance === null) {
+        if (Site._instance === null && name) {
             Site._instance = new Site(name);
         }
         return Site._instance;
@@ -82,9 +100,8 @@ var Site = (function (_super) {
         var _this = this;
         return http.createServer(function (msg, response) {
             console.log('\n');
-            var rxReq = new Request();
-            rxReq.route = routing.fromUrl(msg);
-            _this.get(rxReq).then(function (rep) {
+            var route = routing.fromUrl(msg);
+            _this.get(route).then(function (rep) {
                 rep.serve(response);
             }).fail(function (error) {
                 response.writeHead(404, { "Content-Type": "text/html" });
@@ -93,21 +110,22 @@ var Site = (function (_super) {
             }).done();
         });
     };
-    Site.prototype.get = function (req) {
+    Site.prototype.get = function (route) {
         var contextLog = '[' + this.name() + '.get] ';
-        if (req.route.static) {
-            console.log(contextLog + 'Static -> ' + req.route.pathname);
-            return internals.viewStatic(req.route.pathname);
+        if (route.static) {
+            console.log(contextLog + 'Static -> ' + route.pathname);
+            return internals.viewStatic(route.pathname);
         }
         else {
             console.log(contextLog + 'Dynamic -> following the path... ');
-            if (req.route.path.length > 1) {
-                if (req.route.path[1] in this._resources) {
-                    console.log(contextLog + 'Found Resource for ' + req.route.path[1]);
-                    var innerReq = _.clone(req);
-                    var childTypename = req.route.path[1];
+            if (route.path.length > 1) {
+                if (route.path[1] in this._resources) {
+                    var partialRoute = _.clone(route);
+                    partialRoute.path.splice(0, 1);
+                    var childTypename = partialRoute.path[0];
                     var childResource = _super.prototype.getFirstMatching.call(this, childTypename);
-                    return childResource.get(innerReq);
+                    console.log(_.str.sprintf('%s Found Resource for "%s" -> %s', contextLog, childTypename, childResource.name()));
+                    return childResource.get(partialRoute);
                 }
             }
             return internals.viewDynamic(this.name(), this);

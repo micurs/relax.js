@@ -21,7 +21,14 @@
       <h1><%= siteName %></h1>
       <p>
         <ul>
-          <%= _.reduce( _.values( _resources), function( m ,item ) { return m = m+ '<li><a href="/'+item.name()+'">'+item.name()+'</a></li>'}, '')  %>
+          <% _.each( _resources , function( resArray ) {
+               print( _.reduce( _.values( resArray),
+                                function( m , childRes ) {
+                                  return m = m+ '<li><a href="/'+childRes.name()+'">'+childRes.name()+'</a></li>'
+                                },
+                                ''));
+             });
+          %>
         </ul>
       </p>
     </div>

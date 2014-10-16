@@ -26,7 +26,8 @@ export class Data implements relaxjs.Resource {
   constructor( name: string ) { this._name = name; }
 
   name(): string { return this._name; }
-  get( rxReq: relaxjs.Request ) : Q.Promise< relaxjs.Embodiment > {
+
+  get( route: routing.Route ) : Q.Promise< relaxjs.Embodiment > {
     // <todo>return child resource if specified in the path</todo>
 
     // Here we return the embodiment of the data representing this resource.
@@ -42,7 +43,7 @@ export class Data implements relaxjs.Resource {
       });
     return later.promise;
   }
-  post( req : relaxjs.Request ) : Q.Promise< relaxjs.Embodiment > {
+  post( route: routing.Route  ) : Q.Promise< relaxjs.Embodiment > {
     var contextLog = '['+this.name()+'.get] ';
     var laterAction = Q.defer< relaxjs.Embodiment >();
     return laterAction.promise;
@@ -58,25 +59,32 @@ export class Data implements relaxjs.Resource {
 export class HtmlView implements relaxjs.Resource {
   private _resources:relaxjs.ResourceMap = {};
   private _name: string = '';
+  private _layout: string;
 
-  constructor( public viewName: string, public layout?: string ) {
+  constructor( public viewName: string, layout?: string, moredata?: any ) {
     this._name = viewName;
+    this._layout = layout;
+    if ( moredata )
+      for (var attrname in moredata) { this[attrname] = moredata[attrname]; }
   }
 
   name(): string { return this._name; }
-  get(  rxReq: relaxjs.Request  ) : Q.Promise< relaxjs.Embodiment > {
-    var contextLog = _.str.sprintf('[%s] ',this.name());
-    console.log( _.str.sprintf('%s Fetching resource : [ %s ]', rxReq.route.path,contextLog) );
+
+  get(  route: routing.Route  ) : Q.Promise< relaxjs.Embodiment > {
+    var contextLog = _.str.sprintf('[HtmlView.%s] get',this.name());
+    console.log( _.str.sprintf('%s Fetching resource : "%s"',contextLog,route.path) );
     // <todo>return child resource if specified in the path</todo>
 
     // Here we compute/fetch/create the view data.
-    return internals.viewDynamic(this.name(),this, this.layout );
+    return internals.viewDynamic(this.name(), this, this._layout );
   }
-  post( req : relaxjs.Request ) : Q.Promise< relaxjs.Embodiment > {
+
+  post( route: routing.Route  ) : Q.Promise< relaxjs.Embodiment > {
     var contextLog = '['+this.name()+'.get] ';
     var laterAction = Q.defer< relaxjs.Embodiment >();
     return laterAction.promise;
   }
+
   addResource( res : relaxjs.Resource ) : boolean {
     return false;
   }

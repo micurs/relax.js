@@ -57,12 +57,13 @@ export function viewDynamic( viewName: string,
   var laterAct = Q.defer< relaxjs.Embodiment >();
   var readFile = Q.denodeify(fs.readFile);
 
-  // console.log( _.str.sprintf('%s  dynamic %s for %s',fname,viewName,JSON.stringify(viewData,null,'  ') ) );
+  //console.log( _.str.sprintf('%s  dynamic %s for %s',fname,viewName,JSON.stringify(viewData,null,'  ') ) );
   var templateFilename = './views/'+viewName+'._';
-  if ( viewName = 'site') {
+  if ( viewName == 'site') {
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
-  if ( layoutName !== undefined ) {
+  if ( layoutName ) {
+    console.log( _.str.sprintf('%s Using Layout "%s"',fname,layoutName) );
     var layoutFilename = './views/_'+layoutName+'._';
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
              readFile( layoutFilename,    { 'encoding':'utf8'} ) ])
@@ -82,6 +83,7 @@ export function viewDynamic( viewName: string,
     });
   }
   else {
+    console.log( _.str.sprintf('%s Using View "%s"',fname,templateFilename) );
     readFile( templateFilename,  { 'encoding':'utf8'} )
     .then( ( content:string ) => {
       try {
