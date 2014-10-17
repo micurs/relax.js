@@ -32,7 +32,6 @@ function fromUrl(request) {
     var extension = path.extname(reqToRoute.pathname);
     var resources = reqToRoute.pathname.split('/');
     resources.unshift('site');
-    resources.push('END');
     var route = new Route();
     route.pathname = reqToRoute.pathname;
     route.query = reqToRoute.search;

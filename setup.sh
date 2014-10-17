@@ -1,22 +1,19 @@
 #!/usr/bin/env bash
 
 function install_dependency {
-    echo " - Installing dependency: $1"
-    sudo apt-get -y install $1  > /dev/null
+  echo " - Installing dependency: $1"
+  sudo apt-get -y install $1  > /dev/null
 }
 
 function node_install {
-    echo " - Node install: $1"
-    sudo npm install -g $1  > /dev/null
+  echo " - Node install: $1"
+  sudo npm install -g $1  > /dev/null
 }
-
 
 echo "+ apt-get update"
 sudo apt-get update > /dev/null
-
 install_dependency build-essential
 install_dependency git-core
-
 
 echo "+ Prepare this machine to get node ..."
 sudo apt-get --purge remove node

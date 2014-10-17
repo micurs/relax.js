@@ -58,7 +58,6 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   var extension = path.extname(reqToRoute.pathname)
   var resources : string[] = reqToRoute.pathname.split('/');//.splice(0,1);
   resources.unshift('site');
-  resources.push('END')
 
   var route = new Route();
   route.pathname = reqToRoute.pathname;

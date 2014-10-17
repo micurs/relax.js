@@ -98,6 +98,15 @@ export class Container {
     }
   }
 
+  getByIdx( name: string, idx: number ) : Resource {
+    return this._resources[name][idx];
+  }
+
+  childTypeCount() : number {
+    return Object.keys(this._resources).length;
+  }
+
+
 }
 
 // Root object for the application is the Site.
@@ -166,15 +175,26 @@ export class Site extends Container implements Resource {
     }
     else {
       if ( route.path.length > 1 ) {
+        var childResource: Resource;
         var innerRoute : routing.Route = route.stepThrough(1);
-        console.log('[TEST] newRoute is '+ innerRoute.getNextStep() );
         console.log( _.str.sprintf('%s Dynamic -> following the next step of innerRoute: "%s" ',contextLog, innerRoute.getNextStep() ) );
         if ( innerRoute.getNextStep() in this._resources ) {
-          var childResource = super.getFirstMatching(innerRoute.getNextStep());
-          if ( childResource ) {
-            console.log(_.str.sprintf('%s Found Resource for "%s" -> %s',contextLog,innerRoute.getNextStep(),childResource.name() ));
-            return childResource.get( innerRoute );
+          if ( this.childTypeCount() == 1 ) {
+            console.log( _.str.sprintf('%s first matching "%s" ',contextLog, innerRoute.getNextStep() ) );
+            childResource = this.getFirstMatching(innerRoute.getNextStep());
           }
+          else if ( this.childTypeCount() > 1 ) {
+            var idx:number = parseInt(innerRoute.path[1]);
+            console.log( _.str.sprintf('%s %d matching "%s" ',contextLog, idx, innerRoute.getNextStep() ) );
+            childResource = this.getByIdx(innerRoute.getNextStep(), idx);
+          }
+        }
+        if ( childResource ) {
+          console.log(_.str.sprintf('%s Found Resource for "%s" -> %s',contextLog,innerRoute.getNextStep(),childResource.name() ));
+          return childResource.get( innerRoute );
+        }
+        else {
+          // todo: emit error!
         }
       }
       // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );

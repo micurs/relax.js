@@ -69,6 +69,12 @@ var Container = (function () {
             childArray.push(newRes);
         }
     };
+    Container.prototype.getByIdx = function (name, idx) {
+        return this._resources[name][idx];
+    };
+    Container.prototype.childTypeCount = function () {
+        return Object.keys(this._resources).length;
+    };
     return Container;
 })();
 exports.Container = Container;
@@ -133,15 +139,25 @@ var Site = (function (_super) {
         }
         else {
             if (route.path.length > 1) {
+                var childResource;
                 var innerRoute = route.stepThrough(1);
-                console.log('[TEST] newRoute is ' + innerRoute.getNextStep());
                 console.log(_.str.sprintf('%s Dynamic -> following the next step of innerRoute: "%s" ', contextLog, innerRoute.getNextStep()));
                 if (innerRoute.getNextStep() in this._resources) {
-                    var childResource = _super.prototype.getFirstMatching.call(this, innerRoute.getNextStep());
-                    if (childResource) {
-                        console.log(_.str.sprintf('%s Found Resource for "%s" -> %s', contextLog, innerRoute.getNextStep(), childResource.name()));
-                        return childResource.get(innerRoute);
+                    if (this.childTypeCount() == 1) {
+                        console.log(_.str.sprintf('%s first matching "%s" ', contextLog, innerRoute.getNextStep()));
+                        childResource = this.getFirstMatching(innerRoute.getNextStep());
                     }
+                    else if (this.childTypeCount() > 1) {
+                        var idx = parseInt(innerRoute.path[1]);
+                        console.log(_.str.sprintf('%s %d matching "%s" ', contextLog, idx, innerRoute.getNextStep()));
+                        childResource = this.getByIdx(innerRoute.getNextStep(), idx);
+                    }
+                }
+                if (childResource) {
+                    console.log(_.str.sprintf('%s Found Resource for "%s" -> %s', contextLog, innerRoute.getNextStep(), childResource.name()));
+                    return childResource.get(innerRoute);
+                }
+                else {
                 }
             }
             return internals.viewDynamic(this.name(), this);
