@@ -57,7 +57,7 @@ export class Direction {
 //  home.users.put( 100, data)
 // --------------------------------------------------------------
 export function fromUrl( request: http.ServerRequest ) : Route {
-  var ctx = _.str.sprintf('[Routing.%s] ',arguments.callee.toString() );
+  var ctx = '[Routing.fromUrl] ';
   console.log( _.str.sprintf('%s Routing url: %s',ctx,request.url) );
 
   if ( !request.url )

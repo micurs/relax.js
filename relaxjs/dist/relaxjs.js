@@ -82,7 +82,7 @@ var Container = (function () {
         return counter;
     };
     Container.prototype.getDirection = function (route) {
-        var ctx = _.str.sprintf('[Container.%s] ', arguments.callee.toString());
+        var ctx = '[Container.getDirection]';
         var direction = new routing.Direction();
         direction.route = route.stepThrough(1);
         var childResName = direction.route.getNextStep();

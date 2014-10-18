@@ -29,7 +29,7 @@ var Direction = (function () {
 })();
 exports.Direction = Direction;
 function fromUrl(request) {
-    var ctx = _.str.sprintf('[Routing.%s] ', arguments.callee.toString());
+    var ctx = '[Routing.fromUrl] ';
     console.log(_.str.sprintf('%s Routing url: %s', ctx, request.url));
     if (!request.url)
         request.url = '/';

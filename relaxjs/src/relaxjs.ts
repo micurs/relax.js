@@ -114,7 +114,7 @@ export class Container {
   }
 
   getDirection( route : routing.Route ) : routing.Direction {
-    var ctx = _.str.sprintf('[Container.%s] ',arguments.callee.toString() );
+    var ctx = '[Container.getDirection]';
 
     var direction: routing.Direction = new routing.Direction();
     direction.route = route.stepThrough(1);
