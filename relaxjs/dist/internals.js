@@ -12,6 +12,20 @@ function emitCompileViewError(content, err, filename) {
     return _.str.sprintf('%s%s%s', errTitle, errMsg, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
+function emitError(content, filename) {
+    var fname = '[error]';
+    var errTitle = _.str.sprintf('<h1>%s Error while serving: %s </h1>', fname, filename);
+    var errMsg = _.str.sprintf('<p style="font-weight:bold;">Error: <span style="color:red;">%s</span></p>', content);
+    return _.str.sprintf('%s%s', errTitle, errMsg);
+}
+exports.emitError = emitError;
+function promiseError(msg, resName) {
+    console.log(msg);
+    var later = Q.defer();
+    later.reject(emitError(msg, resName));
+    return later.promise;
+}
+exports.promiseError = promiseError;
 function viewStatic(filename) {
     var fname = '[view static]';
     var mtype = mime.lookup(filename);

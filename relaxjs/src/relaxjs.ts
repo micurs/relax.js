@@ -12,6 +12,7 @@ import http = require("http");
 import fs = require("fs");
 import url = require('url');
 import path = require('path');
+import Q = require('q');
 import _ = require("underscore");
 _.str = require('underscore.string');
 
@@ -193,6 +194,7 @@ export class Site extends Container implements Resource {
         })
         .fail(function (error) {
           response.writeHead(404, {"Content-Type": "text/html"} );
+          response.write('Relax.js<hr/>');
           response.write(error);
           response.end();
         })
@@ -214,7 +216,7 @@ export class Site extends Container implements Resource {
           return direction.resource.get( direction.route );
         }
         else {
-          // todo: emit error!
+          return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid in request "%s"',ctx, route.pathname ), route.pathname );
         }
       }
       // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );
@@ -249,13 +251,16 @@ export class DynamicHtml extends Container implements Resource {
   setName( newName:string ) : void { this._name = newName; }
 
   get(  route: routing.Route  ) : Q.Promise< Embodiment > {
-    var contextLog = _.str.sprintf('[HtmlView.%s] get',this._template );
-    console.log( _.str.sprintf('%s Fetching resource : "%s"',contextLog,route.path) );
+    var ctx = _.str.sprintf('[HtmlView.%s] get',this._template );
+    console.log( _.str.sprintf('%s Fetching resource : "%s"',ctx,route.path) );
 
     if ( route.path.length > 1 ) {
-      // <todo>return child resource if specified in the path</todo>
-      var dir : routing.Direction = this.getDirection( route );
-      dir.resource.get( dir.route );
+      var direction = this.getDirection( route );
+      if ( direction.resource )
+        return direction.resource.get( direction.route );
+      else {
+        return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid request "%s"',ctx, route.pathname ), route.pathname );
+      }
     }
     else {
       // Here we compute/fetch/create the view data.

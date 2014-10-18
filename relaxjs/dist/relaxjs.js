@@ -6,6 +6,7 @@ var __extends = this.__extends || function (d, b) {
 };
 var http = require("http");
 var fs = require("fs");
+var Q = require('q');
 var _ = require("underscore");
 _.str = require('underscore.string');
 var internals = require('./internals');
@@ -161,6 +162,7 @@ var Site = (function (_super) {
                 rep.serve(response);
             }).fail(function (error) {
                 response.writeHead(404, { "Content-Type": "text/html" });
+                response.write('Relax.js<hr/>');
                 response.write(error);
                 response.end();
             }).done();
@@ -180,6 +182,7 @@ var Site = (function (_super) {
                     return direction.resource.get(direction.route);
                 }
                 else {
+                    return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
                 }
             }
             return internals.viewDynamic(this.name(), this);
@@ -215,11 +218,15 @@ var DynamicHtml = (function (_super) {
         this._name = newName;
     };
     DynamicHtml.prototype.get = function (route) {
-        var contextLog = _.str.sprintf('[HtmlView.%s] get', this._template);
-        console.log(_.str.sprintf('%s Fetching resource : "%s"', contextLog, route.path));
+        var ctx = _.str.sprintf('[HtmlView.%s] get', this._template);
+        console.log(_.str.sprintf('%s Fetching resource : "%s"', ctx, route.path));
         if (route.path.length > 1) {
-            var dir = this.getDirection(route);
-            dir.resource.get(dir.route);
+            var direction = this.getDirection(route);
+            if (direction.resource)
+                return direction.resource.get(direction.route);
+            else {
+                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
+            }
         }
         else {
             return internals.viewDynamic(this._template, this, this._layout);

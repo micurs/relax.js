@@ -14,8 +14,7 @@ _.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
 
-// Internal function to emit error/warning messages
-// ------------------------------------------------------------------------------
+// Internal functions to emit error/warning messages
 export function emitCompileViewError( content: string, err: TypeError, filename: string ) : string {
   var fname = '[view error]';
   var errTitle = _.str.sprintf('<h1>%s Error while compiling: %s </h1>',fname, filename );
@@ -24,6 +23,19 @@ export function emitCompileViewError( content: string, err: TypeError, filename:
   return _.str.sprintf('%s%s%s',errTitle,errMsg,code);
 }
 
+export function emitError( content: string, filename: string ) : string {
+  var fname = '[error]';
+  var errTitle = _.str.sprintf('<h1>%s Error while serving: %s </h1>',fname, filename );
+  var errMsg = _.str.sprintf('<p style="font-weight:bold;">Error: <span style="color:red;">%s</span></p>',content );
+  return _.str.sprintf('%s%s',errTitle,errMsg);
+}
+
+export function promiseError( msg: string, resName : string ) : Q.Promise< relaxjs.Embodiment > {
+  console.log(msg);
+  var later = Q.defer< relaxjs.Embodiment >();
+  later.reject( emitError(msg, resName )  );
+  return later.promise;
+}
 
 // Realize a view from a generic get for a static file
 // Return a promise that will return the full content of the view.
