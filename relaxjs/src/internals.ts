@@ -36,7 +36,7 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
   // console.log( _.str.sprintf('%s %s',fname,staticFile) );
   fs.readFile( staticFile, function( err : Error, content : Buffer ) {
     if ( err ) {
-      console.log( _.str.sprintf('%s ERROR file "%s" not found',fname,staticFile) );
+      // console.log( _.str.sprintf('%s ERROR file "%s" not found',fname,staticFile) );
       laterAction.reject( filename + ' not found');
     }
     else {

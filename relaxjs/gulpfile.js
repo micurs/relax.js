@@ -53,7 +53,6 @@ var typescript_options = {
 
 var sources_to_compile = [ './src/relaxjs.ts',
                            './src/internals.ts',
-                           './src/resources.ts',
                            './src/routing.ts' ];
 var sources_to_copy = [ './src/relaxjs.d.ts' ];
 var dests = [ './dist/*.js' ];
@@ -76,7 +75,7 @@ gulp.task('relaxjs_compile', function() {
 gulp.task('lint', ['relaxjs_compile', 'relaxjs_copy' ], function() {
   return gulp.src(dests)
     .pipe(jshint())
-    .pipe(jshint.reporter(stylish));
+    .pipe(jshint.reporter('default'));
 });
 
 

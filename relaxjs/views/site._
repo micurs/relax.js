@@ -23,8 +23,10 @@
         <ul>
           <% _.each( _resources , function( resArray ) {
                print( _.reduce( _.values( resArray),
-                                function( m , childRes ) {
-                                  return m = m+ '<li><a href="/'+childRes.name()+'">'+childRes.name()+'</a></li>'
+                                function( m , childRes, index ) {
+                                  var link = childRes.name()+( ( index>0 ) ? '/'+index : '' );
+                                  var name = childRes.name()+( ( index>0 ) ? ' ('+index+')' : '');
+                                  return m = m+ '<li><a href="/'+link+'">'+name+'</a></li>'
                                 },
                                 ''));
              });

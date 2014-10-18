@@ -4,6 +4,8 @@
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 
+///<reference path='./relaxjs.ts' />
+
 import http = require("http");
 import fs = require('fs');
 import url = require('url');
@@ -13,7 +15,9 @@ import mime = require('mime');
 import _ = require("underscore");
 _.str = require('underscore.string');
 
-// ================================================================
+import relaxjs = require('./relaxjs');
+
+// Route: helper class to routing requests to the correct resource
 export class Route {
   verb: string;
   static : boolean = true; // if true it means this rout is mapping to a file
@@ -34,9 +38,14 @@ export class Route {
   }
 
   getNextStep() : string {
-    console.log('[Route.nextStep] '+this.path[0] );
+    // console.log('[Route.nextStep] '+this.path[0] );
     return this.path[0];
   }
+}
+
+export class Direction {
+  resource : relaxjs.Resource;
+  route: Route;
 }
 
 // --------------------------------------------------------------
@@ -48,8 +57,8 @@ export class Route {
 //  home.users.put( 100, data)
 // --------------------------------------------------------------
 export function fromUrl( request: http.ServerRequest ) : Route {
-  var fname = '[Routing.fromUrl] ';
-  console.log( _.str.sprintf('%s Routing url: %s',fname,request.url) );
+  var ctx = _.str.sprintf('[Routing.%s] ',arguments.callee.toString() );
+  console.log( _.str.sprintf('%s Routing url: %s',ctx,request.url) );
 
   if ( !request.url )
     request.url = '/';
@@ -63,7 +72,7 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   route.pathname = reqToRoute.pathname;
   route.query = reqToRoute.search;
   route.path = _.filter( resources, (res) => res.length>0 );
-  console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',fname, route.path, extension ) );
+  console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',ctx, route.path, extension ) );
   route.static = ( extension.length>0 ) ;
   return route;
 }

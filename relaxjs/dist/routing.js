@@ -17,15 +17,20 @@ var Route = (function () {
         return newRoute;
     };
     Route.prototype.getNextStep = function () {
-        console.log('[Route.nextStep] ' + this.path[0]);
         return this.path[0];
     };
     return Route;
 })();
 exports.Route = Route;
+var Direction = (function () {
+    function Direction() {
+    }
+    return Direction;
+})();
+exports.Direction = Direction;
 function fromUrl(request) {
-    var fname = '[Routing.fromUrl] ';
-    console.log(_.str.sprintf('%s Routing url: %s', fname, request.url));
+    var ctx = _.str.sprintf('[Routing.%s] ', arguments.callee.toString());
+    console.log(_.str.sprintf('%s Routing url: %s', ctx, request.url));
     if (!request.url)
         request.url = '/';
     var reqToRoute = url.parse(request.url, true);
@@ -36,7 +41,7 @@ function fromUrl(request) {
     route.pathname = reqToRoute.pathname;
     route.query = reqToRoute.search;
     route.path = _.filter(resources, function (res) { return res.length > 0; });
-    console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"', fname, route.path, extension));
+    console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"', ctx, route.path, extension));
     route.static = (extension.length > 0);
     return route;
 }

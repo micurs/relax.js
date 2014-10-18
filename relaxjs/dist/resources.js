@@ -38,38 +38,3 @@ var Data = (function () {
     return Data;
 })();
 exports.Data = Data;
-var HtmlView = (function () {
-    function HtmlView(viewName, layout, moredata) {
-        this._resources = {};
-        this._name = '';
-        this._template = '';
-        this._name = viewName;
-        this._template = viewName;
-        this._layout = layout;
-        if (moredata)
-            for (var attrname in moredata) {
-                this[attrname] = moredata[attrname];
-            }
-    }
-    HtmlView.prototype.name = function () {
-        return this._name;
-    };
-    HtmlView.prototype.setName = function (newName) {
-        this._name = newName;
-    };
-    HtmlView.prototype.get = function (route) {
-        var contextLog = _.str.sprintf('[HtmlView.%s] get', this._template);
-        console.log(_.str.sprintf('%s Fetching resource : "%s"', contextLog, route.path));
-        return internals.viewDynamic(this._template, this, this._layout);
-    };
-    HtmlView.prototype.post = function (route) {
-        var contextLog = '[' + this.name() + '.get] ';
-        var laterAction = Q.defer();
-        return laterAction.promise;
-    };
-    HtmlView.prototype.addResource = function (res) {
-        return false;
-    };
-    return HtmlView;
-})();
-exports.HtmlView = HtmlView;

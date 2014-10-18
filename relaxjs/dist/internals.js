@@ -19,7 +19,6 @@ function viewStatic(filename) {
     var staticFile = '.' + filename;
     fs.readFile(staticFile, function (err, content) {
         if (err) {
-            console.log(_.str.sprintf('%s ERROR file "%s" not found', fname, staticFile));
             laterAction.reject(filename + ' not found');
         }
         else {

@@ -3,12 +3,13 @@
 ///<reference path='../typings/underscore.string/underscore.string.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
-
-///<reference path='./internals.ts' />
-///<reference path='./routing.ts' />
-///<reference path='./resources.ts' />
+/*
+ ///<reference path='./internals.ts' />
+ ///<reference path='./routing.ts' />
+*/
 
 import http = require("http");
+import fs = require("fs");
 import url = require('url');
 import path = require('path');
 import _ = require("underscore");
@@ -16,10 +17,9 @@ _.str = require('underscore.string');
 
 import internals = require('./internals');
 import routing = require('./routing');
-import resources = require('./resources');
 
 exports.routing = routing;
-exports.resources = resources;
+// exports.resources = resources;
 
 export function relax() : void {
   console.log('relax');
@@ -74,7 +74,7 @@ export class Container {
     return childArray[0];
   }
   // Add a resource of the given type as child
-  addResource( typeName: string, newRes: Resource ) {
+  addResource( typeName: string, newRes: Resource ) : void {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
     newRes.setName(typeName);
@@ -86,7 +86,7 @@ export class Container {
     }
   }
   // Add a resource of the given type as child
-  add( newRes: Resource ) {
+  add( newRes: Resource ) : void {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
     var typeName = newRes.name();
@@ -102,10 +102,47 @@ export class Container {
     return this._resources[name][idx];
   }
 
-  childTypeCount() : number {
-    return Object.keys(this._resources).length;
+  childTypeCount( typeName: string ) : number {
+    return this._resources[typeName].length;
+//    return Object.keys(this._resources[typeName]).length;
   }
 
+  childCount() : number {
+    var counter : number = 0;
+    _.each< Resource[]>( this._resources, ( arrayItem : Resource[] ) => { counter += arrayItem.length; } );
+    return counter;
+  }
+
+  getDirection( route : routing.Route ) : routing.Direction {
+    var ctx = _.str.sprintf('[Container.%s] ',arguments.callee.toString() );
+
+    var direction: routing.Direction = new routing.Direction();
+    direction.route = route.stepThrough(1);
+    var childResName = direction.route.getNextStep();
+    console.log( _.str.sprintf('%s following the next step in: "%s" ',ctx, direction.route.path ) );
+    if ( childResName in this._resources ) {
+      var childResCount = this.childTypeCount(childResName);
+      if ( childResCount == 1 ) {
+        console.log( _.str.sprintf('%s ONLY ONE matching "%s" ',ctx, childResName ) );
+        direction.resource = this.getFirstMatching(childResName);
+      }
+      else if ( childResCount > 1 ) {
+        var idx:number = 0;
+        if ( direction.route.path[1] !== undefined ) {
+          idx = parseInt(direction.route.path[1]) ;
+          if ( isNaN(idx) ) {
+            idx = 0;
+          }
+          else {
+            direction.route = direction.route.stepThrough(1);
+          }
+        }
+        console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
+        direction.resource = this.getByIdx(childResName, idx);
+      }
+    }
+    return direction;
+  }
 
 }
 
@@ -136,8 +173,7 @@ export class Site extends Container implements Resource {
     return this._siteName;
   }
 
-  public static $( name?:string ):Site
-  {
+  public static $( name?:string ):Site {
     if(Site._instance === null && name ) {
       Site._instance = new Site(name);
     }
@@ -153,7 +189,6 @@ export class Site extends Container implements Resource {
       // TODO : add support for post, delete, update
       this.get( route )
         .then( ( rep : Embodiment ) => {
-
           rep.serve(response);
         })
         .fail(function (error) {
@@ -166,32 +201,17 @@ export class Site extends Container implements Resource {
   }
 
   get( route : routing.Route ) : Q.Promise< Embodiment > {
-    var contextLog = '['+this.name()+'.get] ';
-    // console.log( contextLog + 'Fetching the resource : [ '+ route.path +' ]' );
-
+    var ctx = '['+this.name()+'.get] ';
+    console.log(ctx);
     if ( route.static ) {
-      console.log( contextLog + 'Static -> '+ route.pathname );
       return internals.viewStatic( route.pathname );
     }
     else {
       if ( route.path.length > 1 ) {
-        var childResource: Resource;
-        var innerRoute : routing.Route = route.stepThrough(1);
-        console.log( _.str.sprintf('%s Dynamic -> following the next step of innerRoute: "%s" ',contextLog, innerRoute.getNextStep() ) );
-        if ( innerRoute.getNextStep() in this._resources ) {
-          if ( this.childTypeCount() == 1 ) {
-            console.log( _.str.sprintf('%s first matching "%s" ',contextLog, innerRoute.getNextStep() ) );
-            childResource = this.getFirstMatching(innerRoute.getNextStep());
-          }
-          else if ( this.childTypeCount() > 1 ) {
-            var idx:number = parseInt(innerRoute.path[1]);
-            console.log( _.str.sprintf('%s %d matching "%s" ',contextLog, idx, innerRoute.getNextStep() ) );
-            childResource = this.getByIdx(innerRoute.getNextStep(), idx);
-          }
-        }
-        if ( childResource ) {
-          console.log(_.str.sprintf('%s Found Resource for "%s" -> %s',contextLog,innerRoute.getNextStep(),childResource.name() ));
-          return childResource.get( innerRoute );
+        var direction = this.getDirection(route);
+        if ( direction.resource ) {
+          console.log(_.str.sprintf('%s found "%s"',ctx,direction.resource.name() ));
+          return direction.resource.get( direction.route );
         }
         else {
           // todo: emit error!
@@ -203,6 +223,82 @@ export class Site extends Container implements Resource {
   }
 
   post( req : routing.Route ) : Q.Promise< Embodiment > {
+    var contextLog = '['+this.name()+'.get] ';
+    var laterAction = Q.defer< Embodiment >();
+    return laterAction.promise;
+  }
+
+}
+
+export class DynamicHtml extends Container implements Resource {
+  private _name: string = '';
+  private _template: string = '';
+  private _layout: string;
+
+
+  constructor( viewName: string, layout?: string, moredata?: any ) {
+    super();
+    this._name = viewName;
+    this._template = viewName;
+    this._layout = layout;
+    if ( moredata )
+      for (var attrname in moredata) { this[attrname] = moredata[attrname]; }
+  }
+
+  name(): string { return this._name; }
+  setName( newName:string ) : void { this._name = newName; }
+
+  get(  route: routing.Route  ) : Q.Promise< Embodiment > {
+    var contextLog = _.str.sprintf('[HtmlView.%s] get',this._template );
+    console.log( _.str.sprintf('%s Fetching resource : "%s"',contextLog,route.path) );
+
+    if ( route.path.length > 1 ) {
+      // <todo>return child resource if specified in the path</todo>
+      var dir : routing.Direction = this.getDirection( route );
+      dir.resource.get( dir.route );
+    }
+    else {
+      // Here we compute/fetch/create the view data.
+      return internals.viewDynamic(this._template, this, this._layout );
+    }
+  }
+
+  post( route: routing.Route  ) : Q.Promise< Embodiment > {
+    var contextLog = '['+this.name()+'.get] ';
+    var laterAction = Q.defer< Embodiment >();
+    return laterAction.promise;
+  }
+}
+
+
+export class Data extends Container implements Resource {
+  private _name:string = '';
+
+  constructor( name: string ) {
+    super();
+    this._name = name;
+  }
+
+  name(): string { return this._name; }
+  setName( newName:string ) : void { this._name = newName; }
+
+  get( route: routing.Route ) : Q.Promise< Embodiment > {
+    // <todo>return child resource if specified in the path</todo>
+
+    // Here we return the embodiment of the data representing this resource.
+    var later = Q.defer< Embodiment >();
+    var readFile = Q.denodeify(fs.readFile);
+    var dataFile = './data/'+this.name()+'.json';
+    readFile( dataFile)
+      .then( (content: Buffer ) => {
+        later.resolve(new Embodiment(content, 'application/json' ));
+      })
+      .catch( ( err : Error ) => {
+        later.reject( internals.emitCompileViewError('N/A',err, dataFile ) );
+      });
+    return later.promise;
+  }
+  post( route: routing.Route  ) : Q.Promise< Embodiment > {
     var contextLog = '['+this.name()+'.get] ';
     var laterAction = Q.defer< Embodiment >();
     return laterAction.promise;
