@@ -36,6 +36,7 @@ function fromUrl(request) {
     var extension = path.extname(reqToRoute.pathname);
     var resources = reqToRoute.pathname.split('/');
     resources.unshift('site');
+    resources = _(resources).map(function (item) { return decodeURI(item); });
     var route = new Route();
     route.pathname = reqToRoute.pathname;
     route.query = reqToRoute.search;

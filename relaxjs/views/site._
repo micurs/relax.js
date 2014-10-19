@@ -3,38 +3,90 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="/public/components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet" media="screen">
   <!-- Bootstrap theme -->
-  <link href="/public/components/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet">
+  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css" rel="stylesheet">
   <title><%= siteName %></title>
+  <style>
+    body {
+      padding-top: 0px;
+      padding-bottom: 0px;
+      font-size: 15px;
+    }
+
+    .navbar {
+      margin-bottom: 20px;
+    }
+
+  </style>
 </head>
 <body>
-  <div class="navbar navbar-inverse" role="navigation">
-    <div class="container">
-        <div class="navbar-header">
-          <a class="navbar-brand" href="#">Relax <%= _version %></a>
+  <div class="navbar navbar-default" role="navigation">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <div class="container-fluid">
+            <div class="navbar-header">
+              <a class="navbar-brand" href="#"><i class="fa fa-chevron-circle-right"></i> relax.js v.<%= _version %></a>
+            </div>
         </div>
+      </div>
     </div>
   </div>
-  <div class="container">
+  <div class="container-fluid">
     <div class="jumbotron">
-      <h1><%= siteName %></h1>
-      <p>
-        <ul>
-          <% _.each( _resources , function( resArray ) {
-               print( _.reduce( _.values( resArray),
-                                function( m , childRes, index ) {
-                                  var link = childRes.name()+( ( index>0 ) ? '/'+index : '' );
-                                  var name = childRes.name()+( ( index>0 ) ? ' ('+index+')' : '');
-                                  return m = m+ '<li><a href="/'+link+'">'+name+'</a></li>'
-                                },
-                                ''));
-             });
-          %>
+      <h1>Welcome to <%= siteName %></h1>
+
+    </div>
+    <div class="row">
+      <div class="col-md-8">
+        <h2>Site Resources</h2>
+        <p>
+          <ul class="fa-ul">
+            <% _.each( _resources , function( resArray ) {
+                 print( _.reduce( _.values( resArray),
+                                  function( m , childRes, index ) {
+                                    if ( index == 0 ) {
+                                      var link = childRes.name()+( ( index>0 ) ? '/'+index : '' );
+                                      var name = childRes.name()+( ( index>0 ) ? ' ('+index+')' : '');
+                                      m = m+ '<li><i class="fa-li fa fa-file-o"></i><a href="/'+link+'">'+name+'</a>'
+                                    }
+                                    else {
+                                      var link = childRes.name()+( ( index>0 ) ? '/'+index : '' );
+                                      var name = childRes.name()+( ( index>0 ) ? ' ('+index+')' : '');
+                                      m = m+ ',&nbsp;<a href="/'+link+'">('+index+')</a>'
+                                    }
+                                    if ( index >= resArray.length-1 )
+                                      m = m+"</li>";
+                                    return m;
+                                  },
+                                  ''));
+               });
+            %>
+          </ul>
+        </p>
+      </div>
+      <div class="col-md-4">
+        <h2>Info</h2>
+        <p>
+          Welcome to your relax.js site!
+        </p>
+        <p>
+          This page is automatically generated and it is the default view for your site as resource.
+        </p>
+        <h3>
+          Learn more
+        </h3>
+        <ul  class="fa-ul">
+          <li><i class="fa-li fa fa-chevron-circle-right"></i><a href="">relaxjs.io</a> official page</li>
+          <li><i class="fa-li fa fa-chevron-circle-right"></i><a href="">Gitub</a> official repo</li>
         </ul>
-      </p>
+        <h3>How to disable this page</h3>
+        <p>
+        </p>
+      </div>
     </div>
   </div>
-  <script src="/public/components/bootstrap/dist/js/bootstrap.min.js"></script>
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 </body>
 </html>

@@ -3,40 +3,37 @@ var r = require('relaxjs');
 // Create the application by assembling the resources
 var site = r.site('sample1.com');
 
-/*
-site.add( 'page',  {
+site.add( 'Page',  {
   view: 'helloworld',
   data: { message: "Hello World!" }
 });
 
-site.add( 'page', {
+site.add( 'Page', {
   view: 'helloworld',
   data: { message: "Asta la vista!" }
 });
 
-site.add( 'Hello', {
+site.add( 'Page', {
   view: 'helloworld',
-  data: { message: "Ciao Mondo Statico!" }
+  data: { message: "Ciao Mondo!" }
 });
-*/
+
+var staticResource = {
+  view : 'helloworld',
+  data : { message: "Hello Static World! This is data within my resource." }
+};
 
 var dynamicResource = {
   view : 'helloworld',
   onGet : function() {
-    console.log( ">>>>> Ciao Mondo Dinamico! As separate object" );
-    return { message: "Ciao Mondo Dinamico! As separate object" }
+    return { message: "Hello Dynamic World! This is data computed when the resource is requested." }
     }
 };
 
-site.add( 'page', dynamicResource );
 
-site.add( 'page', {
-  view : 'helloworld',
-  onGet : function() {
-    console.log( ">>>>>>> Ciao Mondo Dinamico!" );
-    return { message: "Ciao Mondo Dinamico! as in place object" }
-    }
-  });
+site.add( 'Static Hello', staticResource );
+
+site.add( 'Dynamic Hello', dynamicResource );
 
 // Create the application server for the site
 var appSrv = site.serve();
