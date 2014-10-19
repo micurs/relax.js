@@ -75,7 +75,7 @@ export function viewDynamic( viewName: string,
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
   if ( layoutName ) {
-    console.log( _.str.sprintf('%s Using Layout "%s"',fname,layoutName) );
+    // console.log( _.str.sprintf('%s Using Layout "%s"',fname,layoutName) );
     var layoutFilename = './views/_'+layoutName+'._';
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
              readFile( layoutFilename,    { 'encoding':'utf8'} ) ])
@@ -95,7 +95,7 @@ export function viewDynamic( viewName: string,
     });
   }
   else {
-    console.log( _.str.sprintf('%s Using View "%s"',fname,templateFilename) );
+    // console.log( _.str.sprintf('%s Using View "%s"',fname,templateFilename) );
     readFile( templateFilename,  { 'encoding':'utf8'} )
     .then( ( content:string ) => {
       try {

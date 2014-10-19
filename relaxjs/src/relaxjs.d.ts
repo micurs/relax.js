@@ -67,6 +67,7 @@ declare module "relaxjs" {
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
   }
 
+  /*
   export class DynamicHtml extends Container implements Resource {
     private _name: string;
     private _template: string;
@@ -92,7 +93,7 @@ declare module "relaxjs" {
       get( route: routing.Route )  : Q.Promise< Embodiment >;
       post( route: routing.Route  ) : Q.Promise< Embodiment > ;
     }
-
+    */
 
 
   }

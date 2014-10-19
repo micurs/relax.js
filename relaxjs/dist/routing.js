@@ -30,7 +30,6 @@ var Direction = (function () {
 exports.Direction = Direction;
 function fromUrl(request) {
     var ctx = '[Routing.fromUrl] ';
-    console.log(_.str.sprintf('%s Routing url: %s', ctx, request.url));
     if (!request.url)
         request.url = '/';
     var reqToRoute = url.parse(request.url, true);
@@ -41,7 +40,6 @@ function fromUrl(request) {
     route.pathname = reqToRoute.pathname;
     route.query = reqToRoute.search;
     route.path = _.filter(resources, function (res) { return res.length > 0; });
-    console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"', ctx, route.path, extension));
     route.static = (extension.length > 0);
     return route;
 }

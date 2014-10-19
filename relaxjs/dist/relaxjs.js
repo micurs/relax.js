@@ -47,27 +47,18 @@ var Container = (function () {
         }
         return childArray[0];
     };
-    Container.prototype.addResource = function (typeName, newRes) {
+    Container.prototype.add = function (typeName, newRes) {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
-        newRes.setName(typeName);
+        var resourcePlayer = new DynamicHtml(newRes);
+        resourcePlayer.setName(typeName);
         var childArray = this._resources[typeName];
         if (childArray === undefined)
-            this._resources[typeName] = [newRes];
+            this._resources[typeName] = [resourcePlayer];
         else {
-            childArray.push(newRes);
+            childArray.push(resourcePlayer);
         }
-    };
-    Container.prototype.add = function (newRes) {
-        newRes['_version'] = site().version;
-        newRes['siteName'] = site().siteName;
-        var typeName = newRes.name();
-        var childArray = this._resources[typeName];
-        if (childArray === undefined)
-            this._resources[typeName] = [newRes];
-        else {
-            childArray.push(newRes);
-        }
+        console.log(_.str.sprintf('- %s [%d]', typeName, this._resources[typeName].length));
     };
     Container.prototype.getByIdx = function (name, idx) {
         return this._resources[name][idx];
@@ -170,7 +161,6 @@ var Site = (function (_super) {
     };
     Site.prototype.get = function (route) {
         var ctx = '[' + this.name() + '.get] ';
-        console.log(ctx);
         if (route.static) {
             return internals.viewStatic(route.pathname);
         }
@@ -178,7 +168,7 @@ var Site = (function (_super) {
             if (route.path.length > 1) {
                 var direction = this.getDirection(route);
                 if (direction.resource) {
-                    console.log(_.str.sprintf('%s found "%s"', ctx, direction.resource.name()));
+                    console.log(_.str.sprintf('%s "%s"', ctx, direction.resource.name()));
                     return direction.resource.get(direction.route);
                 }
                 else {
@@ -199,16 +189,18 @@ var Site = (function (_super) {
 exports.Site = Site;
 var DynamicHtml = (function (_super) {
     __extends(DynamicHtml, _super);
-    function DynamicHtml(viewName, layout, moredata) {
+    function DynamicHtml(res) {
         _super.call(this);
         this._name = '';
         this._template = '';
-        this._name = viewName;
-        this._template = viewName;
-        this._layout = layout;
-        if (moredata)
-            for (var attrname in moredata) {
-                this[attrname] = moredata[attrname];
+        this._name = res.view;
+        this._template = res.view;
+        this._layout = res.layout;
+        if (res.onGet)
+            this._dataGetter = res.onGet;
+        if (res.data)
+            for (var attrname in res.data) {
+                this[attrname] = res.data[attrname];
             }
     }
     DynamicHtml.prototype.name = function () {
@@ -219,7 +211,6 @@ var DynamicHtml = (function (_super) {
     };
     DynamicHtml.prototype.get = function (route) {
         var ctx = _.str.sprintf('[HtmlView.%s] get', this._template);
-        console.log(_.str.sprintf('%s Fetching resource : "%s"', ctx, route.path));
         if (route.path.length > 1) {
             var direction = this.getDirection(route);
             if (direction.resource)
@@ -229,6 +220,16 @@ var DynamicHtml = (function (_super) {
             }
         }
         else {
+            var dyndata = {};
+            if (this._dataGetter) {
+                console.log(_.str.sprintf('%s getting resource from callback', ctx));
+                dyndata = this._dataGetter();
+            }
+            if (dyndata) {
+                for (var attrname in dyndata) {
+                    this[attrname] = dyndata[attrname];
+                }
+            }
             return internals.viewDynamic(this._template, this, this._layout);
         }
     };
@@ -239,7 +240,6 @@ var DynamicHtml = (function (_super) {
     };
     return DynamicHtml;
 })(Container);
-exports.DynamicHtml = DynamicHtml;
 var Data = (function (_super) {
     __extends(Data, _super);
     function Data(name) {
@@ -271,7 +271,6 @@ var Data = (function (_super) {
     };
     return Data;
 })(Container);
-exports.Data = Data;
 function site(name) {
     return Site.$(name);
 }

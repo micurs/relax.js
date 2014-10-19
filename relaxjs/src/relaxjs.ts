@@ -33,17 +33,25 @@ export class Request {
 }
 
 // Generic interface for a resource
-export interface Resource {
+export interface ResourcePlayer {
   name(): string;
   setName( newName:string ) : void ;
   get( route : routing.Route ) : Q.Promise<Embodiment> ;
   post( route : routing.Route ) : Q.Promise<Embodiment> ;
 }
 
+
+export interface Resource {
+  view: string;
+  layout?: string;
+  data?: any;
+  onGet?: () => any
+}
+
 // A Resource map is a collection of Resource arrays.
 // Each arrray contain resource of the same type.
 export interface ResourceMap {
-  [name: string]: Resource [];
+  [name: string]: ResourcePlayer [];
 }
 
 // Every resource is converted to their embodiment before they can be served
@@ -67,7 +75,7 @@ export class Container {
   constructor() {}
 
   // Find the first resource of the given type
-  getFirstMatching( typeName: string ) : Resource {
+  getFirstMatching( typeName: string ) : ResourcePlayer {
     var childArray = this._resources[typeName];
     if ( childArray === undefined ) {
       return null;
@@ -75,31 +83,21 @@ export class Container {
     return childArray[0];
   }
   // Add a resource of the given type as child
-  addResource( typeName: string, newRes: Resource ) : void {
+  add( typeName: string, newRes: Resource ) : void {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
-    newRes.setName(typeName);
+    var resourcePlayer : DynamicHtml = new DynamicHtml(newRes);
+    resourcePlayer.setName(typeName);
     var childArray = this._resources[typeName];
     if ( childArray === undefined )
-      this._resources[typeName] = [ newRes ];
+      this._resources[typeName] = [ resourcePlayer ];
     else {
-      childArray.push(newRes);
+      childArray.push(resourcePlayer);
     }
-  }
-  // Add a resource of the given type as child
-  add( newRes: Resource ) : void {
-    newRes['_version'] = site().version;
-    newRes['siteName'] = site().siteName;
-    var typeName = newRes.name();
-    var childArray = this._resources[typeName];
-    if ( childArray === undefined )
-      this._resources[typeName] = [ newRes ];
-    else {
-      childArray.push(newRes);
-    }
+    console.log(_.str.sprintf('- %s [%d]', typeName, this._resources[typeName].length ) );
   }
 
-  getByIdx( name: string, idx: number ) : Resource {
+  getByIdx( name: string, idx: number ) : ResourcePlayer {
     return this._resources[name][idx];
   }
 
@@ -110,7 +108,7 @@ export class Container {
 
   childCount() : number {
     var counter : number = 0;
-    _.each< Resource[]>( this._resources, ( arrayItem : Resource[] ) => { counter += arrayItem.length; } );
+    _.each< ResourcePlayer[]>( this._resources, ( arrayItem : ResourcePlayer[] ) => { counter += arrayItem.length; } );
     return counter;
   }
 
@@ -149,7 +147,7 @@ export class Container {
 
 // Root object for the application is the Site.
 // The site is in itself a Resource and is accessed via the root / in a url.
-export class Site extends Container implements Resource {
+export class Site extends Container implements ResourcePlayer {
   private _name: string = "site";
   private static _instance : Site = null;
   private _version : string = '0.0.1';
@@ -204,7 +202,7 @@ export class Site extends Container implements Resource {
 
   get( route : routing.Route ) : Q.Promise< Embodiment > {
     var ctx = '['+this.name()+'.get] ';
-    console.log(ctx);
+    // console.log(ctx);
     if ( route.static ) {
       return internals.viewStatic( route.pathname );
     }
@@ -212,7 +210,7 @@ export class Site extends Container implements Resource {
       if ( route.path.length > 1 ) {
         var direction = this.getDirection(route);
         if ( direction.resource ) {
-          console.log(_.str.sprintf('%s found "%s"',ctx,direction.resource.name() ));
+          console.log(_.str.sprintf('%s "%s"',ctx,direction.resource.name() ));
           return direction.resource.get( direction.route );
         }
         else {
@@ -232,19 +230,21 @@ export class Site extends Container implements Resource {
 
 }
 
-export class DynamicHtml extends Container implements Resource {
+class DynamicHtml extends Container implements ResourcePlayer {
   private _name: string = '';
   private _template: string = '';
   private _layout: string;
+  private _dataGetter : () => any;
 
-
-  constructor( viewName: string, layout?: string, moredata?: any ) {
+  constructor( res : Resource ) {
     super();
-    this._name = viewName;
-    this._template = viewName;
-    this._layout = layout;
-    if ( moredata )
-      for (var attrname in moredata) { this[attrname] = moredata[attrname]; }
+    this._name = res.view;
+    this._template = res.view;
+    this._layout = res.layout;
+    if ( res.onGet )
+      this._dataGetter = res.onGet;
+    if ( res.data )
+      for (var attrname in res.data) { this[attrname] = res.data[attrname]; }
   }
 
   name(): string { return this._name; }
@@ -252,7 +252,6 @@ export class DynamicHtml extends Container implements Resource {
 
   get(  route: routing.Route  ) : Q.Promise< Embodiment > {
     var ctx = _.str.sprintf('[HtmlView.%s] get',this._template );
-    console.log( _.str.sprintf('%s Fetching resource : "%s"',ctx,route.path) );
 
     if ( route.path.length > 1 ) {
       var direction = this.getDirection( route );
@@ -263,7 +262,15 @@ export class DynamicHtml extends Container implements Resource {
       }
     }
     else {
+      var dyndata: any = {};
       // Here we compute/fetch/create the view data.
+      if ( this._dataGetter ) {
+        console.log( _.str.sprintf('%s getting resource from callback',ctx) );
+        dyndata = this._dataGetter();
+      }
+      if (dyndata) {
+        for (var attrname in dyndata) { this[attrname] = dyndata[attrname]; }
+      }
       return internals.viewDynamic(this._template, this, this._layout );
     }
   }
@@ -276,7 +283,7 @@ export class DynamicHtml extends Container implements Resource {
 }
 
 
-export class Data extends Container implements Resource {
+class Data extends Container implements ResourcePlayer {
   private _name:string = '';
 
   constructor( name: string ) {

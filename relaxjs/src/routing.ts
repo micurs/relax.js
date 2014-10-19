@@ -44,7 +44,7 @@ export class Route {
 }
 
 export class Direction {
-  resource : relaxjs.Resource;
+  resource : relaxjs.ResourcePlayer;
   route: Route;
 }
 
@@ -58,7 +58,7 @@ export class Direction {
 // --------------------------------------------------------------
 export function fromUrl( request: http.ServerRequest ) : Route {
   var ctx = '[Routing.fromUrl] ';
-  console.log( _.str.sprintf('%s Routing url: %s',ctx,request.url) );
+  // console.log( _.str.sprintf('%s Routing url: %s',ctx,request.url) );
 
   if ( !request.url )
     request.url = '/';
@@ -72,7 +72,7 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   route.pathname = reqToRoute.pathname;
   route.query = reqToRoute.search;
   route.path = _.filter( resources, (res) => res.length>0 );
-  console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',ctx, route.path, extension ) );
+  // console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',ctx, route.path, extension ) );
   route.static = ( extension.length>0 ) ;
   return route;
 }
