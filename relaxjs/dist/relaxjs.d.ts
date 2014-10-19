@@ -1,7 +1,6 @@
 
 /*
-declare module relaxjs {
-}
+Realx.js v 0..1 type dfiinitons
 */
 
 declare module "relaxjs" {
@@ -30,73 +29,54 @@ declare module "relaxjs" {
     serve( response: http.ServerResponse) : void;
   }
 
-  export interface Resource {
+  export interface ResourcePlayer {
     name(): string;
+    setName( newName:string ) : void ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
-    addResource( res : Resource ) : Boolean;
+    post( route : routing.Route ) : Q.Promise<Embodiment> ;
+  }
+
+  export interface Resource {
+    view: string;
+    layout?: string;
+    data?: any;
+    onGet?: () => any
   }
 
   export interface ResourceMap {
-    [name: string]: Resource;
+    [name: string]: ResourcePlayer;
   }
 
   export class Container {
     public _resources:ResourceMap;
 
     constructor();
-    getFirstMatching( typeName: string ) : Resource;
-    addResource( typeName: string, newRes: Resource ) : void ;
-    add( newRes: Resource ) : void ;
-    getByIdx( name: string, idx: number ) : Resource ;
+
+    getFirstMatching( typeName: string ) : ResourcePlayer;
+    add( typeName: string, newRes: Resource ) : void ;
+    getByIdx( name: string, idx: number ) : ResourcePlayer ;
     childTypeCount( typeName: string ) : number ;
     childCount() : number;
     getDirection( route : routing.Route ) : routing.Direction;
   }
 
-  export class Site extends Container implements Resource {
+  export class Site extends Container implements ResourcePlayer {
     private static _instance : Site;
     private _name: string;
-    public siteName:string;
-    private _resources:ResourceMap;
+    private _siteName: string;
     private _version : string;
 
     constructor( siteName:string );
     public static $( name:string ):Site;
-    serve() : http.Server ;
     name(): string;
+    setName( newName:string ) : void;
+    version: string;
+    siteName: string;
+    serve() : http.Server ;
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
+    post( req : routing.Route ) : Q.Promise< Embodiment > ;
   }
 
-  /*
-  export class DynamicHtml extends Container implements Resource {
-    private _name: string;
-    private _template: string;
-    private _layout: string;
-    constructor( viewName: string, layout?: string, moredata?: any );
-    name() : string;
-    setName( newName:string ) : void ;
-    get(  route: routing.Route  ) : Q.Promise< Embodiment >;
-    post( route: routing.Route  ) : Q.Promise< Embodiment >;
-  }
-
-  export function site( name : string ) : Site;
-
-    export module resources {
-
-    export class Data implements Resource {
-      private _name: string;
-      private _resources:ResourceMap;
-
-      constructor( Name: string );
-      name() : string;
-      setName( newName:string ) : void ;
-      get( route: routing.Route )  : Q.Promise< Embodiment >;
-      post( route: routing.Route  ) : Q.Promise< Embodiment > ;
-    }
-    */
-
-
-  }
-
+  export function site( name?: string ) : Site;
   // export = relaxjs;
 }

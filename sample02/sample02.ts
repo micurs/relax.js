@@ -8,54 +8,25 @@
 import relaxjs = require('relaxjs');
 
 
-// Create a Resource class
-class Users implements relaxjs.Resource {
-  private _resources:relaxjs.ResourceMap = {};
-  private _name:string = 'users';
-
-  constructor() {
-  }
-
-  name(): string { return this._name; }
-  get( route : relaxjs.routing.Route ) : Q.Promise<relaxjs.Embodiment> {
-    var later = Q.defer< relaxjs.Embodiment >();
-    return later.promise;
-  }
-  addResource( res : relaxjs.Resource ) : boolean {
-    return false;
-  }
-
-}
-
-class User implements relaxjs.Resource {
-  private _name:string = 'N/A';
-  constructor( private firstName: string, private lastName: string ) {
-    this._name = _.str.sprintf('%s %s',firstName,lastName);
-  }
-
-  name(): string { return this._name; }
-  get( route : relaxjs.routing.Route ) : Q.Promise<relaxjs.Embodiment> {
-    var later = Q.defer< relaxjs.Embodiment >();
-    return later.promise;
-  }
-  addResource( res : relaxjs.Resource ) : boolean {
-    return false;
-  }
-}
+var usersResource : relaxjs.Resource = {
+  name : 'users',
+  view : 'users_list',
+  childs : [
+    { name: 'user', data: { firstName: 'John', lastName: 'Smith' } },
+    { name: 'user', data: { firstName: 'Joe', lastName: 'Doe' } },
+    { name: 'user', data: { firstName: 'Mary', lastName: 'Linn' } },
+    { name: 'user', data: { firstName: 'Tracy', lastName: 'Stewart' } },
+  ]
+};
 
 // Create the application by assembling the resources
 var mysite = relaxjs.site('micurs.com');
 
 // Create the application by assembling the resources
-mysite.addResource( new relaxjs.resources.HtmlView('home','layout'));
+mysite.add( 'users', usersResource );
 
-var myusers = new Users();
-myusers.addResource( new User('John','Smith'));
-myusers.addResource( new User('Joe','Doe'));
-myusers.addResource( new User('Mary','Linn'));
-myusers.addResource( new User('Tracy','Stwart'));
-mysite.addResource( myusers );
-
+// Get the application server for the site
 var appSrv = mysite.serve();
 
+// And serve it
 appSrv.listen(3000);

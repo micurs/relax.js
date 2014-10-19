@@ -3,9 +3,6 @@
   "version": "0.0.2",
   "description": "Sample use of relaxjs using Typescript",
   "main": "sample02.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "author": "Michele Ursino",
   "license": "MIT",
   "scripts": {

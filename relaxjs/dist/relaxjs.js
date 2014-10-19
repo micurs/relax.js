@@ -122,6 +122,12 @@ var Site = (function (_super) {
         }
         Site._instance = this;
     }
+    Site.$ = function (name) {
+        if (Site._instance === null && name) {
+            Site._instance = new Site(name);
+        }
+        return Site._instance;
+    };
     Site.prototype.name = function () {
         return this._name;
     };
@@ -142,12 +148,6 @@ var Site = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Site.$ = function (name) {
-        if (Site._instance === null && name) {
-            Site._instance = new Site(name);
-        }
-        return Site._instance;
-    };
     Site.prototype.serve = function () {
         var _this = this;
         return http.createServer(function (msg, response) {

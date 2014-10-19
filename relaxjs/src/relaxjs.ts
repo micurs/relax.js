@@ -56,7 +56,6 @@ export interface ResourceMap {
 
 // Every resource is converted to their embodiment before they can be served
 export class Embodiment {
-
   constructor( private data : Buffer, private mimeType: string ) { }
 
   serve(response: http.ServerResponse) : void {
@@ -152,8 +151,8 @@ export class Container {
 // Root object for the application is the Site.
 // The site is in itself a Resource and is accessed via the root / in a url.
 export class Site extends Container implements ResourcePlayer {
-  private _name: string = "site";
   private static _instance : Site = null;
+  private _name: string = "site";
   private _version : string = '0.0.1';
   private _siteName : string = 'site';
 
@@ -166,6 +165,13 @@ export class Site extends Container implements ResourcePlayer {
     Site._instance = this;
   }
 
+  public static $( name?:string ):Site {
+    if(Site._instance === null && name ) {
+      Site._instance = new Site(name);
+    }
+    return Site._instance;
+  }
+
   name(): string { return this._name; }
   setName( newName:string ) : void { this._name = newName; }
 
@@ -174,13 +180,6 @@ export class Site extends Container implements ResourcePlayer {
   }
   get siteName():string {
     return this._siteName;
-  }
-
-  public static $( name?:string ):Site {
-    if(Site._instance === null && name ) {
-      Site._instance = new Site(name);
-    }
-    return Site._instance;
   }
 
   serve() : http.Server {
