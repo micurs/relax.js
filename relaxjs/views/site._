@@ -47,13 +47,13 @@
                  print( _.reduce( _.values( resArray),
                                   function( m , childRes, index ) {
                                     if ( index == 0 ) {
-                                      var link = childRes.name()+( ( index>0 ) ? '/'+index : '' );
-                                      var name = childRes.name()+( ( index>0 ) ? ' ('+index+')' : '');
+                                      var link = _.str.slugify(childRes.name());
+                                      var name = childRes.name();
                                       m = m+ '<li><i class="fa-li fa fa-file-o"></i><a href="/'+link+'">'+name+'</a>'
                                     }
                                     else {
-                                      var link = childRes.name()+( ( index>0 ) ? '/'+index : '' );
-                                      var name = childRes.name()+( ( index>0 ) ? ' ('+index+')' : '');
+                                      var link = _.str.slugify(childRes.name())+'/'+index;
+                                      var name = childRes.name()+' ('+index+')';
                                       m = m+ ',&nbsp;<a href="/'+link+'">('+index+')</a>'
                                     }
                                     if ( index >= resArray.length-1 )

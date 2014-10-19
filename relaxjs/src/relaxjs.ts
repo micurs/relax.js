@@ -60,7 +60,10 @@ export class Embodiment {
   constructor( private data : Buffer, private mimeType: string ) { }
 
   serve(response: http.ServerResponse) : void {
-    console.log('[serve] bytes:'+this.data.length);
+    if ( this.data.length>1024 )
+      console.log( _.str.sprintf('[serve] %s Kb', _.str.numberFormat(this.data.length/1024,1) ) );
+    else
+      console.log( _.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length) ) );
     response.writeHead(200, { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length } );
     response.write(this.data);
     response.end();
@@ -88,13 +91,14 @@ export class Container {
     newRes['siteName'] = site().siteName;
     var resourcePlayer : DynamicHtml = new DynamicHtml(newRes);
     resourcePlayer.setName(typeName);
-    var childArray = this._resources[typeName];
+    var indexName = _.str.slugify(typeName);
+    var childArray = this._resources[indexName];
     if ( childArray === undefined )
-      this._resources[typeName] = [ resourcePlayer ];
+      this._resources[indexName] = [ resourcePlayer ];
     else {
       childArray.push(resourcePlayer);
     }
-    console.log(_.str.sprintf('- %s [%d]', typeName, this._resources[typeName].length ) );
+    console.log(_.str.sprintf('- "%s" [%d] (%s)', typeName, this._resources[indexName].length, indexName ) );
   }
 
   getByIdx( name: string, idx: number ) : ResourcePlayer {
@@ -181,7 +185,6 @@ export class Site extends Container implements ResourcePlayer {
 
   serve() : http.Server {
     return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
-      console.log('\n');
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(msg);
 

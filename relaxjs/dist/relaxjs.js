@@ -28,7 +28,10 @@ var Embodiment = (function () {
         this.mimeType = mimeType;
     }
     Embodiment.prototype.serve = function (response) {
-        console.log('[serve] bytes:' + this.data.length);
+        if (this.data.length > 1024)
+            console.log(_.str.sprintf('[serve] %s Kb', _.str.numberFormat(this.data.length / 1024, 1)));
+        else
+            console.log(_.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length)));
         response.writeHead(200, { 'Content-Type': this.mimeType, 'Content-Length': this.data.length });
         response.write(this.data);
         response.end();
@@ -52,13 +55,14 @@ var Container = (function () {
         newRes['siteName'] = site().siteName;
         var resourcePlayer = new DynamicHtml(newRes);
         resourcePlayer.setName(typeName);
-        var childArray = this._resources[typeName];
+        var indexName = _.str.slugify(typeName);
+        var childArray = this._resources[indexName];
         if (childArray === undefined)
-            this._resources[typeName] = [resourcePlayer];
+            this._resources[indexName] = [resourcePlayer];
         else {
             childArray.push(resourcePlayer);
         }
-        console.log(_.str.sprintf('- %s [%d]', typeName, this._resources[typeName].length));
+        console.log(_.str.sprintf('- "%s" [%d] (%s)', typeName, this._resources[indexName].length, indexName));
     };
     Container.prototype.getByIdx = function (name, idx) {
         return this._resources[name][idx];
@@ -147,7 +151,6 @@ var Site = (function (_super) {
     Site.prototype.serve = function () {
         var _this = this;
         return http.createServer(function (msg, response) {
-            console.log('\n');
             var route = routing.fromUrl(msg);
             _this.get(route).then(function (rep) {
                 rep.serve(response);
