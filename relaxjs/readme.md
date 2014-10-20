@@ -19,14 +19,13 @@ The taxonomy of your resources automatically defines the URL patterns.
 
 In this example we build a very simple web service using relax.js returning some static data.
 
-```
+```javascript
 var r = require('relaxjs');
 
 var site = r.site('Simple Service');
 
-site.add( 'user',  {
-  data: { first-name: 'Michael', last-name: 'Smith', 'id' : 1245 }
-});
+site.add( { name: 'user',
+            data: { first-name: 'Michael', last-name: 'Smith', 'id' : 1245 } });
 
 site.serve().listen(3000);
 ```
@@ -49,7 +48,7 @@ Resources can respond to 4 type of HTTP requests: GET, POST, UPDATE and DELETE
 In the previous example we created a static resource. We can create a dynamic resource that respond with
 different data depending on the time of the request by providing a onGet() function:
 
-```
+```javascript
 var timeResource = {
   onGet : function() {
     return {
@@ -67,7 +66,11 @@ A resource can implement the following HTTP verb response functions:
 - onUpdate()
 - onDelete()
 
+> Need to add example for each verb.
+
 ### Request Parameters
+
+> Note this is not implemented yet
 
 All these functions can accept a variable number of parameters depending on what is specified in the
 queryString or in the body of the request. For example in this request:
@@ -78,7 +81,7 @@ http://localhost:3000/user?out=address
 
 We are requesting the user address resource. We can implement our resource to respond to this request:
 
-```
+```javascript
 var johnSmithRes = {
   onGet: function( ctx, params ) {
     switch(params['out']) {
@@ -123,11 +126,11 @@ However Realx.js provide two other standard formats: XML and HTML.
 
 ### XML
 
-**[More info here soon...]**
+> [More info here soon...]
 
 ### HTML Views
 
-**[More info here soon...]**
+> [This is implemented and need info here soon...]
 
 ## Resource Collections
 
@@ -234,10 +237,12 @@ http://localhost:3000/users/user/joe-doe
 
 ## Dynamic Collections
 
+> Not implemented yet
+
 In most of the example above we assumed the resource was created before-hand and available in memory.
 In most cases, however, this is not the case. In most cases we read data from a data-store and
 we may not even know if a particular requested resource exists or not until we try to read it in
 response to a given request.
 
 
-[More info here soon...]
+> [More info here soon...]
