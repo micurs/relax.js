@@ -74,7 +74,7 @@ cd /sample01
 node sample1.js
 ```
 
-The open your browser to `http://localhost:3000`
+Then open your browser to `http://localhost:3000`
 
 # Compile relax.js
 
@@ -85,7 +85,7 @@ cd /relaxjs
 gulp
 ```
 
-To compile on the fly everytime you change any `*.ts` file in /relaxjs/src you can run the watch task define in the gulpfile.
+To compile on the fly everytime you change any `*.ts` file in `/relaxjs/src` you can run the watch task define in the gulpfile.
 
 ```bash
 gulp watch
