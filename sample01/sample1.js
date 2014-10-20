@@ -3,27 +3,32 @@ var r = require('relaxjs');
 // Create the application by assembling the resources
 var site = r.site('sample1.com');
 
-site.add( 'Page',  {
+site.add(  {
+  name: 'Page',
   view: 'helloworld',
   data: { message: "Hello World!" }
 });
 
-site.add( 'Page', {
+site.add( {
+  name: 'Page',
   view: 'helloworld',
   data: { message: "Asta la vista!" }
 });
 
-site.add( 'Page', {
+site.add( {
+  name: 'Page',
   view: 'helloworld',
   data: { message: "Ciao Mondo!" }
 });
 
 var staticResource = {
+  name: 'static',
   view : 'helloworld',
   data : { message: "Hello Static World! This is data within my resource." }
 };
 
 var dynamicResource = {
+  name: 'dynamic',
   view : 'helloworld',
   onGet : function() {
     var date = new Date();
@@ -32,9 +37,9 @@ var dynamicResource = {
 };
 
 
-site.add( 'Static Hello', staticResource );
+site.add( staticResource );
 
-site.add( 'Dynamic Hello', dynamicResource );
+site.add( dynamicResource );
 
 // Create the application server for the site
 var appSrv = site.serve();

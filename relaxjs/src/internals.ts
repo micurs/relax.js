@@ -58,6 +58,28 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
   return laterAction.promise;
 }
 
+
+// Return a promise for a JSON Embodiment for the given data.
+// Note that this function strips automatically all the data item starting with '_'
+// since - as a convention in relax.js - there are private member variables. 
+// -------------------------------------------------------------------------------
+export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
+  var later = Q.defer< relaxjs.Embodiment >();
+  _.defer( () => {
+    var e = new relaxjs.Embodiment(
+      new Buffer(
+        JSON.stringify(
+          viewData,
+          ( key : string, value : any ) => ( key.indexOf('_') == 0 ) ?  undefined : value ,
+          '  '),
+        'utf-8'),
+      'application/json'
+    );
+    later.resolve( e );
+  });
+  return later.promise;
+}
+
 // Realize the given view (viewName) merging it with the given data (viewData)
 // It can use an embedding view layout as third argument (optional)
 // Return a promise that will return the full content of the view + the viewdata.

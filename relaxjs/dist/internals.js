@@ -42,6 +42,15 @@ function viewStatic(filename) {
     return laterAction.promise;
 }
 exports.viewStatic = viewStatic;
+function viewJson(viewData) {
+    var later = Q.defer();
+    _.defer(function () {
+        var e = new relaxjs.Embodiment(new Buffer(JSON.stringify(viewData, function (key, value) { return (key.indexOf('_') == 0) ? undefined : value; }, '  '), 'utf-8'), 'application/json');
+        later.resolve(e);
+    });
+    return later.promise;
+}
+exports.viewJson = viewJson;
 function viewDynamic(viewName, viewData, layoutName) {
     var fname = '[view] ';
     var laterAct = Q.defer();

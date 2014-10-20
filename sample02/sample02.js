@@ -6,18 +6,38 @@
 var relaxjs = require('relaxjs');
 var usersResource = {
     name: 'users',
-    view: 'users_list',
-    childs: [
-        { name: 'user', data: { firstName: 'John', lastName: 'Smith' } },
+    onGet: function (ctx) {
+        return { title: 'Users Collection Example', count: ctx.childCount() };
+    },
+    resources: [
+        { name: 'tracy-stewart', onGet: function () {
+            var now = new Date();
+            return { firstName: 'Tracy', lastName: 'Stewart', date: now };
+        }, resources: [
+            { name: 'address', data: { address: '101 John St. San Francisco CA. ' } }
+        ] },
+        {
+            name: 'joe-doe',
+            data: { firstName: 'Joe', lastName: 'Doe' },
+            resources: [
+                { name: 'address', data: { address: '458 5th Aver New York NY. ' } }
+            ]
+        },
+        {
+            name: 'john-smith',
+            data: { firstName: 'John', lastName: 'Smith' },
+            resources: [
+                { name: 'address', data: { address: '33 Pearl St. Los Angeles CA.' } }
+            ]
+        },
         { name: 'user', data: { firstName: 'Joe', lastName: 'Doe' } },
-        { name: 'user', data: { firstName: 'Mary', lastName: 'Linn' } },
-        { name: 'user', data: { firstName: 'Tracy', lastName: 'Stewart' } },
+        { name: 'user', data: { firstName: 'Mary', lastName: 'Linn' } }
     ]
 };
 // Create the application by assembling the resources
-var mysite = relaxjs.site('micurs.com');
+var mysite = relaxjs.site('Example #2');
 // Create the application by assembling the resources
-mysite.add('users', usersResource);
+mysite.add(usersResource);
 // Get the application server for the site
 var appSrv = mysite.serve();
 // And serve it

@@ -50,19 +50,18 @@ var Container = (function () {
         }
         return childArray[0];
     };
-    Container.prototype.add = function (typeName, newRes) {
+    Container.prototype.add = function (newRes) {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
-        var resourcePlayer = new DynamicHtml(newRes);
-        resourcePlayer.setName(typeName);
-        var indexName = _.str.slugify(typeName);
+        var resourcePlayer = new ResorceServer(newRes);
+        var indexName = _.str.slugify(newRes.name);
         var childArray = this._resources[indexName];
         if (childArray === undefined)
             this._resources[indexName] = [resourcePlayer];
         else {
             childArray.push(resourcePlayer);
         }
-        console.log(_.str.sprintf('- "%s" [%d] (%s)', typeName, this._resources[indexName].length, indexName));
+        console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length - 1, indexName));
     };
     Container.prototype.getByIdx = function (name, idx) {
         return this._resources[name][idx];
@@ -84,25 +83,18 @@ var Container = (function () {
         var childResName = direction.route.getNextStep();
         console.log(_.str.sprintf('%s following the next step in: "%s" ', ctx, direction.route.path));
         if (childResName in this._resources) {
-            var childResCount = this.childTypeCount(childResName);
-            if (childResCount == 1) {
-                console.log(_.str.sprintf('%s ONLY ONE matching "%s" ', ctx, childResName));
-                direction.resource = this.getFirstMatching(childResName);
-            }
-            else if (childResCount > 1) {
-                var idx = 0;
-                if (direction.route.path[1] !== undefined) {
-                    idx = parseInt(direction.route.path[1]);
-                    if (isNaN(idx)) {
-                        idx = 0;
-                    }
-                    else {
-                        direction.route = direction.route.stepThrough(1);
-                    }
+            var idx = 0;
+            if (direction.route.path[1] !== undefined) {
+                idx = parseInt(direction.route.path[1]);
+                if (isNaN(idx)) {
+                    idx = 0;
                 }
-                console.log(_.str.sprintf('%s [%s] matching "%s" ', ctx, idx, childResName));
-                direction.resource = this.getByIdx(childResName, idx);
+                else {
+                    direction.route = direction.route.stepThrough(1);
+                }
             }
+            console.log(_.str.sprintf('%s [%s] matching "%s" ', ctx, idx, childResName));
+            direction.resource = this.getByIdx(childResName, idx);
         }
         return direction;
     };
@@ -150,6 +142,7 @@ var Site = (function (_super) {
     });
     Site.prototype.serve = function () {
         var _this = this;
+        console.log('\n');
         return http.createServer(function (msg, response) {
             var route = routing.fromUrl(msg);
             _this.get(route).then(function (rep) {
@@ -190,30 +183,36 @@ var Site = (function (_super) {
     return Site;
 })(Container);
 exports.Site = Site;
-var DynamicHtml = (function (_super) {
-    __extends(DynamicHtml, _super);
-    function DynamicHtml(res) {
+var ResorceServer = (function (_super) {
+    __extends(ResorceServer, _super);
+    function ResorceServer(res) {
+        var _this = this;
         _super.call(this);
         this._name = '';
         this._template = '';
-        this._name = res.view;
+        this._name = res.name;
         this._template = res.view;
         this._layout = res.layout;
         if (res.onGet)
             this._dataGetter = res.onGet;
-        if (res.data)
-            for (var attrname in res.data) {
-                this[attrname] = res.data[attrname];
-            }
+        if (res.resources) {
+            _.each(res.resources, function (child, index) {
+                _this.add(child);
+            });
+        }
+        if (res.data) {
+            _.each(res.data, function (value, attrname) {
+                if (attrname != 'resources') {
+                    _this[attrname] = value;
+                }
+            });
+        }
     }
-    DynamicHtml.prototype.name = function () {
+    ResorceServer.prototype.name = function () {
         return this._name;
     };
-    DynamicHtml.prototype.setName = function (newName) {
-        this._name = newName;
-    };
-    DynamicHtml.prototype.get = function (route) {
-        var ctx = _.str.sprintf('[HtmlView.%s] get', this._template);
+    ResorceServer.prototype.get = function (route) {
+        var ctx = _.str.sprintf('[get]');
         if (route.path.length > 1) {
             var direction = this.getDirection(route);
             if (direction.resource)
@@ -226,22 +225,29 @@ var DynamicHtml = (function (_super) {
             var dyndata = {};
             if (this._dataGetter) {
                 console.log(_.str.sprintf('%s getting resource from callback', ctx));
-                dyndata = this._dataGetter();
+                dyndata = this._dataGetter(this);
             }
             if (dyndata) {
                 for (var attrname in dyndata) {
                     this[attrname] = dyndata[attrname];
                 }
             }
-            return internals.viewDynamic(this._template, this, this._layout);
+            if (this._template) {
+                console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, this._name, this._template));
+                return internals.viewDynamic(this._template, this, this._layout);
+            }
+            else {
+                console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, this._name));
+                return internals.viewJson(this);
+            }
         }
     };
-    DynamicHtml.prototype.post = function (route) {
+    ResorceServer.prototype.post = function (route) {
         var contextLog = '[' + this.name() + '.get] ';
         var laterAction = Q.defer();
         return laterAction.promise;
     };
-    return DynamicHtml;
+    return ResorceServer;
 })(Container);
 var Data = (function (_super) {
     __extends(Data, _super);
@@ -252,9 +258,6 @@ var Data = (function (_super) {
     }
     Data.prototype.name = function () {
         return this._name;
-    };
-    Data.prototype.setName = function (newName) {
-        this._name = newName;
     };
     Data.prototype.get = function (route) {
         var later = Q.defer();

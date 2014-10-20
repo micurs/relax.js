@@ -36,17 +36,19 @@ export class Request {
 // Generic interface for a resource
 export interface ResourcePlayer {
   name(): string;
-  setName( newName:string ) : void ;
   get( route : routing.Route ) : Q.Promise<Embodiment> ;
   post( route : routing.Route ) : Q.Promise<Embodiment> ;
 }
 
 
 export interface Resource {
-  view: string;
+  name: string;
+  key?: string;
+  view?: string;
   layout?: string;
   data?: any;
-  onGet?: () => any
+  resources?: Resource[];
+  onGet?: ( resServer? : ResorceServer ) => any
 }
 
 // A Resource map is a collection of Resource arrays.
@@ -86,19 +88,18 @@ export class Container {
     return childArray[0];
   }
   // Add a resource of the given type as child
-  add( typeName: string, newRes: Resource ) : void {
+  add( newRes: Resource ) : void {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
-    var resourcePlayer : DynamicHtml = new DynamicHtml(newRes);
-    resourcePlayer.setName(typeName);
-    var indexName = _.str.slugify(typeName);
+    var resourcePlayer : ResorceServer = new ResorceServer(newRes);
+    var indexName = _.str.slugify(newRes.name);
     var childArray = this._resources[indexName];
     if ( childArray === undefined )
       this._resources[indexName] = [ resourcePlayer ];
     else {
       childArray.push(resourcePlayer);
     }
-    console.log(_.str.sprintf('- "%s" [%d] (%s)', typeName, this._resources[indexName].length, indexName ) );
+    console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length-1, indexName ) );
   }
 
   getByIdx( name: string, idx: number ) : ResourcePlayer {
@@ -124,25 +125,18 @@ export class Container {
     var childResName = direction.route.getNextStep();
     console.log( _.str.sprintf('%s following the next step in: "%s" ',ctx, direction.route.path ) );
     if ( childResName in this._resources ) {
-      var childResCount = this.childTypeCount(childResName);
-      if ( childResCount == 1 ) {
-        console.log( _.str.sprintf('%s ONLY ONE matching "%s" ',ctx, childResName ) );
-        direction.resource = this.getFirstMatching(childResName);
-      }
-      else if ( childResCount > 1 ) {
-        var idx:number = 0;
-        if ( direction.route.path[1] !== undefined ) {
-          idx = parseInt(direction.route.path[1]) ;
-          if ( isNaN(idx) ) {
-            idx = 0;
-          }
-          else {
-            direction.route = direction.route.stepThrough(1);
-          }
+      var idx:number = 0;
+      if ( direction.route.path[1] !== undefined ) {
+        idx = parseInt(direction.route.path[1]) ;
+        if ( isNaN(idx) ) {
+          idx = 0;
         }
-        console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
-        direction.resource = this.getByIdx(childResName, idx);
+        else {
+          direction.route = direction.route.stepThrough(1);
+        }
       }
+      console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
+      direction.resource = this.getByIdx(childResName, idx);
     }
     return direction;
   }
@@ -184,6 +178,7 @@ export class Site extends Container implements ResourcePlayer {
   }
 
   serve() : http.Server {
+    console.log('\n');
     return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(msg);
@@ -233,28 +228,42 @@ export class Site extends Container implements ResourcePlayer {
 
 }
 
-class DynamicHtml extends Container implements ResourcePlayer {
+class ResorceServer extends Container implements ResourcePlayer {
   private _name: string = '';
   private _template: string = '';
   private _layout: string;
-  private _dataGetter : () => any;
+  private _dataGetter : ( resServer?: ResorceServer) => any;
 
   constructor( res : Resource ) {
     super();
-    this._name = res.view;
+    this._name = res.name;
     this._template = res.view;
     this._layout = res.layout;
     if ( res.onGet )
       this._dataGetter = res.onGet;
-    if ( res.data )
-      for (var attrname in res.data) { this[attrname] = res.data[attrname]; }
+    // Add children resources if available
+    if ( res.resources ) {
+      _.each( res.resources, ( child: Resource, index: number) => {
+        // console.log('\t'+ child.name + ': ' + JSON.stringify(child) );
+        this.add( child );
+      });
+    }
+    // Merge the data into this object to easy access in the view.
+    if ( res.data ) {
+      _.each(res.data, ( value: any, attrname: string ) => {
+        if ( attrname != 'resources') {
+          // console.log('\t'+ attrname + ': ' + JSON.stringify(value) );
+          this[attrname] = value;
+        }
+      } );
+    }
   }
 
   name(): string { return this._name; }
-  setName( newName:string ) : void { this._name = newName; }
+  // setName( newName:string ) : void { this._name = newName; }
 
   get(  route: routing.Route  ) : Q.Promise< Embodiment > {
-    var ctx = _.str.sprintf('[HtmlView.%s] get',this._template );
+    var ctx = _.str.sprintf('[get]');
 
     if ( route.path.length > 1 ) {
       var direction = this.getDirection( route );
@@ -269,12 +278,19 @@ class DynamicHtml extends Container implements ResourcePlayer {
       // Here we compute/fetch/create the view data.
       if ( this._dataGetter ) {
         console.log( _.str.sprintf('%s getting resource from callback',ctx) );
-        dyndata = this._dataGetter();
+        dyndata = this._dataGetter( this );
       }
       if (dyndata) {
         for (var attrname in dyndata) { this[attrname] = dyndata[attrname]; }
       }
-      return internals.viewDynamic(this._template, this, this._layout );
+      if ( this._template ) {
+        console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, this._name, this._template));
+        return internals.viewDynamic(this._template, this, this._layout );
+      }
+      else {
+        console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, this._name ));
+        return internals.viewJson(this);
+      }
     }
   }
 
@@ -295,7 +311,7 @@ class Data extends Container implements ResourcePlayer {
   }
 
   name(): string { return this._name; }
-  setName( newName:string ) : void { this._name = newName; }
+  // setName( newName:string ) : void { this._name = newName; }
 
   get( route: routing.Route ) : Q.Promise< Embodiment > {
     // <todo>return child resource if specified in the path</todo>

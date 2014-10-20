@@ -10,11 +10,12 @@ In Relax.js you implement *resources* and add them to the Site being served by y
 ## Resources and their URLs
 
 In Relax.js the request URL univocally identifies the resource to load in the back end.
-Each resource can respond to the 4 HTTP verbs: GET, POST, UPDATE and DELETE with a specific function or data.
-So applications written with relax.js do not require specifying any routing. The taxonomy of your resources
-automatically defines the URL patterns.
+Each resource can respond to the 4 HTTP verbs: GET, POST, UPDATE and DELETE using a specific function or just by returning data.
+So applications written with relax.js do not require specifying any routing.
 
-## Simplest Relax.js web app
+The taxonomy of your resources automatically defines the URL patterns.
+
+## Simplest Relax.js web appllication
 
 In this example we build a very simple web service using relax.js returning some static data.
 
@@ -30,8 +31,8 @@ site.add( 'user',  {
 site.serve().listen(3000);
 ```
 
-We created a resource called 'user' and defined with some user *data*. When added directly to the site
-the resource become accessible via URL as a direct descendant of the site using GET on this URL:
+Note: we created a resource called '**user**' and defined with some user *data*.
+When added directly to the site the resource becomes accessible as a direct descendant of the site (using GET) on this URL:
 
 ```
 http://localhost:3000/user
@@ -39,9 +40,9 @@ http://localhost:3000/user
 
 ## Resources
 
-Resources are the focal elements in any Relax.js applications. Resources can represent individual objects or
-contain or represent collection of other resources. Resources can respond to 4 type of HTTP requests:
-GET, POST, UPDATE and DELETE
+Resources are the focal elements in any Relax.js application. Resources can represent individual objects or
+contain and represent collections of other objects (i.e. resources).
+Resources can respond to 4 type of HTTP requests: GET, POST, UPDATE and DELETE
 
 ### Verbs functions
 
@@ -79,8 +80,8 @@ We are requesting the user address resource. We can implement our resource to re
 
 ```
 var johnSmithRes = {
-  onGet: function( out ) {
-    switch(out) {
+  onGet: function( ctx, params ) {
+    switch(params['out']) {
       case 'address':
         return {
           'id' : 1245,
@@ -137,6 +138,8 @@ The root resource of any Relax.js application is the site. The site has its own 
 http://yoursite.com/
 ```
 
+### Access by index
+
 When you add resources to the Site the list of all the resources added is shown in the default site page.
 The Site is a Container for other resources. Every resource can itself contain resources. For example:
 
@@ -144,9 +147,9 @@ The Site is a Container for other resources. Every resource can itself contain r
 var users = {
   view: 'users',
   resources: [
-    {  first-name: 'John', last-name: 'Smith', 'id' : 1001 },
-    {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 },
-    {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 },
+    { name: 'user', data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
+    { name: 'user', data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
+    { name: 'user', data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
   ]
 }
 ```
@@ -157,6 +160,38 @@ I can access the second user using this URL:
 http://localhost:3000/users/user/2
 ```
 
+> The index value can be omitted if it is Zero. This is convenient when you ave only one child resource.
+> For example the previous URL could be written as:
+>
+```
+http://localhost:3000/users/0/user/2
+```
+
+### Access by unique names
+
+As alternative you can give each resource a unique name with-in the collection.
+
+```
+var users = {
+  view: 'users',
+  resources: [
+    { name: 'john-smith', data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
+    { name: 'joe-doe', data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
+    { name: 'mary-lane', data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
+  ]
+}
+```
+
+This way you can access these resource with a better URL:
+
+```
+http://localhost:3000/users/mary-lane
+```
+
+### Access by key
+
+> This is not implemented yet
+
 By default Relax allows to specify a key to select a specific resource within the URL just after the resource name.
 We can force Relax.js to use our own key to retrieve a resource if we write the resources this way:
 
@@ -164,9 +199,9 @@ We can force Relax.js to use our own key to retrieve a resource if we write the 
 var users = {
   view: 'users',
   resources: [
-    { key: 1001, data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
-    { key: 1002, data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
-    { key: 1003, data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
+    { name: 'user', key: 1001, data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
+    { name: 'user', key: 1002, data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
+    { name: 'user', key: 1003, data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
   ]
 }
 ```
@@ -183,9 +218,9 @@ We can use different type of keys:
 var users = {
   view: 'users',
   resources: [
-    { key: 'john-smith', data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
-    { key: 'joe-doe', data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
-    { key: 'mary-lane', data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
+    { name: 'user', key: 'john-smith', data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
+    { name: 'user', key: 'joe-doe', data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
+    { name: 'user', key: 'mary-lane', data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
   ]
 }
 ```

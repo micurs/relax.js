@@ -31,16 +31,17 @@ declare module "relaxjs" {
 
   export interface ResourcePlayer {
     name(): string;
-    setName( newName:string ) : void ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route ) : Q.Promise<Embodiment> ;
   }
 
   export interface Resource {
-    view: string;
+    name: string;
+    view?: string;
     layout?: string;
     data?: any;
-    onGet?: () => any
+    resources?: Resource[];
+    onGet?: ( resServer : ResorceServer ) => any
   }
 
   export interface ResourceMap {
@@ -53,7 +54,7 @@ declare module "relaxjs" {
     constructor();
 
     getFirstMatching( typeName: string ) : ResourcePlayer;
-    add( typeName: string, newRes: Resource ) : void ;
+    add( newRes: Resource ) : void ;
     getByIdx( name: string, idx: number ) : ResourcePlayer ;
     childTypeCount( typeName: string ) : number ;
     childCount() : number;
@@ -69,12 +70,23 @@ declare module "relaxjs" {
     constructor( siteName:string );
     public static $( name:string ):Site;
     name(): string;
-    setName( newName:string ) : void;
     version: string;
     siteName: string;
     serve() : http.Server ;
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
     post( req : routing.Route ) : Q.Promise< Embodiment > ;
+  }
+
+  class ResorceServer extends Container implements ResourcePlayer {
+    private _name: string;
+    private _template: string;
+    private _layout: string;
+    private _dataGetter : ( resServer?: ResorceServer) => any;
+
+    constructor( res : Resource );
+    name(): string;
+    get(  route: routing.Route  ) : Q.Promise< Embodiment >;
+    post( route: routing.Route  ) : Q.Promise< Embodiment >;
   }
 
   export function site( name?: string ) : Site;

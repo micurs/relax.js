@@ -6,6 +6,7 @@ var gutil = require('gulp-util');
 var jshint = require('gulp-jshint');
 var stylish = require('jshint-stylish');
 var sourcemaps = require('gulp-sourcemaps');
+var console = require('better-console');
 
 var ERROR_LEVELS = ['error', 'warning'];
 
@@ -63,6 +64,7 @@ gulp.task('relaxjs_copy', function() {
 });
 
 gulp.task('relaxjs_compile', function() {
+  console.clear();
   return gulp.src( sources_to_compile )
           .pipe( print(function(filepath) { return "relaxjs file: " + filepath; } ) )
           .pipe( tsc( typescript_options ) )

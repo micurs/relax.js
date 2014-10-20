@@ -1,5 +1,5 @@
 {
-  "name" : "relaxjs",
+  "name": "relaxjs",
   "description": "A library to build real RESTful webservices",
   "author": {
     "name": "Michele Ursino",
@@ -7,14 +7,14 @@
     "url": "http://github.com/micurs"
   },
   "license": "MIT",
-  "main" : "dist/relaxjs.js",
+  "main": "dist/relaxjs.js",
   "typescript": {
     "definition": "dist/relaxjs.d.ts"
   },
   "scripts": {
     "build": "gulp"
   },
-  "version" : "0.0.2",
+  "version": "0.0.2",
   "dependencies": {
     "typescript-require": "^0.2.6",
     "mime": "^1.2.11",
@@ -23,6 +23,7 @@
     "underscore.string": "^2.3.3"
   },
   "devDependencies": {
+    "better-console": "^0.2.3",
     "debug": "~2.0.0",
     "gulp": "^3.8.8",
     "gulp-jshint": "^1.8.5",
