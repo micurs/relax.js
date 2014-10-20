@@ -1,66 +1,208 @@
-relax.js
-=====================================
+# relax.js
 
-Intro
---------
+Relax.js is a simple node framework for building RESTful web application in Javascript or Typescript using node.js.
 
-Relax.js is a simple node framework for building RESTful web application in Typescript using node.js.
+Relax.js is written itself in Typescript but it is packaged as a regular node component and, as such, does not require the use of Typescript.
 
-Relax.js is written in Typescript but it does not require the use of Typescript. You can use this framework using javascript.
+The spirit of this framework is to encourage a fully REST approach when developing web services.
+In Relax.js you implement *resources* and add them to the Site being served by your server.
 
-The spirit of this library is to encourage a fully REST approach whan developing web services.
-In Relax.js you implement *resources* as instances of classes implementing the Resource interface and add these instance to
-the Site object.
+## Resources and their URLs
 
-Applications written with relax.js do not require you to specify any routing since the path in a URL call specify a resource.
+In Relax.js the request URL univocally identifies the resource to load in the back end.
+Each resource can respond to the 4 HTTP verbs: GET, POST, UPDATE and DELETE with a specific function or data.
+So applications written with relax.js do not require specifying any routing. The taxonomy of your resources
+automatically defines the URL patterns.
 
-URL Resource locator
-------------------------
+## Simplest Relax.js web app
+
+In this example we build a very simple web service using relax.js returning some static data.
+
+```
+var r = require('relaxjs');
+
+var site = r.site('Simple Service');
+
+site.add( 'user',  {
+  data: { first-name: 'Michael', last-name: 'Smith', 'id' : 1245 }
+});
+
+site.serve().listen(3000);
+```
+
+We created a resource called 'user' and defined with some user *data*. When added directly to the site
+the resource become accessible via URL as a direct descendant of the site using GET on this URL:
+
+```
+http://localhost:3000/user
+```
+
+## Resources
+
+Resources are the focal elements in any Relax.js applications. Resources can represent individual objects or
+contain or represent collection of other resources. Resources can respond to 4 type of HTTP requests:
+GET, POST, UPDATE and DELETE
+
+### Verbs functions
+
+In the previous example we created a static resource. We can create a dynamic resource that respond with
+different data depending on the time of the request by providing a onGet() function:
+
+```
+var timeResource = {
+  onGet : function() {
+    return {
+      current-time : ''+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC'
+    }
+  }
+};
+site.add( 'current-time',  timeResource );
+```
+
+A resource can implement the following HTTP verb response functions:
+
+- onGet()
+- onPost()
+- onUpdate()
+- onDelete()
+
+### Request Parameters
+
+All these functions can accept a variable number of parameters depending on what is specified in the
+queryString or in the body of the request. For example in this request:
+
+```
+http://localhost:3000/user?out=address
+```
+
+We are requesting the user address resource. We can implement our resource to respond to this request:
+
+```
+var johnSmithRes = {
+  onGet: function( out ) {
+    switch(out) {
+      case 'address':
+        return {
+          'id' : 1245,
+          street: '1234 5th Avenue',
+          city: 'New York',
+          state: 'NY',
+          country: 'USA'
+        }
+      break;
+      case 'name':
+        return {
+          'id' : 1245,
+          first-name: 'Michael',
+          last-name: 'Smith'
+        }
+      break;
+      case 'all':
+      default:
+        return {
+          'id' : 1245,
+          first-name: 'Michael',
+          last-name: 'Smith',
+          street: '1234 5th Avenue',
+          city: 'New York',
+          state: 'NY',
+          country: 'USA'
+        }
+      break;
+    }
+  }
+};
+site.add( 'user', johnSmithRes });
+```
+
+## Resource Representation
+
+Relax.js default response format is JSON. Native Javascript data returned by a resource is automatically converted to JSON.
+However Realx.js provide two other standard formats: XML and HTML.
+
+### XML
+
+**[More info here soon...]**
+
+### HTML Views
+
+**[More info here soon...]**
+
+## Resource Collections
 
 Relax.js implement a simple convention to convert a path in the request URL into a query to a specific resource.
-
-Resources need to be added to the root singleton resource: the Site. The site resource is accessible by using is predefined type alias "/":
+The root resource of any Relax.js application is the site. The site has its own default HTML representation.
 
 ```
 http://yoursite.com/
 ```
 
-We can add resources of different types to the Site. These will be accessible using the type name in the URL:
+When you add resources to the Site the list of all the resources added is shown in the default site page.
+The Site is a Container for other resources. Every resource can itself contain resources. For example:
 
 ```
-http://yoursite.com/<child-resource-type-name>
+var users = {
+  view: 'users',
+  resources: [
+    {  first-name: 'John', last-name: 'Smith', 'id' : 1001 },
+    {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 },
+    {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 },
+  ]
+}
 ```
 
-So for example if we have a resource called CopyrightInfo added to the Site we can access it with this url:
+I can access the second user using this URL:
 
 ```
-http://yoursite.com/copyrightinfo
+http://localhost:3000/users/user/2
 ```
 
-Note: the site resource can have as many child resource as you want, but can only have one resource for each type.
-This means you cannot add multiple CopyrightInfo resource directly as Site child resource.
-
-To add multiple resource of the same type to the Site you must use a Collection.
-For example, if you want to have multiple users in your application you should create a Collection derived object Users
-and add it to the site and then add the users to the collection:
+By default Relax allows to specify a key to select a specific resource within the URL just after the resource name.
+We can force Relax.js to use our own key to retrieve a resource if we write the resources this way:
 
 ```
-var mysite = relaxjs.site('mysite.com');
-var myusers = mySite.addResource( new Users() );
-myusers.addResource( new User('john','Smith'));
+var users = {
+  view: 'users',
+  resources: [
+    { key: 1001, data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
+    { key: 1002, data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
+    { key: 1003, data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
+  ]
+}
 ```
 
-To access the user list we will use this address
+This way I can access the second user using the key:
 
 ```
-http://yoursite.com/users
+http://localhost:3000/users/user/1002
 ```
 
-To access a specific user we will add the primary key (see later) in the URL:
+We can use different type of keys:
 
 ```
-http://yoursite.com/users/user/john_smith
+var users = {
+  view: 'users',
+  resources: [
+    { key: 'john-smith', data: {  first-name: 'John', last-name: 'Smith', 'id' : 1001 } },
+    { key: 'joe-doe', data: {  first-name: 'Joe', last-name: 'Doe', 'id' : 1002 } },
+    { key: 'mary-lane', data: {  first-name: 'Mary', last-name: 'Lane', 'id' : 1003 } },
+  ]
+}
+```
+
+and use them in the URL request:
+
+```
+http://localhost:3000/users/user/joe-doe
 ```
 
 
-More info here soon...
+## Dynamic Collections
+
+In most of the example above we assumed the resource was created before-hand and available in memory.
+In most cases, however, this is not the case. In most cases we read data from a data-store and
+we may not even know if a particular requested resource exists or not until we try to read it in
+response to a given request.
+
+
+[More info here soon...]

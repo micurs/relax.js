@@ -1,12 +1,13 @@
+/*
+ * Relax.js version 0.0.1
+ * by Michele Ursino Nov - 2014
+*/
+
 ///<reference path='../typings/node/node.d.ts' />
 ///<reference path='../typings/underscore/underscore.d.ts' />
 ///<reference path='../typings/underscore.string/underscore.string.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
-/*
- ///<reference path='./internals.ts' />
- ///<reference path='./routing.ts' />
-*/
 
 import http = require("http");
 import fs = require("fs");

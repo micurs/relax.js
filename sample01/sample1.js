@@ -26,7 +26,8 @@ var staticResource = {
 var dynamicResource = {
   view : 'helloworld',
   onGet : function() {
-    return { message: "Hello Dynamic World! This is data computed when the resource is requested." }
+    var date = new Date();
+    return { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' }
     }
 };
 
