@@ -3,39 +3,29 @@ Relax.js Sample 02
 
 In this example we creates a real Typescript data web service.
 
-The data served by this mini-app is a list of users.
-You can explore the list by accessing the users resource
+Since this demo is in Typescript first thing you need to do is to compile it into Javascript:
 
 ```
-http://localhost:3000/users
+npm run build
 ```
 
-or access a single user by accessing his resource
+And then you can start the server:
 
 ```
-http://localhost:3000/users/user/john_smith
+npm start
 ```
 
-Alternative ways to access a specific user in the users collection are available using URL paramters.
-So, for example, to access the 3rd user in users you will write:
+The data served by this mini-app is a list of users. If you go to the root resource with your browser you should get this page:
 
-```
-http://localhost:3000/users/user?idx=2
-```
+[screen1]: https://github.com/micurs/micurs.com/blob/master/sample02/example2.png "Site home page for Example #2"
 
-In this example the collection of users is statically loaded. In Sample 03 we shows how to load resource dynamically in response to a http request.
+![alt text][screen1]
 
-Implementation
-------
+You can explore the resources available in this site by clicking on them. Each one has a very specific URL.
+For example the **users** collection is on `http://localhost:3000/users` while one of the user can be seen
+using this address `http://localhost:3000/users/john_smith`.
 
-This example shows how to create a collection resource : users and how to
-add a list of child resources of type user.
+## Implementation
 
-```
-class Users extends relaxjs.Collection {
-  ...
-}
-
-var users = new Users();
-users.addResource( new User('john','smith') );
-```
+In this example we see how we can nest resources inside other resources using the **resources** field.
+At the same time this example shows how these resources can be accessed using the URL. No explicit routing rules are needed.
