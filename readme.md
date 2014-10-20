@@ -1,5 +1,4 @@
-Relaxjs frameworks + samples
-==================================
+# Relaxjs frameworks + samples
 
 This repo contains the relaxjs node module and multiple simple examples (tests) making use of this framework.
 
@@ -16,8 +15,7 @@ The overall stack includes:
 The project is completely defined to run within Vagrant so you can run this on a Mac or Windows without any changes.
 So the requirements for your machine are VirtualBox and Vagrant.
 
-Install on Windows
-======================
+# Install on Windows
 
 If you are on Windows I do recommend getting chocolatey at https://chocolatey.org/.
 I use the PowerShell running in admin mode to install it:
@@ -28,7 +26,7 @@ iex ((new-object net.webclient).DownloadString('https://chocolatey.org/install.p
 
 After that you can install VirtiualBox and Vagrant with two simple commands:
 
-```
+```bash
 choco install virtualbox
 choco install vagrant
 ```
@@ -39,48 +37,58 @@ http://superuser.com/questions/540055/convenient-way-to-enable-disable-hyper-v-i
 
 Now you can close the admin console. Open a regular command prompt or powershell and CD on the directory of the project to start the VM running the site:
 
-```
+```bash
 vagrant up
 ```
 
-Install on Mac
-======================
+# Install on Mac
 
 On a Mac I installed VirtualBox and Vagrant by downloading the apps from the web sites:
 
-* https://www.virtualbox.org/wiki/Downloads
-
-* http://www.vagrantup.com/downloads.html
+1. https://www.virtualbox.org/wiki/Downloads
+2. http://www.vagrantup.com/downloads.html
 
 After that open the terminal, cd to the directory of the project and type
 
-```
+```bash
 vagrant up
 ```
 
-Running the site on Vagrant
-=======================
+# Running the examples on Vagrant
 
-```
+```bash
 vagrant up
 ```
 
 The first time this command will download the Ubuntu 14.04 LTE box (be prepared to wait a bit) and setup all the library needed to run the project with the VM.
 The details for the VM environment are in the Vagrantfile. When the provisioning of the VM completes you can ssh to it:
 
-```
+```bash
 vagrant ssh
 ```
 
-Within Ubuntu you can launch the site:
+Within the Ubuntu you can launch the first example:
 
-```
-cd /micurs.com
-npm start
+```bash
+cd /sample01
+node sample1.js
 ```
 
-If the Javascript files are obsolete use gulp to compile the original typescript files:
+The open your browser to `http://localhost:3000`
 
-```
+# Compile relax.js
+
+The Realx.js framework is written in Typescript. To compile it type the following:
+
+```bash
+cd /relaxjs
 gulp
 ```
+
+To compile on the fly everytime you change any `*.ts` file in /relaxjs/src you can run the watch task define in the gulpfile.
+
+```bash
+gulp watch
+```
+
+Enjoy!
