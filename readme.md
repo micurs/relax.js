@@ -6,14 +6,15 @@ micurs.com is a full site running on node/express completely written in Typescri
 
 The overall stack includes:
 
-* relax.js - my own real restful framework
+* relax.js - a framework for building truly RESTful web services
 * node.js: the basic runtime engine
 * typescript: the language for both client and server ( v 1.0 compiler )
 * gulp: the build manager
 * bower: the package manager
 
-The project is completely defined to run within Vagrant so you can run this on a Mac or Windows without any changes.
-So the requirements for your machine are VirtualBox and Vagrant.
+All these projects can run within a Vagrant box so you can run this on a Mac or Windows without any changes.
+
+For more information on the Relax.js framework check this [readme](relaxjs/readme.md).
 
 # Install on Windows
 

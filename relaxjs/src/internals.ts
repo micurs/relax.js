@@ -61,7 +61,7 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
 
 // Return a promise for a JSON Embodiment for the given data.
 // Note that this function strips automatically all the data item starting with '_'
-// since - as a convention in relax.js - there are private member variables. 
+// since - as a convention in relax.js - there are private member variables.
 // -------------------------------------------------------------------------------
 export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
   var later = Q.defer< relaxjs.Embodiment >();
@@ -70,7 +70,7 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
       new Buffer(
         JSON.stringify(
           viewData,
-          ( key : string, value : any ) => ( key.indexOf('_') == 0 ) ?  undefined : value ,
+          ( key : string, value : any ) => ( key.indexOf('_') === 0 ) ?  undefined : value ,
           '  '),
         'utf-8'),
       'application/json'
@@ -93,7 +93,7 @@ export function viewDynamic( viewName: string,
 
   //console.log( _.str.sprintf('%s  dynamic %s for %s',fname,viewName,JSON.stringify(viewData,null,'  ') ) );
   var templateFilename = './views/'+viewName+'._';
-  if ( viewName == 'site') {
+  if ( viewName === 'site') {
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
   if ( layoutName ) {
