@@ -84,13 +84,13 @@ A resource can implement the following HTTP verb response functions:
 ## Resource Representation
 
 Relax.js default response format is **JSON**. Native Javascript data returned by a resource is automatically converted to JSON.
-However Realx.js provide two other standard formats: XML and HTML.
+However Realx.js provides two other standard formats: XML and HTML.
 
 ### HTML Views
 
 A Resource can be represented through a HTML page. Relax.js uses [underscore templating engine](http://underscorejs.org/#template) to bind
 resource data with a HTML template.
-HTML templates are located under a views directory and use the **'._'** extension. To associate a view
+HTML templates are located under a **views** directory and use the **'._'** extension. To associate a view
 to a given resource you just need to specify the view name in the resource view property:
 
 ```javascript
@@ -107,14 +107,49 @@ the file **view/user._** can be like this:
   <title>User Id <%= id %></title>
 </head>
 <body>
-  <%= first-name %> <%= last-name %>
+  <p><%= first-name %> <%= last-name %></p>
 </body>
 </html>
 ```
 
+The resource object is passed to the underscore template so there is no need to use the **this** qualifier to
+reference the data within the resources.
+
 You can also embed a view within anoter file to share a common layout.
 
-> More info on this soon ...
+```javascript
+site.add( { name: 'user',
+            view: 'user'
+            layout: 'site'
+            data: { first-name: 'Michael', last-name: 'Smith', 'id' : 1245 } });
+```
+
+where **views/user._** is
+
+```
+<p><%= first-name %> <%= last-name %></p>
+```
+and **views/site._** could be like this (using bootstrap):
+
+```html
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css" rel="stylesheet">
+  <title><%= name %></title>
+</head>
+<body>
+  <div class="container">
+    <%= page %>
+  </div>
+  <script src="/public/components/bootstrap/dist/js/bootstrap.min.js"></script>
+</body>
+</html>
+```
 
 ### XML
 
