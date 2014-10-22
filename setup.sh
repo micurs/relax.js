@@ -14,6 +14,7 @@ echo "+ apt-get update"
 sudo apt-get update > /dev/null
 install_dependency build-essential
 install_dependency git-core
+install_dependency redis-server
 
 echo "+ Prepare this machine to get node ..."
 sudo apt-get --purge remove node
@@ -24,20 +25,19 @@ install_dependency nodejs
 # install_dependency npm
 
 node_install node-gyp
-echo ' - use tsc to compile typescript to node js file'
+echo ' -> use tsc to compile typescript to node js file'
 node_install typescript
-echo ' - use tsd to search downlaod and mainitain typescript type declaration file'
+echo ' -> use tsd to search downlaod and mainitain typescript type declaration files'
 node_install tsd
-echo ' - use node-inspector to access debug with chorome http://localhost:8080/debug?port5858'
+echo ' -> use node-inspector to access debug with chorome http://localhost:8080/debug?port5858'
 node_install node-inspector
-echo ' - use gulp to compile node typescript files, less etc.'
+echo ' -> use gulp to compile node typescript files, less etc.'
 node_install gulp
-echo ' - use bower to download and update client siode package'
+echo ' -> use bower to download and update client side packages'
 node_install bower
-echo ' - use nodemon to reload source code everytime they change'
+echo ' -> use nodemon to reload source code everytime they change'
 node_install nodemon
-echo ' - use midnight commander to easily navigate the filesystem and copy/move files around'
+echo ' -> use midnight commander to easily navigate the filesystem and copy/move files around'
 node_install mc
-
 
 echo "= System Provision Complete "
