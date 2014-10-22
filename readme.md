@@ -71,11 +71,23 @@ vagrant ssh
 Within the Ubuntu you can launch the first example:
 
 ```bash
-cd /sample01
+cd /examples/sample01
 node sample1.js
 ```
 
 Then open your browser to `http://localhost:3000`
+
+The second example is written in typescript. Here is how you compile and run it:
+
+```bash
+cd /examples/sample02
+npm run build
+npm start
+```
+
+All these example start a server listening on port 3000.
+
+
 
 # Compile relax.js
 
