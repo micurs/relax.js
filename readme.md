@@ -55,7 +55,23 @@ After that open the terminal, cd to the directory of the project and type
 vagrant up
 ```
 
-# Running the examples on Vagrant
+
+# Compile relax.js
+
+The Realx.js framework is written in Typescript. To compile it type the following:
+
+```bash
+cd /relaxjs
+gulp
+```
+
+To compile on the fly everytime you change any `*.ts` file in `/relaxjs/src` you can run the watch task define in the gulpfile.
+
+```bash
+gulp watch
+```
+
+# Running the examples
 
 ```bash
 vagrant up
@@ -88,20 +104,5 @@ npm start
 All these example start a server listening on port 3000.
 
 
-
-# Compile relax.js
-
-The Realx.js framework is written in Typescript. To compile it type the following:
-
-```bash
-cd /relaxjs
-gulp
-```
-
-To compile on the fly everytime you change any `*.ts` file in `/relaxjs/src` you can run the watch task define in the gulpfile.
-
-```bash
-gulp watch
-```
 
 Enjoy!
