@@ -1,21 +1,21 @@
 # relax.js
 
-Relax.js is a simple node framework for building truly RESTful web application in Javascript or Typescript using node.js.
+Relax.js is a simple node framework for building truly RESTful web applications in Javascript (or Typescript) using node.js.
 
 Relax.js is written itself in Typescript but it is packaged as a regular node component and, as such, does not require the use of Typescript.
 
 The spirit of this framework is to encourage a fully REST approach when developing web services.
 In Relax.js you implement **resources** and add them to the Site being served by your server.
 In Relax.js you cannot route URL patterns to functions - in fact - there is no routing facility.
-The mapping of each URL to the appropriate resource is done automatically on the base of the structure of your resources.
+The mapping of each URL to the appropriate resource is done automatically on the base of the structure of your resource tree.
 
 Read on to understand how it works.
 
 ## Getting started
 
-The core elements of a Relax.js application is the site and its resources.
+The core elements of a Relax.js application are the site and its resources.
 
-In this example we build a very simple web service using relax.js returning some static data.
+In this example we build a very simple web service using relax.js returning one resource with static data.
 
 ```javascript
 var r = require('relaxjs');
@@ -28,8 +28,6 @@ site.add( { name: 'user',
 site.serve().listen(3000);
 ```
 
-Note: we created a resource called '**user**' and defined with some user *data*.
-
 Save this file as simpleSrv.js and type
 
 ```
@@ -38,7 +36,7 @@ node simpleSrv.js
 
 Each resource can respond to the 4 HTTP verbs:
 **GET**, **POST**, **UPDATE** and **DELETE** using a specific function or just by returning data.
-From the example above you can reach the user resource with this URL:
+From the example above you can reach the user resource with this URL in your browser (GET):
 
 ```
 http://localhost:3000/user
@@ -47,12 +45,12 @@ http://localhost:3000/user
 Applications written with Relax.js do not require specifying any routing:
 each request URL univocally identifies the resource to load in the back end.
 
-The taxonomy of your resources automatically defines the URL patterns.
+In other words: the taxonomy of your data resources automatically defines the URL patterns.
 
 ## Resources
 
 Resources are the focal elements in any Relax.js application. Resources can represent individual objects or
-contain and represent collections of other objects (i.e. resources).
+contain and represent collections of other objects (i.e. child resources).
 
 ### Verbs functions
 
