@@ -126,12 +126,12 @@ site.add( { name: 'user',
 
 where **views/user._** is
 
-```
+```Handlebars
 <p><%= first-name %> <%= last-name %></p>
 ```
 and **views/site._** could be like this (using bootstrap):
 
-```html
+```Handlebars
 <html>
 <head>
   <meta charset="utf-8">
