@@ -23,7 +23,7 @@ export class Route {
   static : boolean = true; // if true it means this rout is mapping to a file
   pathname : string;
   path : string[];
-  query: string;
+  query: any;
 
   // Create a new Route with a new path without the first item
   stepThrough( stpes: number ) : Route {
@@ -63,17 +63,18 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   if ( !request.url )
     request.url = '/';
 
-  var reqToRoute : url.Url = url.parse(request.url, true);
-  var extension = path.extname(reqToRoute.pathname)
-  var resources : string[] = reqToRoute.pathname.split('/');//.splice(0,1);
+  var parsedUrl : url.Url = url.parse(request.url, true);
+  var extension = path.extname(parsedUrl.pathname)
+  var resources : string[] = parsedUrl.pathname.split('/');//.splice(0,1);
   resources.unshift('site');
   resources = _(resources).map( (item) => decodeURI(item) );
 
   var route = new Route();
-  route.pathname = reqToRoute.pathname;
-  route.query = reqToRoute.search;
+  route.pathname = parsedUrl.pathname;
+  route.query = parsedUrl.query;
   route.path = _.filter( resources, (res) => res.length>0 );
   // console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',ctx, route.path, extension ) );
   route.static = ( extension.length>0 ) ;
+
   return route;
 }

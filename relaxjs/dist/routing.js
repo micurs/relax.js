@@ -32,14 +32,14 @@ function fromUrl(request) {
     var ctx = '[Routing.fromUrl] ';
     if (!request.url)
         request.url = '/';
-    var reqToRoute = url.parse(request.url, true);
-    var extension = path.extname(reqToRoute.pathname);
-    var resources = reqToRoute.pathname.split('/');
+    var parsedUrl = url.parse(request.url, true);
+    var extension = path.extname(parsedUrl.pathname);
+    var resources = parsedUrl.pathname.split('/');
     resources.unshift('site');
     resources = _(resources).map(function (item) { return decodeURI(item); });
     var route = new Route();
-    route.pathname = reqToRoute.pathname;
-    route.query = reqToRoute.search;
+    route.pathname = parsedUrl.pathname;
+    route.query = parsedUrl.query;
     route.path = _.filter(resources, function (res) { return res.length > 0; });
     route.static = (extension.length > 0);
     return route;

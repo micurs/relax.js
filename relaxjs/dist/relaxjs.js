@@ -53,7 +53,7 @@ var Container = (function () {
     Container.prototype.add = function (newRes) {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
-        var resourcePlayer = new ResorceServer(newRes);
+        var resourcePlayer = new ResourceServer(newRes);
         var indexName = _.str.slugify(newRes.name);
         var childArray = this._resources[indexName];
         if (childArray === undefined)
@@ -183,9 +183,9 @@ var Site = (function (_super) {
     return Site;
 })(Container);
 exports.Site = Site;
-var ResorceServer = (function (_super) {
-    __extends(ResorceServer, _super);
-    function ResorceServer(res) {
+var ResourceServer = (function (_super) {
+    __extends(ResourceServer, _super);
+    function ResourceServer(res) {
         var _this = this;
         _super.call(this);
         this._name = '';
@@ -193,8 +193,8 @@ var ResorceServer = (function (_super) {
         this._name = res.name;
         this._template = res.view;
         this._layout = res.layout;
-        if (res.onGet)
-            this._dataGetter = res.onGet;
+        this._onGet = res.onGet;
+        this._onPost = res.onPost;
         if (res.resources) {
             _.each(res.resources, function (child, index) {
                 _this.add(child);
@@ -208,10 +208,10 @@ var ResorceServer = (function (_super) {
             });
         }
     }
-    ResorceServer.prototype.name = function () {
+    ResourceServer.prototype.name = function () {
         return this._name;
     };
-    ResorceServer.prototype.get = function (route) {
+    ResourceServer.prototype.get = function (route) {
         var ctx = _.str.sprintf('[get]');
         if (route.path.length > 1) {
             var direction = this.getDirection(route);
@@ -223,9 +223,9 @@ var ResorceServer = (function (_super) {
         }
         else {
             var dyndata = {};
-            if (this._dataGetter) {
+            if (this._onGet) {
                 console.log(_.str.sprintf('%s getting resource from callback', ctx));
-                dyndata = this._dataGetter(this);
+                dyndata = this._onGet(this, route.path, route.query);
             }
             if (dyndata) {
                 for (var attrname in dyndata) {
@@ -242,12 +242,12 @@ var ResorceServer = (function (_super) {
             }
         }
     };
-    ResorceServer.prototype.post = function (route) {
+    ResourceServer.prototype.post = function (route) {
         var contextLog = '[' + this.name() + '.get] ';
         var laterAction = Q.defer();
         return laterAction.promise;
     };
-    return ResorceServer;
+    return ResourceServer;
 })(Container);
 var Data = (function (_super) {
     __extends(Data, _super);

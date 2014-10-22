@@ -48,7 +48,8 @@ export interface Resource {
   layout?: string;
   data?: any;
   resources?: Resource[];
-  onGet?: ( resServer? : ResorceServer ) => any
+  onGet?: ( ctx?: ResourceServer, path?:string[], query?: any ) => any;
+  onPost?: () => any;
 }
 
 // A Resource map is a collection of Resource arrays.
@@ -91,7 +92,7 @@ export class Container {
   add( newRes: Resource ) : void {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
-    var resourcePlayer : ResorceServer = new ResorceServer(newRes);
+    var resourcePlayer : ResourceServer = new ResourceServer(newRes);
     var indexName = _.str.slugify(newRes.name);
     var childArray = this._resources[indexName];
     if ( childArray === undefined )
@@ -228,23 +229,24 @@ export class Site extends Container implements ResourcePlayer {
 
 }
 
-class ResorceServer extends Container implements ResourcePlayer {
+class ResourceServer extends Container implements ResourcePlayer {
   private _name: string = '';
   private _template: string = '';
   private _layout: string;
-  private _dataGetter : ( resServer?: ResorceServer) => any;
+  private _onGet : ( resServer?: ResourceServer, path?:string[], query?: any ) => any;
+  private _onPost : () => any;
 
   constructor( res : Resource ) {
     super();
     this._name = res.name;
     this._template = res.view;
     this._layout = res.layout;
-    if ( res.onGet )
-      this._dataGetter = res.onGet;
+    this._onGet = res.onGet;
+    this._onPost = res.onPost;
+
     // Add children resources if available
     if ( res.resources ) {
       _.each( res.resources, ( child: Resource, index: number) => {
-        // console.log('\t'+ child.name + ': ' + JSON.stringify(child) );
         this.add( child );
       });
     }
@@ -252,7 +254,6 @@ class ResorceServer extends Container implements ResourcePlayer {
     if ( res.data ) {
       _.each(res.data, ( value: any, attrname: string ) => {
         if ( attrname != 'resources') {
-          // console.log('\t'+ attrname + ': ' + JSON.stringify(value) );
           this[attrname] = value;
         }
       } );
@@ -260,7 +261,6 @@ class ResorceServer extends Container implements ResourcePlayer {
   }
 
   name(): string { return this._name; }
-  // setName( newName:string ) : void { this._name = newName; }
 
   get(  route: routing.Route  ) : Q.Promise< Embodiment > {
     var ctx = _.str.sprintf('[get]');
@@ -276,11 +276,11 @@ class ResorceServer extends Container implements ResourcePlayer {
     else {
       var dyndata: any = {};
       // Here we compute/fetch/create the view data.
-      if ( this._dataGetter ) {
+      if ( this._onGet ) {
         console.log( _.str.sprintf('%s getting resource from callback',ctx) );
-        dyndata = this._dataGetter( this );
+        dyndata = this._onGet( this, route.path, route.query );
       }
-      if (dyndata) {
+      if (dyndata) { // Merge the data into this object
         for (var attrname in dyndata) { this[attrname] = dyndata[attrname]; }
       }
       if ( this._template ) {
