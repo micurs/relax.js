@@ -103,6 +103,6 @@ npm start
 
 All these example start a server listening on port 3000.
 
-
+Read on the [introduction to the Relax.js](relaxjs/readme.md) .
 
 Enjoy!
