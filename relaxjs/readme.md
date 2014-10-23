@@ -123,12 +123,12 @@ site.add( { name: 'user',
             data: { first-name: 'Michael', last-name: 'Smith', 'id' : 1245 } });
 ```
 
-where **views/user._** is
+where `views/user._` is
 
 ```html
 <p><%= first-name %> <%= last-name %></p>
 ```
-and **views/site._** could be like this (using bootstrap):
+and `views/site._` could be like this (using bootstrap):
 
 ```html
 <html>
