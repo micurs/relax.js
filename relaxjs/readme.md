@@ -89,7 +89,7 @@ However Realx.js provides two other standard formats: XML and HTML.
 
 A Resource can be represented through a HTML page. Relax.js uses [underscore templating engine](http://underscorejs.org/#template) to bind
 resource data with a HTML template.
-HTML templates are located under a **views** directory and use the **'._'** extension. To associate a view
+HTML templates are located under a `views` directory and use the `'._'` extension. To associate a view
 to a given resource you just need to specify the view name in the resource view property:
 
 ```javascript
@@ -98,7 +98,7 @@ site.add( { name: 'user',
             data: { first-name: 'Michael', last-name: 'Smith', 'id' : 1245 } });
 ```
 
-the file **view/user._** can be like this:
+the file `view/user._` can be like this:
 
 ```html
 <html>
@@ -114,7 +114,7 @@ the file **view/user._** can be like this:
 The resource object is passed to the underscore template so there is no need to use the **this** qualifier to
 reference the data within the resources.
 
-You can also embed a view within anoter file to share a common layout.
+You can also embed a view within another file to share a common layout.
 
 ```javascript
 site.add( { name: 'user',
