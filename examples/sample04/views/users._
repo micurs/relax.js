@@ -1,0 +1,30 @@
+<div class="row">
+  <div class="col-md-4">
+    <h1>Current Users</h1>
+    <p>
+      <ul>
+        <%= _.reduce( users, function(memo, user, key ) {
+          return memo + '<li><a href="/users/user?id='+key+'">'+user.firstName+' '+user.lastName+'</a></li>';
+        },'' ) %>
+      </ul>
+    <p>
+  </div>
+  <div class="col-md-8">
+    <h1>Add User</h1>
+    <form action="/users/user" method="post">
+      <div class="form-group">
+        <label for="firstName">First name:</label>
+        <input type="text" name="firstName" class="form-control" placeholder="First Name">
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last name:</label>
+        <input type="text" name="lastName" class="form-control" placeholder="Last Name">
+      </div>
+      <div class="form-group">
+        <label for="email">EMail:</label>
+        <input type="text" name="email" class="form-control" placeholder="someone@somewhere.com">
+      </div>
+      <input type="submit" class="btn btn-primary" value="Add User">
+    </form>
+  </div>
+</div>

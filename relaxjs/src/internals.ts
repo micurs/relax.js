@@ -98,7 +98,7 @@ export function viewDynamic( viewName: string,
   }
   if ( layoutName ) {
     // console.log( _.str.sprintf('%s Using Layout "%s"',fname,layoutName) );
-    var layoutFilename = './views/_'+layoutName+'._';
+    var layoutFilename = './views/'+layoutName+'._';
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
              readFile( layoutFilename,    { 'encoding':'utf8'} ) ])
     .spread( ( content: string, outerContent : string) => {

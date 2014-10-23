@@ -1,0 +1,18 @@
+{
+  "name": "sample03",
+  "version": "0.0.2",
+  "description": "Sample use of relaxjs using Typescript and persisiting data",
+  "main": "sample04.js",
+  "author": "Michele Ursino",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -m commonjs -t ES5 sample04.ts",
+    "typings": "tsd reinstall --save --overwrite",
+    "start": "node sample04.js"
+  },
+  "dependencies": {
+    "node-redis": "^0.1.7",
+    "redis": "^0.12.1",
+    "underscore": "^1.7.0"
+  }
+}

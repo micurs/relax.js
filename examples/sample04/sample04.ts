@@ -1,4 +1,4 @@
-// Relax.js example #3
+// Relax.js example #4
 
 ///<reference path='typings/redis/redis.d.ts' />
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
@@ -21,6 +21,7 @@ var mysite = relaxjs.site('Example #3');
 var usersResource : relaxjs.Resource = {
   name: 'users',
   view: 'users',
+  layout: 'layout',
   onGet: ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback  ) => {
     store.hgetall( 'user', ( err: Error, items: any ) => {
         var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
@@ -31,6 +32,7 @@ var usersResource : relaxjs.Resource = {
   resources : [ {
       name: 'user',
       view: 'user',
+      layout: 'layout',
       onGet: ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback  ) => {
         var userid = parseInt( query['id'] );
         store.hget( 'user',userid,

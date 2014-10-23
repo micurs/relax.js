@@ -60,7 +60,7 @@ function viewDynamic(viewName, viewData, layoutName) {
         templateFilename = __dirname + '/../views/' + viewName + '._';
     }
     if (layoutName) {
-        var layoutFilename = './views/_' + layoutName + '._';
+        var layoutFilename = './views/' + layoutName + '._';
         Q.all([readFile(templateFilename, { 'encoding': 'utf8' }), readFile(layoutFilename, { 'encoding': 'utf8' })]).spread(function (content, outerContent) {
             try {
                 console.log(_.str.sprintf('%s Compiling composite view %s in %s', fname, layoutFilename, templateFilename));
