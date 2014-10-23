@@ -63,6 +63,8 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   if ( !request.url )
     request.url = '/';
 
+  //console.log( _.str.sprintf('%s http.ServerRequest Body:\n%s\n-------',ctx,JSON.stringify(request.read(),null, ' ')));
+
   var parsedUrl : url.Url = url.parse(request.url, true);
   var extension = path.extname(parsedUrl.pathname)
   var resources : string[] = parsedUrl.pathname.split('/');//.splice(0,1);

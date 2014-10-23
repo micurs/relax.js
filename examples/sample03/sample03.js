@@ -1,4 +1,4 @@
-// Relax.js example #2
+// Relax.js example #3
 ///<reference path='typings/redis/redis.d.ts' />
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 var _ = require("underscore");
@@ -15,17 +15,16 @@ var mysite = relaxjs.site('Example #3');
 var usersResource = {
     name: 'users',
     view: 'users',
-    onGet: function (ctx, path, query, respond) {
+    onGet: function (query, respond) {
         store.hgetall('user', function (err, items) {
             var userList = _.object(_.keys(items), _.map(_.values(items), function (item) { return JSON.parse(item); }));
-            // respond( null, { users: _.map( items, (item, key) => JSON.parse(item) ) } );
             respond(null, { users: userList });
         });
     },
     resources: [{
         name: 'user',
         view: 'user',
-        onGet: function (ctx, path, query, respond) {
+        onGet: function (query, respond) {
             var userid = parseInt(query['id']);
             store.hget('user', userid, function (err, data) {
                 if (data) {

@@ -93,6 +93,7 @@ function getResourcesUL( resources, root ) {
         </ul>
         <h3>How to disable this page</h3>
         <p>
+          Use the setHome() on the Site object and pass the path to your home resource.
         </p>
       </div>
     </div>

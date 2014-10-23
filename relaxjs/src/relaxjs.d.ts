@@ -35,7 +35,7 @@ declare module "relaxjs" {
   export interface ResourcePlayer {
     name(): string;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
-    post( route : routing.Route ) : Q.Promise<Embodiment> ;
+    post( route : routing.Route, body: string ) : Q.Promise<Embodiment> ;
   }
 
   export interface DataCallback {
@@ -48,8 +48,8 @@ declare module "relaxjs" {
     layout?: string;
     data?: any;
     resources?: Resource[];
-    onGet?: ( ctx: ResourceServer, path:string[], query: any, cp:DataCallback ) => void;
-    onPost?: ( cp:DataCallback ) => void;
+    onGet?: ( query: any, cp:DataCallback ) => void;
+    onPost?: ( query: any, body: string, cp:DataCallback ) => void;
   }
 
   export interface ResourceMap {
@@ -82,15 +82,15 @@ declare module "relaxjs" {
     siteName: string;
     serve() : http.Server ;
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
-    post( req : routing.Route ) : Q.Promise< Embodiment > ;
+    post( req : routing.Route, body:string ) : Q.Promise< Embodiment > ;
   }
 
   export class ResourceServer extends Container implements ResourcePlayer {
     private _name: string;
     private _template: string;
     private _layout: string;
-    private _onGet : ( resServer?: ResourceServer ) => any;
-    private _onPost : () => any;
+    private _onGet : ( query: any ) => Q.Promise<any>;
+    private _onPost : ( query: any, body: string ) => Q.Promise<any>;
 
     constructor( res : Resource );
     name(): string;

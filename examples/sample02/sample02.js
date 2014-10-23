@@ -3,11 +3,11 @@
 var relaxjs = require('relaxjs');
 var usersResource = {
     name: 'users',
-    onGet: function (ctx, path, query, respond) {
-        respond(null, { title: 'Users Collection Example', count: ctx.childCount() });
+    onGet: function (query, respond) {
+        respond(null, { title: 'Users Collection Example', count: this.childCount() });
     },
     resources: [
-        { name: 'tracy-stewart', onGet: function (ctx, path, query, respond) {
+        { name: 'tracy-stewart', onGet: function (query, respond) {
             var now = new Date();
             respond(null, { firstName: 'Mary', lastName: 'Stewart', date: now });
         }, resources: [

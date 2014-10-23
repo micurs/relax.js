@@ -13,6 +13,7 @@ var store = redis.createClient();
 store.hset('user', '100', '{ "firstName": "Mary", "lastName": "Stewart", "userId": "100" }');
 store.hset('user', '101', '{ "firstName": "John", "lastName": "Smith", "userId": "101" }');
 store.save();
+var newKey = 102;
 
 // Create the application by assembling the resources
 var mysite = relaxjs.site('Example #3');
@@ -22,18 +23,28 @@ var usersResource : relaxjs.Resource = {
   name: 'users',
   view: 'users',
   layout: 'layout',
-  onGet: ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback  ) => {
+  onGet: ( query: any, respond: relaxjs.DataCallback  ) => {
+    //var ucount = this.childTypeCount('user');
+    //console.log('Get users list: '+ucount+' items.');
     store.hgetall( 'user', ( err: Error, items: any ) => {
-        var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
-        // respond( null, { users: _.map( items, (item, key) => JSON.parse(item) ) } );
-        respond( null, { users: userList } );
-      });
+      var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
+      console.log( JSON.stringify(userList,null, ' '));
+      respond( null, { users: userList } );
+    });
   },
   resources : [ {
       name: 'user',
       view: 'user',
       layout: 'layout',
-      onGet: ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback  ) => {
+      onPost: ( query: any, userData: any, respond: relaxjs.DataCallback ) => {
+        console.log('Create New User Request: '+ JSON.stringify(userData) );
+        userData['userId'] = newKey;
+        store.hset('user', newKey, JSON.stringify(userData) );
+        store.save();
+        newKey++;
+        respond( null, { result: 'ok', user: userData } );
+      },
+      onGet: ( query: any, respond: relaxjs.DataCallback  ) => {
         var userid = parseInt( query['id'] );
         store.hget( 'user',userid,
           ( err: Error, data: string ) => {

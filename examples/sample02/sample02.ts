@@ -7,12 +7,12 @@ import relaxjs = require('relaxjs');
 
 var usersResource : relaxjs.Resource = {
   name : 'users',
-  onGet : ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback ) => {
-    respond( null, { title: 'Users Collection Example', count: ctx.childCount() } );
+  onGet : function( query: any, respond: relaxjs.DataCallback ) {
+    respond( null, { title: 'Users Collection Example', count: this.childCount() } );
   },
   resources : [
     { name: 'tracy-stewart',
-      onGet: function( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback ) {
+      onGet: function( query: any, respond: relaxjs.DataCallback ) {
         var now = new Date();
         respond( null,{ firstName: 'Mary', lastName: 'Stewart', date: now } );
       },

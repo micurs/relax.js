@@ -5,6 +5,7 @@ var __extends = this.__extends || function (d, b) {
     d.prototype = new __();
 };
 var http = require("http");
+var querystring = require('querystring');
 var fs = require("fs");
 var Q = require('q');
 var _ = require("underscore");
@@ -67,7 +68,10 @@ var Container = (function () {
         return this._resources[name][idx];
     };
     Container.prototype.childTypeCount = function (typeName) {
-        return this._resources[typeName].length;
+        if (this._resources[typeName])
+            return this._resources[typeName].length;
+        else
+            return 0;
     };
     Container.prototype.childCount = function () {
         var counter = 0;
@@ -145,14 +149,44 @@ var Site = (function (_super) {
         console.log('\n');
         return http.createServer(function (msg, response) {
             var route = routing.fromUrl(msg);
-            _this.get(route).then(function (rep) {
-                rep.serve(response);
-            }).fail(function (error) {
-                response.writeHead(404, { "Content-Type": "text/html" });
-                response.write('Relax.js<hr/>');
-                response.write(error);
-                response.end();
-            }).done();
+            var site = _this;
+            console.log(msg.method);
+            switch (msg.method) {
+                case 'POST':
+                    {
+                        var body = '';
+                        msg.on('data', function (data) {
+                            body += data;
+                        });
+                        msg.on('end', function () {
+                            console.log("Full Body: " + body);
+                            var bodyData = querystring.parse(body);
+                            site.post(route, bodyData).then(function (rep) {
+                                rep.serve(response);
+                            }).fail(function (error) {
+                                response.writeHead(404, { "Content-Type": "text/html" });
+                                response.write('Relax.js<hr/>');
+                                response.write(error);
+                                response.end();
+                            }).done();
+                        });
+                    }
+                    ;
+                    break;
+                case 'GET':
+                    {
+                        site.get(route).then(function (rep) {
+                            rep.serve(response);
+                        }).fail(function (error) {
+                            response.writeHead(404, { "Content-Type": "text/html" });
+                            response.write('Relax.js<hr/>');
+                            response.write(error);
+                            response.end();
+                        }).done();
+                    }
+                    ;
+                    break;
+            }
         });
     };
     Site.prototype.get = function (route) {
@@ -175,10 +209,19 @@ var Site = (function (_super) {
             return internals.viewDynamic(this.name(), this);
         }
     };
-    Site.prototype.post = function (req) {
-        var contextLog = '[' + this.name() + '.get] ';
-        var laterAction = Q.defer();
-        return laterAction.promise;
+    Site.prototype.post = function (route, body) {
+        var ctx = '[site.post] ';
+        if (route.path.length > 1) {
+            var direction = this.getDirection(route);
+            if (direction.resource) {
+                console.log(_.str.sprintf('%s "%s"', ctx, direction.resource.name()));
+                return direction.resource.post(direction.route, body);
+            }
+            else {
+                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
+            }
+        }
+        return internals.promiseError(_.str.sprintf('%s ERROR Invalid in request "%s"', ctx, route.pathname), route.pathname);
     };
     Site._instance = null;
     return Site;
@@ -228,7 +271,7 @@ var ResourceServer = (function (_super) {
             if (this._onGet) {
                 var later = Q.defer();
                 console.log(_.str.sprintf('%s Calling onGet()!', ctx));
-                this._onGet(this, route.path, route.query).then(function (data) {
+                this._onGet(route.query).then(function (data) {
                     console.log(_.str.sprintf('%s Got data from callback: ', ctx, JSON.stringify(data)));
                     var dyndata = data;
                     if (dyndata) {
@@ -264,9 +307,38 @@ var ResourceServer = (function (_super) {
             }
         }
     };
-    ResourceServer.prototype.post = function (route) {
-        var contextLog = '[' + this.name() + '.get] ';
+    ResourceServer.prototype.post = function (route, body) {
+        var _this = this;
+        var ctx = '[post] ';
         var laterAction = Q.defer();
+        var thisRes = this;
+        if (route.path.length > 1) {
+            var direction = thisRes.getDirection(route);
+            if (direction.resource)
+                return direction.resource.post(direction.route, body);
+            else {
+                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
+            }
+        }
+        else {
+            if (this._onPost) {
+                var later = Q.defer();
+                console.log(_.str.sprintf('%s Calling onPost()!', ctx));
+                this._onPost(route.query, body).then(function (data) {
+                    var dyndata = data;
+                    console.log(_.str.sprintf('%s Post returned %s', ctx, JSON.stringify(dyndata)));
+                    _.each(_.keys(dyndata), function (key) {
+                        thisRes[key] = dyndata[key];
+                    });
+                    internals.viewJson(_this).then(function (emb) {
+                        later.resolve(emb);
+                    });
+                });
+                return later.promise;
+            }
+            else {
+            }
+        }
         return laterAction.promise;
     };
     return ResourceServer;

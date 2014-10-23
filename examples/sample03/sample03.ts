@@ -21,17 +21,16 @@ var mysite = relaxjs.site('Example #3');
 var usersResource : relaxjs.Resource = {
   name: 'users',
   view: 'users',
-  onGet: ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback  ) => {
+  onGet: function( query: any, respond: relaxjs.DataCallback  ) {
     store.hgetall( 'user', ( err: Error, items: any ) => {
         var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
-        // respond( null, { users: _.map( items, (item, key) => JSON.parse(item) ) } );
         respond( null, { users: userList } );
       });
   },
   resources : [ {
       name: 'user',
       view: 'user',
-      onGet: ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback  ) => {
+      onGet: function( query: any, respond: relaxjs.DataCallback  ) {
         var userid = parseInt( query['id'] );
         store.hget( 'user',userid,
           ( err: Error, data: string ) => {

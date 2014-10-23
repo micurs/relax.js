@@ -10,6 +10,7 @@
 ///<reference path='../typings/mime/mime.d.ts' />
 
 import http = require("http");
+import querystring = require('querystring');
 import fs = require("fs");
 import url = require('url');
 import path = require('path');
@@ -37,7 +38,7 @@ export class Request {
 export interface ResourcePlayer {
   name(): string;
   get( route : routing.Route ) : Q.Promise<Embodiment> ;
-  post( route : routing.Route ) : Q.Promise<Embodiment> ;
+  post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
 }
 
 export interface DataCallback {
@@ -51,8 +52,8 @@ export interface Resource {
   layout?: string;
   data?: any;
   resources?: Resource[];
-  onGet?: ( ctx: ResourceServer, path:string[], query: any, callback: DataCallback ) => void;
-  onPost?: ( callback: DataCallback) => void;
+  onGet?: ( query: any, callback: DataCallback ) => void;
+  onPost?: ( query: any, body: any, callback: DataCallback) => void;
 }
 
 // A Resource map is a collection of Resource arrays.
@@ -111,8 +112,10 @@ export class Container {
   }
 
   childTypeCount( typeName: string ) : number {
-    return this._resources[typeName].length;
-//    return Object.keys(this._resources[typeName]).length;
+    if ( this._resources[typeName] )
+      return this._resources[typeName].length;
+    else
+      return 0;
   }
 
   childCount() : number {
@@ -186,19 +189,47 @@ export class Site extends Container implements ResourcePlayer {
     return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(msg);
+      var site : Site = this;
+      console.log(msg.method);
 
-      // TODO : add support for post, delete, update
-      this.get( route )
-        .then( ( rep : Embodiment ) => {
-          rep.serve(response);
-        })
-        .fail(function (error) {
-          response.writeHead(404, {"Content-Type": "text/html"} );
-          response.write('Relax.js<hr/>');
-          response.write(error);
-          response.end();
-        })
-        .done();
+      switch( msg.method ) {
+        case 'POST': {
+            var body : string = '';
+            msg.on('data', function (data) {
+                body += data;
+              });
+            msg.on('end', function () {
+                console.log("Full Body: " + body);
+                var bodyData = querystring.parse(body);
+                site.post( route, bodyData )
+                  .then( ( rep : Embodiment ) => {
+                    rep.serve(response);
+                  })
+                  .fail(function (error) {
+                    response.writeHead(404, {"Content-Type": "text/html"} );
+                    response.write('Relax.js<hr/>');
+                    response.write(error);
+                    response.end();
+                  })
+                  .done();
+              });
+          };
+          break;
+        case 'GET': {
+          site.get( route )
+            .then( ( rep : Embodiment ) => {
+              rep.serve(response);
+            })
+            .fail(function (error) {
+              response.writeHead(404, {"Content-Type": "text/html"} );
+              response.write('Relax.js<hr/>');
+              response.write(error);
+              response.end();
+            })
+            .done();
+          };
+          break;
+      }
     });
   }
 
@@ -224,20 +255,28 @@ export class Site extends Container implements ResourcePlayer {
     }
   }
 
-  post( req : routing.Route ) : Q.Promise< Embodiment > {
-    var contextLog = '['+this.name()+'.get] ';
-    var laterAction = Q.defer< Embodiment >();
-    return laterAction.promise;
+  post( route : routing.Route, body: any ) : Q.Promise< Embodiment > {
+    var ctx = '[site.post] ';
+    if ( route.path.length > 1 ) {
+      var direction = this.getDirection(route);
+      if ( direction.resource ) {
+        console.log(_.str.sprintf('%s "%s"',ctx,direction.resource.name() ));
+        return direction.resource.post( direction.route, body );
+      }
+      else {
+        return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid in request "%s"',ctx, route.pathname ), route.pathname );
+      }
+    }
+    return internals.promiseError( _.str.sprintf('%s ERROR Invalid in request "%s"',ctx, route.pathname ), route.pathname );
   }
-
 }
 
 export class ResourceServer extends Container implements ResourcePlayer {
   private _name: string = '';
   private _template: string = '';
   private _layout: string;
-  private _onGet : ( resServer?: ResourceServer, path?:string[], query?: any ) => Q.Promise<any>;
-  private _onPost : () => Q.Promise<any>;
+  private _onGet : ( query: any ) => Q.Promise<any>;
+  private _onPost : ( query: any, body: any ) => Q.Promise<any>;
 
   constructor( res : Resource ) {
     super();
@@ -281,8 +320,8 @@ export class ResourceServer extends Container implements ResourcePlayer {
       // Here we compute/fetch/create the view data.
       if ( this._onGet ) {
         var later = Q.defer< Embodiment >();
-        console.log( _.str.sprintf('%s Calling onGet()!',ctx ) );
-        this._onGet( this, route.path, route.query )
+        console.log( _.str.sprintf('%s Calling onGet()!',ctx) );
+        this._onGet( route.query )
           .then( ( data: any ) => {
             console.log( _.str.sprintf('%s Got data from callback: ',ctx, JSON.stringify(data) ) );
             var dyndata = data;
@@ -320,9 +359,41 @@ export class ResourceServer extends Container implements ResourcePlayer {
     }
   }
 
-  post( route: routing.Route  ) : Q.Promise< Embodiment > {
-    var contextLog = '['+this.name()+'.get] ';
+  post( route: routing.Route, body: any  ) : Q.Promise< Embodiment > {
+    var ctx = '[post] ';
     var laterAction = Q.defer< Embodiment >();
+    var thisRes = this;
+
+    if ( route.path.length > 1 ) {
+      var direction = thisRes.getDirection( route );
+      if ( direction.resource )
+        return direction.resource.post( direction.route, body );
+      else {
+        return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid request "%s"',ctx, route.pathname ), route.pathname );
+      }
+    }
+    else {
+      if ( this._onPost ) {
+        var later = Q.defer< Embodiment >();
+        console.log( _.str.sprintf('%s Calling onPost()!',ctx) );
+        this._onPost( route.query, body )
+          .then( ( data: any ) => {
+            var dyndata = data;
+            console.log( _.str.sprintf('%s Post returned %s',ctx, JSON.stringify(dyndata)) );
+            _.each( _.keys(dyndata), (key) => { thisRes[key] = dyndata[key] } );
+            internals.viewJson(this)
+              .then( (emb: Embodiment ) => {
+                later.resolve(emb);
+              });
+          });
+        return later.promise;
+      }
+      else {
+        // What we do if there is no post function to receive the data ?
+        // Should we just create a resource and set the data property?
+      }
+    }
+
     return laterAction.promise;
   }
 }
