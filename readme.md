@@ -55,27 +55,6 @@ After that open the terminal, cd to the directory of the project and type
 vagrant up
 ```
 
-# Running the examples on Vagrant
-
-```bash
-vagrant up
-```
-
-The first time this command will download the Ubuntu 14.04 LTE box (be prepared to wait a bit) and setup all the library needed to run the project with the VM.
-The details for the VM environment are in the Vagrantfile. When the provisioning of the VM completes you can ssh to it:
-
-```bash
-vagrant ssh
-```
-
-Within the Ubuntu you can launch the first example:
-
-```bash
-cd /sample01
-node sample1.js
-```
-
-Then open your browser to `http://localhost:3000`
 
 # Compile relax.js
 
@@ -91,5 +70,39 @@ To compile on the fly everytime you change any `*.ts` file in `/relaxjs/src` you
 ```bash
 gulp watch
 ```
+
+# Running the examples
+
+```bash
+vagrant up
+```
+
+The first time this command will download the Ubuntu 14.04 LTE box (be prepared to wait a bit) and setup all the library needed to run the project with the VM.
+The details for the VM environment are in the Vagrantfile. When the provisioning of the VM completes you can ssh to it:
+
+```bash
+vagrant ssh
+```
+
+Within the Ubuntu you can launch the first example:
+
+```bash
+cd /examples/sample01
+node sample1.js
+```
+
+Then open your browser to `http://localhost:3000`
+
+The second example is written in typescript. Here is how you compile and run it:
+
+```bash
+cd /examples/sample02
+npm run build
+npm start
+```
+
+All these example start a server listening on port 3000.
+
+
 
 Enjoy!
