@@ -1,6 +1,9 @@
-
+///<reference path='../typings/node/node.d.ts' />
+///<reference path='../typings/q/Q.d.ts' />
+///<reference path='../typings/underscore/underscore.d.ts' />
+///<reference path='../typings/underscore.string/underscore.string.d.ts' />
 /*
-Realx.js v 0..1 type dfiinitons
+Realx.js v 0..1 type definitons
 */
 
 declare module "relaxjs" {
@@ -35,13 +38,18 @@ declare module "relaxjs" {
     post( route : routing.Route ) : Q.Promise<Embodiment> ;
   }
 
+  export interface DataCallback {
+    ( err: Error, data: any ): void;
+  }
+
   export interface Resource {
     name: string;
     view?: string;
     layout?: string;
     data?: any;
     resources?: Resource[];
-    onGet?: ( resServer : ResorceServer ) => any
+    onGet?: ( ctx: ResourceServer, path:string[], query: any, cp:DataCallback ) => void;
+    onPost?: ( cp:DataCallback ) => void;
   }
 
   export interface ResourceMap {
@@ -77,11 +85,12 @@ declare module "relaxjs" {
     post( req : routing.Route ) : Q.Promise< Embodiment > ;
   }
 
-  class ResorceServer extends Container implements ResourcePlayer {
+  export class ResourceServer extends Container implements ResourcePlayer {
     private _name: string;
     private _template: string;
     private _layout: string;
-    private _dataGetter : ( resServer?: ResorceServer) => any;
+    private _onGet : ( resServer?: ResourceServer ) => any;
+    private _onPost : () => any;
 
     constructor( res : Resource );
     name(): string;

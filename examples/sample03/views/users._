@@ -1,0 +1,13 @@
+<html>
+<head>
+</head>
+<body>
+  <h1>User List</h1>
+  <p>
+    <ul>
+      <%= _.reduce( users, function(memo, user, key ) {
+        return memo + '<li><a href="/users/user?id='+key+'">'+user.firstName+' '+user.lastName+'</a></li>';
+      },'' ) %>
+    </ul>
+  <p>
+</body>

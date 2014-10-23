@@ -78,7 +78,7 @@ function viewDynamic(viewName, viewData, layoutName) {
     else {
         readFile(templateFilename, { 'encoding': 'utf8' }).then(function (content) {
             try {
-                console.log(_.str.sprintf('%s Compiling view %s', fname, templateFilename));
+                console.log(_.str.sprintf('%s Compiling view %s\n%s', fname, templateFilename, JSON.stringify(viewData)));
                 var fullContent = new Buffer(_.template(content)(viewData), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment(fullContent, 'utf-8'));
             }

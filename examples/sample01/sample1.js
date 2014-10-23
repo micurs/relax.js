@@ -30,10 +30,10 @@ var staticResource = {
 var dynamicResource = {
   name: 'dynamic',
   view : 'helloworld',
-  onGet : function() {
+  onGet : function( ctx, path, query, response ) {
     var date = new Date();
-    return { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' }
-    }
+    response( null, { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' } );
+  }
 };
 
 

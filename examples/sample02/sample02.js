@@ -1,18 +1,15 @@
-///<reference path='typings/node/node.d.ts' />
-///<reference path='typings/q/Q.d.ts' />
-///<reference path='typings/underscore/underscore.d.ts' />
-///<reference path='typings/underscore.string/underscore.string.d.ts' />
+// Relax.js example #2
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 var relaxjs = require('relaxjs');
 var usersResource = {
     name: 'users',
-    onGet: function (ctx) {
-        return { title: 'Users Collection Example', count: ctx.childCount() };
+    onGet: function (ctx, path, query, respond) {
+        respond(null, { title: 'Users Collection Example', count: ctx.childCount() });
     },
     resources: [
-        { name: 'tracy-stewart', onGet: function () {
+        { name: 'tracy-stewart', onGet: function (ctx, path, query, respond) {
             var now = new Date();
-            return { firstName: 'Tracy', lastName: 'Stewart', date: now };
+            respond(null, { firstName: 'Mary', lastName: 'Stewart', date: now });
         }, resources: [
             { name: 'address', data: { address: '101 John St. San Francisco CA. ' } }
         ] },
@@ -31,7 +28,7 @@ var usersResource = {
             ]
         },
         { name: 'user', data: { firstName: 'Joe', lastName: 'Doe' } },
-        { name: 'user', data: { firstName: 'Mary', lastName: 'Linn' } }
+        { name: 'user', data: { firstName: 'Jane', lastName: 'Linn' } }
     ]
 };
 // Create the application by assembling the resources

@@ -40,6 +40,9 @@ export interface ResourcePlayer {
   post( route : routing.Route ) : Q.Promise<Embodiment> ;
 }
 
+export interface DataCallback {
+  ( err: Error, data: any ): void;
+}
 
 export interface Resource {
   name: string;
@@ -48,8 +51,8 @@ export interface Resource {
   layout?: string;
   data?: any;
   resources?: Resource[];
-  onGet?: ( ctx?: ResourceServer, path?:string[], query?: any ) => any;
-  onPost?: () => any;
+  onGet?: ( ctx: ResourceServer, path:string[], query: any, callback: DataCallback ) => void;
+  onPost?: ( callback: DataCallback) => void;
 }
 
 // A Resource map is a collection of Resource arrays.
@@ -201,7 +204,7 @@ export class Site extends Container implements ResourcePlayer {
 
   get( route : routing.Route ) : Q.Promise< Embodiment > {
     var ctx = '['+this.name()+'.get] ';
-    // console.log(ctx);
+    console.log(ctx+' route:'+ route.path);
     if ( route.static ) {
       return internals.viewStatic( route.pathname );
     }
@@ -229,20 +232,20 @@ export class Site extends Container implements ResourcePlayer {
 
 }
 
-class ResourceServer extends Container implements ResourcePlayer {
+export class ResourceServer extends Container implements ResourcePlayer {
   private _name: string = '';
   private _template: string = '';
   private _layout: string;
-  private _onGet : ( resServer?: ResourceServer, path?:string[], query?: any ) => any;
-  private _onPost : () => any;
+  private _onGet : ( resServer?: ResourceServer, path?:string[], query?: any ) => Q.Promise<any>;
+  private _onPost : () => Q.Promise<any>;
 
   constructor( res : Resource ) {
     super();
     this._name = res.name;
     this._template = res.view;
     this._layout = res.layout;
-    this._onGet = res.onGet;
-    this._onPost = res.onPost;
+    this._onGet = res.onGet ? Q.nbind(res.onGet,this) : undefined ;
+    this._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
 
     // Add children resources if available
     if ( res.resources ) {
@@ -277,19 +280,42 @@ class ResourceServer extends Container implements ResourcePlayer {
       var dyndata: any = {};
       // Here we compute/fetch/create the view data.
       if ( this._onGet ) {
-        console.log( _.str.sprintf('%s getting resource from callback',ctx) );
-        dyndata = this._onGet( this, route.path, route.query );
-      }
-      if (dyndata) { // Merge the data into this object
-        for (var attrname in dyndata) { this[attrname] = dyndata[attrname]; }
-      }
-      if ( this._template ) {
-        console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, this._name, this._template));
-        return internals.viewDynamic(this._template, this, this._layout );
+        var later = Q.defer< Embodiment >();
+        console.log( _.str.sprintf('%s Calling onGet()!',ctx ) );
+        this._onGet( this, route.path, route.query )
+          .then( ( data: any ) => {
+            console.log( _.str.sprintf('%s Got data from callback: ',ctx, JSON.stringify(data) ) );
+            var dyndata = data;
+            if (dyndata) { // Merge the data into this object
+              for (var attrname in dyndata) { this[attrname] = dyndata[attrname]; }
+            }
+            if ( this._template ) {
+              console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, this._name, this._template));
+              internals.viewDynamic(this._template, this, this._layout )
+                .then( (emb: Embodiment ) => {
+                  later.resolve(emb);
+                });
+            }
+            else {
+              console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, this._name ));
+              internals.viewJson(this)
+                .then( (emb: Embodiment ) => {
+                  later.resolve(emb);
+                });
+            }
+          });
+        return later.promise;
       }
       else {
-        console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, this._name ));
-        return internals.viewJson(this);
+        console.log( _.str.sprintf('%s getting resource from the data ',ctx) );
+        if ( this._template ) {
+          console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, this._name, this._template));
+          return internals.viewDynamic(this._template, this, this._layout );
+        }
+        else {
+          console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, this._name ));
+          return internals.viewJson(this);
+        }
       }
     }
   }

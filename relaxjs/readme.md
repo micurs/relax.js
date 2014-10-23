@@ -60,9 +60,8 @@ different data depending on the time of the request by providing a onGet() funct
 ```javascript
 var timeResource = {
   name: 'current-time'
-  onGet : function() {
-    return {
-      current-time : ''+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC'
+  onGet : function(ctx, path, query, response) {
+    response(null, { current-time : ''+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' });
     }
   }
 };
@@ -279,8 +278,10 @@ var users = {
   view: 'users',
   resources: [
     { name: 'user',
-      onGet( ctx, relPath, query ) {
-        return dataStore.getUserFromId( query.id ) ;
+      onGet: function( ctx, relPath, query, respond ) {
+        dataStore.getUserFromId( query.id, function(err, data) {
+          respond(data);
+        });
       }
     },
   ]
@@ -289,8 +290,6 @@ var users = {
 > [More info here soon...]
 
 ## Request Parameters
-
-> Note this is not implemented yet
 
 All these functions can accept a variable number of parameters depending on what is specified in the
 queryString or in the body of the request. For example in this request:
@@ -303,8 +302,8 @@ We are requesting the user address resource. We can implement our resource to re
 
 ```javascript
 var johnSmithRes = {
-  onGet: function( ctx, params ) {
-    switch(params['out']) {
+  onGet: function( ctx, path, query, response ) {
+    switch(query['out']) {
       case 'name':
         return {
           'id' : 1245,

@@ -1,0 +1,11 @@
+<html>
+<head>
+</head>
+<body>
+  <h1>User</h1>
+  <p>
+    <%= userId %>
+    <%= firstName %>
+    <%= lastName %>
+  <p>
+</body>

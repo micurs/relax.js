@@ -157,6 +157,7 @@ var Site = (function (_super) {
     };
     Site.prototype.get = function (route) {
         var ctx = '[' + this.name() + '.get] ';
+        console.log(ctx + ' route:' + route.path);
         if (route.static) {
             return internals.viewStatic(route.pathname);
         }
@@ -193,8 +194,8 @@ var ResourceServer = (function (_super) {
         this._name = res.name;
         this._template = res.view;
         this._layout = res.layout;
-        this._onGet = res.onGet;
-        this._onPost = res.onPost;
+        this._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
+        this._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
         if (res.resources) {
             _.each(res.resources, function (child, index) {
                 _this.add(child);
@@ -212,6 +213,7 @@ var ResourceServer = (function (_super) {
         return this._name;
     };
     ResourceServer.prototype.get = function (route) {
+        var _this = this;
         var ctx = _.str.sprintf('[get]');
         if (route.path.length > 1) {
             var direction = this.getDirection(route);
@@ -224,21 +226,41 @@ var ResourceServer = (function (_super) {
         else {
             var dyndata = {};
             if (this._onGet) {
-                console.log(_.str.sprintf('%s getting resource from callback', ctx));
-                dyndata = this._onGet(this, route.path, route.query);
-            }
-            if (dyndata) {
-                for (var attrname in dyndata) {
-                    this[attrname] = dyndata[attrname];
-                }
-            }
-            if (this._template) {
-                console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, this._name, this._template));
-                return internals.viewDynamic(this._template, this, this._layout);
+                var later = Q.defer();
+                console.log(_.str.sprintf('%s Calling onGet()!', ctx));
+                this._onGet(this, route.path, route.query).then(function (data) {
+                    console.log(_.str.sprintf('%s Got data from callback: ', ctx, JSON.stringify(data)));
+                    var dyndata = data;
+                    if (dyndata) {
+                        for (var attrname in dyndata) {
+                            _this[attrname] = dyndata[attrname];
+                        }
+                    }
+                    if (_this._template) {
+                        console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, _this._name, _this._template));
+                        internals.viewDynamic(_this._template, _this, _this._layout).then(function (emb) {
+                            later.resolve(emb);
+                        });
+                    }
+                    else {
+                        console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, _this._name));
+                        internals.viewJson(_this).then(function (emb) {
+                            later.resolve(emb);
+                        });
+                    }
+                });
+                return later.promise;
             }
             else {
-                console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, this._name));
-                return internals.viewJson(this);
+                console.log(_.str.sprintf('%s getting resource from the data ', ctx));
+                if (this._template) {
+                    console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, this._name, this._template));
+                    return internals.viewDynamic(this._template, this, this._layout);
+                }
+                else {
+                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, this._name));
+                    return internals.viewJson(this);
+                }
             }
         }
     };
@@ -249,6 +271,7 @@ var ResourceServer = (function (_super) {
     };
     return ResourceServer;
 })(Container);
+exports.ResourceServer = ResourceServer;
 var Data = (function (_super) {
     __extends(Data, _super);
     function Data(name) {

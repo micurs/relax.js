@@ -11,6 +11,8 @@
     "start": "node sample03.js"
   },
   "dependencies": {
-    "node-redis": "^0.1.7"
+    "node-redis": "^0.1.7",
+    "redis": "^0.12.1",
+    "underscore": "^1.7.0"
   }
 }

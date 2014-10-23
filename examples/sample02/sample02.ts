@@ -1,7 +1,4 @@
-///<reference path='typings/node/node.d.ts' />
-///<reference path='typings/q/Q.d.ts' />
-///<reference path='typings/underscore/underscore.d.ts' />
-///<reference path='typings/underscore.string/underscore.string.d.ts' />
+// Relax.js example #2
 
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 
@@ -10,12 +7,14 @@ import relaxjs = require('relaxjs');
 
 var usersResource : relaxjs.Resource = {
   name : 'users',
-  onGet : (ctx) => { return { title: 'Users Collection Example', count: ctx.childCount() } },
+  onGet : ( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback ) => {
+    respond( null, { title: 'Users Collection Example', count: ctx.childCount() } );
+  },
   resources : [
     { name: 'tracy-stewart',
-      onGet: function() {
+      onGet: function( ctx: relaxjs.ResourceServer, path:string[], query: any, respond: relaxjs.DataCallback ) {
         var now = new Date();
-        return { firstName: 'Tracy', lastName: 'Stewart', date: now };
+        respond( null,{ firstName: 'Mary', lastName: 'Stewart', date: now } );
       },
       resources: [
         { name: 'address', data: { address: '101 John St. San Francisco CA. ' } }
@@ -35,7 +34,7 @@ var usersResource : relaxjs.Resource = {
       ]
     },
     { name: 'user', data: { firstName: 'Joe', lastName: 'Doe' } },
-    { name: 'user', data: { firstName: 'Mary', lastName: 'Linn' } }
+    { name: 'user', data: { firstName: 'Jane', lastName: 'Linn' } }
     ]
 };
 
