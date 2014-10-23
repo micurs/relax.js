@@ -60,7 +60,7 @@ different data depending on the time of the request by providing a onGet() funct
 ```javascript
 var timeResource = {
   name: 'current-time'
-  onGet : function(ctx, path, query, response) {
+  onGet : function( query, response) {
     response(null, { current-time : ''+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' });
     }
   }
@@ -179,7 +179,7 @@ site.setHome('/users');
 When you add resources to the Site the list of all the resources added is shown in the default site page.
 The Site is a Container for other resources. Every resource can itself contain resources. For example:
 
-```
+```javascript
 var users = {
   view: 'users',
   resources: [
@@ -203,7 +203,7 @@ http://localhost:3000/users/user/2
 
 As alternative you can give each resource a unique name with-in the collection.
 
-```
+```javascript
 var users = {
   view: 'users',
   resources: [
@@ -227,7 +227,7 @@ http://localhost:3000/users/mary-lane
 By default Relax allows to specify a key to select a specific resource within the URL just after the resource name.
 We can force Relax.js to use our own key to retrieve a resource if we write the resources this way:
 
-```
+```javascript
 var users = {
   view: 'users',
   resources: [
@@ -247,7 +247,7 @@ http://localhost:3000/users/user/1002
 
 We can use different type of keys:
 
-```
+```javascript
 var users = {
   view: 'users',
   resources: [
@@ -302,7 +302,7 @@ We are requesting the user address resource. We can implement our resource to re
 
 ```javascript
 var johnSmithRes = {
-  onGet: function( ctx, path, query, response ) {
+  onGet: function( query, response ) {
     switch(query['out']) {
       case 'name':
         return {
