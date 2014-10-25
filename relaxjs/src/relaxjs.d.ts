@@ -46,14 +46,25 @@ declare module "relaxjs" {
     serve( response: http.ServerResponse) : void;
   }
 
-  export interface ResourcePlayer {
+  export interface HttpPlayer {
     name(): string;
+    head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
-    post( route : routing.Route, body: string ) : Q.Promise<Embodiment> ;
+    post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    delete( route : routing.Route ) : Q.Promise<Embodiment> ;
+    patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+  }
+
+  export interface ResourceResponse {
+    data: any;
+    httpCode?: number;
+    location?: string;
+    result?: string;
   }
 
   export interface DataCallback {
-    ( err: Error, data?: any ): void;
+    ( err: Error, data?: ResourceResponse ): void;
   }
 
   export interface Resource {
@@ -67,7 +78,7 @@ declare module "relaxjs" {
   }
 
   export interface ResourceMap {
-    [name: string]: ResourcePlayer;
+    [name: string]: HttpPlayer;
   }
 
   export class Container {
@@ -75,15 +86,15 @@ declare module "relaxjs" {
 
     constructor();
 
-    getFirstMatching( typeName: string ) : ResourcePlayer;
+    getFirstMatching( typeName: string ) : HttpPlayer;
     add( newRes: Resource ) : void ;
-    getByIdx( name: string, idx: number ) : ResourcePlayer ;
+    getByIdx( name: string, idx: number ) : HttpPlayer ;
     childTypeCount( typeName: string ) : number ;
     childCount() : number;
     getDirection( route : routing.Route ) : routing.Direction;
   }
 
-  export class Site extends Container implements ResourcePlayer {
+  export class Site extends Container implements HttpPlayer {
     private static _instance : Site;
     private _name: string;
     private _siteName: string;
@@ -95,11 +106,17 @@ declare module "relaxjs" {
     version: string;
     siteName: string;
     serve() : http.Server ;
-    get( route : routing.Route ) : Q.Promise< Embodiment > ;
-    post( req : routing.Route, body:string ) : Q.Promise< Embodiment > ;
+    setHome( path: string ) : void;
+
+    head( route : routing.Route) : Q.Promise<Embodiment> ;
+    get( route : routing.Route ) : Q.Promise<Embodiment> ;
+    post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    delete( route : routing.Route ) : Q.Promise<Embodiment> ;
+    patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
   }
 
-  export class ResourceServer extends Container implements ResourcePlayer {
+  export class ResourcePlayer extends Container implements HttpPlayer {
     private _name: string;
     private _template: string;
     private _layout: string;
@@ -108,8 +125,12 @@ declare module "relaxjs" {
 
     constructor( res : Resource );
     name(): string;
-    get(  route: routing.Route  ) : Q.Promise< Embodiment >;
-    post( route: routing.Route  ) : Q.Promise< Embodiment >;
+    head( route : routing.Route) : Q.Promise<Embodiment> ;
+    get( route : routing.Route ) : Q.Promise<Embodiment> ;
+    post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    delete( route : routing.Route ) : Q.Promise<Embodiment> ;
+    patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
   }
 
   export function site( name?: string ) : Site;

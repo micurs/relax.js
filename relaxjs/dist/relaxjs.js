@@ -6,7 +6,6 @@ var __extends = this.__extends || function (d, b) {
 };
 var http = require("http");
 var querystring = require('querystring');
-var fs = require("fs");
 var Q = require('q');
 var _ = require("underscore");
 _.str = require('underscore.string');
@@ -45,22 +44,25 @@ var Request = (function () {
 })();
 exports.Request = Request;
 var Embodiment = (function () {
-    function Embodiment(data, mimeType) {
+    function Embodiment(mimeType, data) {
+        this.httpCode = 200;
         this.data = data;
         this.mimeType = mimeType;
-        this.httpCode = 200;
     }
     Embodiment.prototype.serve = function (response) {
-        var headers = { 'Content-Type': this.mimeType, 'Content-Length': this.data.length };
+        var headers = { 'Content-Type': this.mimeType };
+        if (this.data)
+            headers['Content-Length'] = this.data.length;
         if (this.location)
             headers['Location'] = this.location;
+        response.writeHead(this.httpCode, headers);
+        if (this.data)
+            response.write(this.data);
+        response.end();
         if (this.data.length > 1024)
             console.log(_.str.sprintf('[serve] %s Kb', _.str.numberFormat(this.data.length / 1024, 1)));
         else
             console.log(_.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length)));
-        response.writeHead(this.httpCode, headers);
-        response.write(this.data);
-        response.end();
     };
     return Embodiment;
 })();
@@ -79,7 +81,7 @@ var Container = (function () {
     Container.prototype.add = function (newRes) {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
-        var resourcePlayer = new ResourceServer(newRes);
+        var resourcePlayer = new ResourcePlayer(newRes);
         var indexName = _.str.slugify(newRes.name);
         var childArray = this._resources[indexName];
         if (childArray === undefined)
@@ -137,6 +139,7 @@ var Site = (function (_super) {
         this._name = "site";
         this._version = '0.0.1';
         this._siteName = 'site';
+        this._home = '/';
         this._siteName = siteName;
         if (Site._instance) {
             throw new Error("Error: Only one site is allowed.");
@@ -225,8 +228,19 @@ var Site = (function (_super) {
             }
         });
     };
+    Site.prototype.setHome = function (path) {
+        this._home = path;
+    };
+    Site.prototype.head = function (route) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
+    };
     Site.prototype.get = function (route) {
         var ctx = '[' + this.name() + '.get] ';
+        var self = this;
         console.log(ctx + ' route:' + route.path);
         if (route.static) {
             return internals.viewStatic(route.pathname);
@@ -242,7 +256,12 @@ var Site = (function (_super) {
                     return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
                 }
             }
-            return internals.viewDynamic(this.name(), this);
+            if (self._home === '/') {
+                return internals.viewDynamic(self.name(), this);
+            }
+            else {
+                return internals.redirect(self._home);
+            }
         }
     };
     Site.prototype.post = function (route, body) {
@@ -259,13 +278,34 @@ var Site = (function (_super) {
         }
         return internals.promiseError(_.str.sprintf('%s ERROR Invalid in request "%s"', ctx, route.pathname), route.pathname);
     };
+    Site.prototype.put = function (route, body) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
+    };
+    Site.prototype.delete = function (route) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
+    };
+    Site.prototype.patch = function (route, body) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
+    };
     Site._instance = null;
     return Site;
 })(Container);
 exports.Site = Site;
-var ResourceServer = (function (_super) {
-    __extends(ResourceServer, _super);
-    function ResourceServer(res) {
+var ResourcePlayer = (function (_super) {
+    __extends(ResourcePlayer, _super);
+    function ResourcePlayer(res) {
         _super.call(this);
         this._name = '';
         this._template = '';
@@ -286,10 +326,17 @@ var ResourceServer = (function (_super) {
             }
         });
     }
-    ResourceServer.prototype.name = function () {
+    ResourcePlayer.prototype.name = function () {
         return this._name;
     };
-    ResourceServer.prototype.get = function (route) {
+    ResourcePlayer.prototype.head = function (route) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
+    };
+    ResourcePlayer.prototype.get = function (route) {
         var ctx = _.str.sprintf('[get]');
         var self = this;
         if (route.path.length > 1) {
@@ -340,7 +387,7 @@ var ResourceServer = (function (_super) {
             }
         }
     };
-    ResourceServer.prototype.post = function (route, body) {
+    ResourcePlayer.prototype.post = function (route, body) {
         var ctx = '[post] ';
         var laterAction = Q.defer();
         var self = this;
@@ -380,37 +427,30 @@ var ResourceServer = (function (_super) {
         }
         return laterAction.promise;
     };
-    return ResourceServer;
-})(Container);
-exports.ResourceServer = ResourceServer;
-var Data = (function (_super) {
-    __extends(Data, _super);
-    function Data(name) {
-        _super.call(this);
-        this._name = '';
-        this._name = name;
-    }
-    Data.prototype.name = function () {
-        return this._name;
-    };
-    Data.prototype.get = function (route) {
+    ResourcePlayer.prototype.put = function (route, body) {
         var later = Q.defer();
-        var readFile = Q.denodeify(fs.readFile);
-        var dataFile = './data/' + this.name() + '.json';
-        readFile(dataFile).then(function (content) {
-            later.resolve(new Embodiment(content, 'application/json'));
-        }).catch(function (err) {
-            later.reject(internals.emitCompileViewError('N/A', err, dataFile));
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
         });
         return later.promise;
     };
-    Data.prototype.post = function (route) {
-        var contextLog = '[' + this.name() + '.get] ';
-        var laterAction = Q.defer();
-        return laterAction.promise;
+    ResourcePlayer.prototype.delete = function (route) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
     };
-    return Data;
+    ResourcePlayer.prototype.patch = function (route, body) {
+        var later = Q.defer();
+        _.defer(function () {
+            later.reject(new RxError('Not Implemented'));
+        });
+        return later.promise;
+    };
+    return ResourcePlayer;
 })(Container);
+exports.ResourcePlayer = ResourcePlayer;
 function site(name) {
     return Site.$(name);
 }

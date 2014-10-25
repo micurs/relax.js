@@ -13,8 +13,6 @@ function genGuid() {
 }
 // Create the data store (with redis)
 var store = redis.createClient();
-// store.del('user');
-// store.save();
 // Create the application by assembling the resources
 var mysite = relaxjs.site('Example #4');
 // Create a resource that can retrieve and store users info into redis
@@ -23,11 +21,8 @@ var usersResource = {
     view: 'users',
     layout: 'layout',
     onGet: function (query, respond) {
-        //var ucount = this.childTypeCount('user');
-        //console.log('Get users list: '+ucount+' items.');
         store.hgetall('user', function (err, items) {
             var userList = _.object(_.keys(items), _.map(_.values(items), function (item) { return JSON.parse(item); }));
-            console.log(JSON.stringify(userList, null, ' '));
             respond(null, { data: { users: userList } });
         });
     },
@@ -35,9 +30,7 @@ var usersResource = {
         name: 'user',
         view: 'user',
         layout: 'layout',
-        /*
-         * POST method: save a user
-        */
+        // POST method: save a user
         onPost: function (query, userData, respond) {
             var newKey = genGuid();
             userData['userId'] = newKey;
@@ -45,9 +38,7 @@ var usersResource = {
             store.save();
             respond(null, { result: 'ok', httpCode: 303, location: '/users', data: userData });
         },
-        /*
-         * -- GET method: retrieve a user
-        */
+        // GET method: retrieve a user
         onGet: function (query, respond) {
             var userid = query['id'];
             store.hget('user', userid, function (err, data) {
@@ -64,5 +55,6 @@ var usersResource = {
     }]
 };
 mysite.add(usersResource);
+mysite.setHome('/users');
 mysite.serve().listen(3000);
 //# sourceMappingURL=sample04.js.map

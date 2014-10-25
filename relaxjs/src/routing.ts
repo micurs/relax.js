@@ -44,7 +44,7 @@ export class Route {
 }
 
 export class Direction {
-  resource : relaxjs.ResourcePlayer;
+  resource : relaxjs.HttpPlayer;
   route: Route;
 }
 

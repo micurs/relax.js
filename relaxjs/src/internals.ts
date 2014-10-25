@@ -37,6 +37,17 @@ export function promiseError( msg: string, resName : string ) : Q.Promise< relax
   return later.promise;
 }
 
+export function redirect( location: string ) : Q.Promise< relaxjs.Embodiment > {
+  var later = Q.defer< relaxjs.Embodiment >();
+  _.defer( () => {
+    var redir = new relaxjs.Embodiment('text/html');
+    redir.httpCode = 301; // Moved Permanently
+    redir.location = location;
+    later.resolve(redir);
+    });
+  return later.promise;
+}
+
 // Realize a view from a generic get for a static file
 // Return a promise that will return the full content of the view.
 // -------------------------------------------------------------------------------
@@ -52,7 +63,7 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
       laterAction.reject( new relaxjs.RxError( filename + ' not found', 'File Not Found', 404 ) );
     }
     else {
-      laterAction.resolve( new relaxjs.Embodiment( content, mtype ) );
+      laterAction.resolve( new relaxjs.Embodiment( mtype, content ) );
     }
   });
   return laterAction.promise;
@@ -66,13 +77,12 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
 export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
-    var e = new relaxjs.Embodiment(
+    var e = new relaxjs.Embodiment( 'application/json',
       new Buffer(
         JSON.stringify( viewData,
           ( key : string, value : any ) => ( key.indexOf('_') === 0 ) ?  undefined : value ,
           '  '),
-        'utf-8'),
-      'application/json'
+        'utf-8')
     );
     later.resolve( e );
   });
@@ -105,7 +115,7 @@ export function viewDynamic( viewName: string,
         console.log(_.str.sprintf('%s Compiling composite view %s in %s',fname,layoutFilename,templateFilename));
         var innerContent = new Buffer( _.template(content)(viewData), 'utf-8' );
         var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
-        laterAct.resolve( new relaxjs.Embodiment( fullContent, 'utf-8' ));
+        laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
       }
       catch( e ) {
         laterAct.reject( emitCompileViewError(content,e, templateFilename +' in '+ layoutFilename) );
@@ -122,7 +132,7 @@ export function viewDynamic( viewName: string,
       try {
         console.log(_.str.sprintf('%s Compiling view %s',fname, templateFilename ));
         var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
-        laterAct.resolve( new relaxjs.Embodiment( fullContent, 'utf-8' ));
+        laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
       }
       catch( e ) {
         laterAct.reject( emitCompileViewError(content,e, templateFilename ) );

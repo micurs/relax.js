@@ -42,6 +42,9 @@ interface IRxError extends Error {
   getExtra(): string;
 }
 
+/*
+ * Extended Error class for Relax.js
+*/
 export class RxError implements IRxError {
   httpCode: number;
   extra: string;
@@ -74,15 +77,45 @@ export class Request {
   data: Buffer;
 }
 
-// Generic interface for a resource
-export interface ResourcePlayer {
+
+/*
+ * The resource player implement a resource runtime capabilities
+ * managing the flow of requests coming from the site. HttpPlayer implements
+ * all the HTTP verb functions and manage the calls to the user defined resources.
+*/
+export interface HttpPlayer {
   name(): string;
+
+  // Asks for the response identical to the one that would correspond to a GET request, but without the response body.
+  head( route : routing.Route) : Q.Promise<Embodiment> ;
+
+  // Requests a representation of the specified resource.
   get( route : routing.Route ) : Q.Promise<Embodiment> ;
+
+  // Requests that the server accept the entity enclosed in the request as a new subordinate
+  // of the web resource identified by the URI.
   post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+
+  // Requests that the enclosed entity be stored under the supplied URI.
+  // If the URI refers to an already existing resource, it is modified otherwise the resource can be created.
+  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+
+  // Deletes the specified resource.
+  delete( route : routing.Route ) : Q.Promise<Embodiment> ;
+
+  // Applies partial modifications to a resource.
+  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+}
+
+export interface ResourceResponse {
+  data: any;
+  httpCode?: number;
+  location?: string;
+  result?: string;
 }
 
 export interface DataCallback {
-  ( err: Error, data?: any ): void;
+  ( err: Error, resp?: ResourceResponse ): void;
 }
 
 export interface Resource {
@@ -99,7 +132,7 @@ export interface Resource {
 // A Resource map is a collection of Resource arrays.
 // Each arrray contain resource of the same type.
 export interface ResourceMap {
-  [name: string]: ResourcePlayer [];
+  [name: string]: HttpPlayer [];
 }
 
 // Every resource is converted to their embodiment before they can be served
@@ -107,22 +140,31 @@ export class Embodiment {
 
   public httpCode : number;
   public location : string;
+  public data : Buffer;
+  public mimeType : string;
 
-  constructor( private data : Buffer, private mimeType: string ) {
+  constructor(  mimeType: string, data?: Buffer ) {
     this.httpCode = 200;
+    this.data = data;
+    this.mimeType = mimeType;
   }
 
   serve(response: http.ServerResponse) : void {
-    var headers = { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length };
+    var headers = { 'Content-Type' : this.mimeType };
+    if ( this.data )
+      headers['Content-Length'] = this.data.length;
     if ( this.location )
       headers['Location'] = this.location;
+
+    response.writeHead( this.httpCode, headers );
+    if ( this.data )
+      response.write(this.data);
+    response.end();
+
     if ( this.data.length>1024 )
       console.log( _.str.sprintf('[serve] %s Kb', _.str.numberFormat(this.data.length/1024,1) ) );
     else
       console.log( _.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length) ) );
-    response.writeHead( this.httpCode, headers );
-    response.write(this.data);
-    response.end();
   }
 }
 
@@ -134,7 +176,7 @@ export class Container {
   constructor() {}
 
   // Find the first resource of the given type
-  getFirstMatching( typeName: string ) : ResourcePlayer {
+  getFirstMatching( typeName: string ) : HttpPlayer {
     var childArray = this._resources[typeName];
     if ( childArray === undefined ) {
       return null;
@@ -145,7 +187,7 @@ export class Container {
   add( newRes: Resource ) : void {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
-    var resourcePlayer : ResourceServer = new ResourceServer(newRes);
+    var resourcePlayer : ResourcePlayer = new ResourcePlayer(newRes);
     var indexName = _.str.slugify(newRes.name);
     var childArray = this._resources[indexName];
     if ( childArray === undefined )
@@ -156,7 +198,7 @@ export class Container {
     console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length-1, indexName ) );
   }
 
-  getByIdx( name: string, idx: number ) : ResourcePlayer {
+  getByIdx( name: string, idx: number ) : HttpPlayer {
     return this._resources[name][idx];
   }
 
@@ -169,7 +211,7 @@ export class Container {
 
   childCount() : number {
     var counter : number = 0;
-    _.each< ResourcePlayer[]>( this._resources, ( arrayItem : ResourcePlayer[] ) => { counter += arrayItem.length; } );
+    _.each< HttpPlayer[]>( this._resources, ( arrayItem : HttpPlayer[] ) => { counter += arrayItem.length; } );
     return counter;
   }
 
@@ -201,11 +243,12 @@ export class Container {
 
 // Root object for the application is the Site.
 // The site is in itself a Resource and is accessed via the root / in a url.
-export class Site extends Container implements ResourcePlayer {
+export class Site extends Container implements HttpPlayer {
   private static _instance : Site = null;
   private _name: string = "site";
   private _version : string = '0.0.1';
   private _siteName : string = 'site';
+  private _home : string = '/';
 
   constructor( siteName:string ) {
     super();
@@ -226,10 +269,10 @@ export class Site extends Container implements ResourcePlayer {
   name(): string { return this._name; }
   setName( newName:string ) : void { this._name = newName; }
 
-  get version():string {
+  get version() : string {
     return this._version;
   }
-  get siteName():string {
+  get siteName() : string {
     return this._siteName;
   }
 
@@ -293,8 +336,19 @@ export class Site extends Container implements ResourcePlayer {
     });
   }
 
+  setHome( path: string ) : void {
+    this._home = path;
+  }
+
+  head( route : routing.Route) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
+  }
+
   get( route : routing.Route ) : Q.Promise< Embodiment > {
     var ctx = '['+this.name()+'.get] ';
+    var self = this;
     console.log(ctx+' route:'+ route.path);
     if ( route.static ) {
       return internals.viewStatic( route.pathname );
@@ -311,7 +365,12 @@ export class Site extends Container implements ResourcePlayer {
         }
       }
       // console.log( contextLog + 'Resources : [ '+ JSON.stringify(_.values(this._resources, null, '  ')) +' ]' );
-      return internals.viewDynamic(this.name(), this );
+      if ( self._home === '/') {
+        return internals.viewDynamic(self.name(), this );
+      }
+      else {
+        return internals.redirect( self._home );
+      }
     }
   }
 
@@ -329,9 +388,28 @@ export class Site extends Container implements ResourcePlayer {
     }
     return internals.promiseError( _.str.sprintf('%s ERROR Invalid in request "%s"',ctx, route.pathname ), route.pathname );
   }
+
+  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
+  }
+
+  delete( route : routing.Route ) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
+  }
+
+  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
+  }
+
 }
 
-export class ResourceServer extends Container implements ResourcePlayer {
+export class ResourcePlayer extends Container implements HttpPlayer {
   private _name: string = '';
   private _template: string = '';
   private _layout: string;
@@ -363,10 +441,17 @@ export class ResourceServer extends Container implements ResourcePlayer {
 
   name(): string { return this._name; }
 
-  /*
-   * Resource Player GET
-   * This is the resource facade GET: it will call a GET to a child resource or the onGet() for the current resource.
-  */
+  // Resource Player HEAD
+  // Get the response as for a GET request, but without the response body.
+  head( route : routing.Route) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
+  }
+
+
+  // HttpPlayer GET
+  // This is the resource facade GET: it will call a GET to a child resource or the onGet() for the current resource.
   get(  route: routing.Route  ) : Q.Promise< Embodiment > {
     var ctx = _.str.sprintf('[get]');
     var self = this; // use to consistently access this object.
@@ -428,10 +513,9 @@ export class ResourceServer extends Container implements ResourcePlayer {
     }
   }
 
-  /*
-   * Resource Player POST
-   * This is the resource facade POST: it will call a POST to a child resource or the onPost() for the current resource.
-  */
+  // HttpPlayer POST
+  // Asks the resource to create a new subordinate of the web resource identified by the URI.
+  // The body sent to a post must contain the resource name to be created.
   post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
     var ctx = '[post] ';
     var laterAction = Q.defer< Embodiment >();
@@ -474,42 +558,32 @@ export class ResourceServer extends Container implements ResourcePlayer {
 
     return laterAction.promise;
   }
-}
 
 
-class Data extends Container implements ResourcePlayer {
-  private _name:string = '';
-
-  constructor( name: string ) {
-    super();
-    this._name = name;
-  }
-
-  name(): string { return this._name; }
-  // setName( newName:string ) : void { this._name = newName; }
-
-  get( route: routing.Route ) : Q.Promise< Embodiment > {
-    // <todo>return child resource if specified in the path</todo>
-
-    // Here we return the embodiment of the data representing this resource.
+  // HttpPlayer PUT
+  // Asks that the enclosed entity be stored under the supplied URI.
+  // The body sent to a post does not contain the resource name to be stored since that name is the URI.
+  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var later = Q.defer< Embodiment >();
-    var readFile = Q.denodeify(fs.readFile);
-    var dataFile = './data/'+this.name()+'.json';
-    readFile( dataFile)
-      .then( (content: Buffer ) => {
-        later.resolve(new Embodiment(content, 'application/json' ));
-      })
-      .catch( ( err : Error ) => {
-        later.reject( internals.emitCompileViewError('N/A',err, dataFile ) );
-      });
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
     return later.promise;
   }
-  post( route: routing.Route  ) : Q.Promise< Embodiment > {
-    var contextLog = '['+this.name()+'.get] ';
-    var laterAction = Q.defer< Embodiment >();
-    return laterAction.promise;
+
+  // HttpPlayer DELETE
+  // Deletes the specified resource (as identified in the URI).
+  delete( route : routing.Route ) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
   }
 
+  // HttpPlayer PATCH
+  // Applies partial modifications to a resource (as identified in the URI).
+  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+    var later = Q.defer< Embodiment >();
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    return later.promise;
+  }
 }
 
 export function site( name?: string ) : Site {
