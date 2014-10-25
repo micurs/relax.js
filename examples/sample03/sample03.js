@@ -18,20 +18,22 @@ var usersResource = {
     onGet: function (query, respond) {
         store.hgetall('user', function (err, items) {
             var userList = _.object(_.keys(items), _.map(_.values(items), function (item) { return JSON.parse(item); }));
-            respond(null, { users: userList });
+            respond(null, { data: { users: userList } });
         });
     },
     resources: [{
         name: 'user',
         view: 'user',
         onGet: function (query, respond) {
-            var userid = parseInt(query['id']);
+            var userid = query['id'];
             store.hget('user', userid, function (err, data) {
                 if (data) {
-                    respond(null, JSON.parse(data));
+                    respond(null, { data: JSON.parse(data) });
                 }
                 else {
-                    respond(null, {});
+                    var errMsg = 'Could not find User with id: ' + userid;
+                    var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
+                    respond(respError);
                 }
             });
         }

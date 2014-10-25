@@ -11,6 +11,20 @@ declare module "relaxjs" {
 
   export function relax(): void;
 
+  export interface IRxError extends Error {
+    httpCode: number;
+    getHttpCode(): number;
+  }
+
+  export class RxError implements IRxError {
+    httpCode: number;
+    public name: string;
+    public message: string;
+    public stack: string;
+    constructor( message: string, name?: string, code?: number );
+    getHttpCode(): number;
+  }
+
   export module routing {
 
     export class Route {
@@ -35,11 +49,11 @@ declare module "relaxjs" {
   export interface ResourcePlayer {
     name(): string;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
-    post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    post( route : routing.Route, body: string ) : Q.Promise<Embodiment> ;
   }
 
   export interface DataCallback {
-    ( err: Error, data: any ): void;
+    ( err: Error, data?: any ): void;
   }
 
   export interface Resource {
@@ -49,7 +63,7 @@ declare module "relaxjs" {
     data?: any;
     resources?: Resource[];
     onGet?: ( query: any, cp:DataCallback ) => void;
-    onPost?: ( query: any, body: any, cp:DataCallback ) => void;
+    onPost?: ( query: any, body: string, cp:DataCallback ) => void;
   }
 
   export interface ResourceMap {
@@ -82,7 +96,7 @@ declare module "relaxjs" {
     siteName: string;
     serve() : http.Server ;
     get( route : routing.Route ) : Q.Promise< Embodiment > ;
-    post( req : routing.Route, body:any ) : Q.Promise< Embodiment > ;
+    post( req : routing.Route, body:string ) : Q.Promise< Embodiment > ;
   }
 
   export class ResourceServer extends Container implements ResourcePlayer {
@@ -90,7 +104,7 @@ declare module "relaxjs" {
     private _template: string;
     private _layout: string;
     private _onGet : ( query: any ) => Q.Promise<any>;
-    private _onPost : ( query: any, body: any ) => Q.Promise<any>;
+    private _onPost : ( query: any, body: string ) => Q.Promise<any>;
 
     constructor( res : Resource );
     name(): string;

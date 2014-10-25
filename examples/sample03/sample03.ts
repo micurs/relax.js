@@ -24,21 +24,23 @@ var usersResource : relaxjs.Resource = {
   onGet: function( query: any, respond: relaxjs.DataCallback  ) {
     store.hgetall( 'user', ( err: Error, items: any ) => {
         var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
-        respond( null, { users: userList } );
+        respond( null, { data: { users: userList } } );
       });
   },
   resources : [ {
       name: 'user',
       view: 'user',
       onGet: function( query: any, respond: relaxjs.DataCallback  ) {
-        var userid = parseInt( query['id'] );
+        var userid = query['id'];
         store.hget( 'user',userid,
           ( err: Error, data: string ) => {
             if ( data ) {
-              respond( null, JSON.parse(data) );
+              respond( null, { data: JSON.parse(data) } );
             }
             else {
-              respond( null, {} );
+              var errMsg = 'Could not find User with id: '+userid;
+              var respError = new relaxjs.RxError(errMsg,'User not found',404);
+              respond( respError );
             }
         });
       }

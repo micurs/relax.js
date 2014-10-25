@@ -4,8 +4,15 @@
 <body>
   <h1>User</h1>
   <p>
-    <%= userId %>
-    <%= firstName %>
-    <%= lastName %>
+    ID: <%= userId %>
+  </p>
   <p>
+    Name: <strong><%= firstName %></strong>
+  </p>
+  <p>
+    Last Name: <strong><%= lastName %></strong>
+  </p>
+  <p>
+    <a href="/users">&laquo; Back to users</a>
+  </p>
 </body>

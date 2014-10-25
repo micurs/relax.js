@@ -14,9 +14,30 @@ var internals = require('./internals');
 var routing = require('./routing');
 exports.routing = routing;
 function relax() {
-    console.log('relax');
+    console.log('relax.js !');
 }
 exports.relax = relax;
+var RxError = (function () {
+    function RxError(message, name, code, extra) {
+        var tmp = new Error();
+        this.message = message;
+        this.name = name;
+        this.httpCode = code;
+        this.stack = tmp.stack;
+        this.extra = extra;
+    }
+    RxError.prototype.getHttpCode = function () {
+        return this.httpCode;
+    };
+    RxError.prototype.getExtra = function () {
+        return this.extra ? this.extra : '';
+    };
+    RxError.prototype.toString = function () {
+        return _.str.sprintf('RxError %d: %s\n%s\nStack:\n%s', this.httpCode, this.name, this.message, this.stack);
+    };
+    return RxError;
+})();
+exports.RxError = RxError;
 var Request = (function () {
     function Request() {
     }
@@ -27,13 +48,17 @@ var Embodiment = (function () {
     function Embodiment(data, mimeType) {
         this.data = data;
         this.mimeType = mimeType;
+        this.httpCode = 200;
     }
     Embodiment.prototype.serve = function (response) {
+        var headers = { 'Content-Type': this.mimeType, 'Content-Length': this.data.length };
+        if (this.location)
+            headers['Location'] = this.location;
         if (this.data.length > 1024)
             console.log(_.str.sprintf('[serve] %s Kb', _.str.numberFormat(this.data.length / 1024, 1)));
         else
             console.log(_.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length)));
-        response.writeHead(200, { 'Content-Type': this.mimeType, 'Content-Length': this.data.length });
+        response.writeHead(this.httpCode, headers);
         response.write(this.data);
         response.end();
     };
@@ -178,9 +203,20 @@ var Site = (function (_super) {
                         site.get(route).then(function (rep) {
                             rep.serve(response);
                         }).fail(function (error) {
-                            response.writeHead(404, { "Content-Type": "text/html" });
-                            response.write('Relax.js<hr/>');
-                            response.write(error);
+                            if (error.getHttpCode) {
+                                var rxErr = error;
+                                console.log(rxErr.toString());
+                                response.writeHead(rxErr.getHttpCode(), { "Content-Type": "text/html" });
+                                response.write('<h1>relax.js: error</h1>');
+                            }
+                            else {
+                                console.log(rxErr);
+                                response.writeHead(500, { "Content-Type": "text/html" });
+                                response.write('<h1>Error</h1>');
+                            }
+                            response.write('<h2>' + error.name + '</h2>');
+                            response.write('<h3 style="color:red;">' + _.escape(error.message) + '</h3><hr/>');
+                            response.write('<pre>' + error.stack + '</pre>');
                             response.end();
                         }).done();
                     }
@@ -230,34 +266,32 @@ exports.Site = Site;
 var ResourceServer = (function (_super) {
     __extends(ResourceServer, _super);
     function ResourceServer(res) {
-        var _this = this;
         _super.call(this);
         this._name = '';
         this._template = '';
-        this._name = res.name;
-        this._template = res.view;
-        this._layout = res.layout;
-        this._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
-        this._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
+        var self = this;
+        self._name = res.name;
+        self._template = res.view;
+        self._layout = res.layout;
+        self._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
+        self._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
         if (res.resources) {
             _.each(res.resources, function (child, index) {
-                _this.add(child);
+                self.add(child);
             });
         }
-        if (res.data) {
-            _.each(res.data, function (value, attrname) {
-                if (attrname != 'resources') {
-                    _this[attrname] = value;
-                }
-            });
-        }
+        _.each(res.data, function (value, attrname) {
+            if (attrname != 'resources') {
+                self[attrname] = value;
+            }
+        });
     }
     ResourceServer.prototype.name = function () {
         return this._name;
     };
     ResourceServer.prototype.get = function (route) {
-        var _this = this;
         var ctx = _.str.sprintf('[get]');
+        var self = this;
         if (route.path.length > 1) {
             var direction = this.getDirection(route);
             if (direction.resource)
@@ -268,52 +302,50 @@ var ResourceServer = (function (_super) {
         }
         else {
             var dyndata = {};
-            if (this._onGet) {
+            if (self._onGet) {
                 var later = Q.defer();
                 console.log(_.str.sprintf('%s Calling onGet()!', ctx));
-                this._onGet(route.query).then(function (data) {
-                    console.log(_.str.sprintf('%s Got data from callback: ', ctx, JSON.stringify(data)));
-                    var dyndata = data;
-                    if (dyndata) {
-                        for (var attrname in dyndata) {
-                            _this[attrname] = dyndata[attrname];
-                        }
-                    }
-                    if (_this._template) {
-                        console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, _this._name, _this._template));
-                        internals.viewDynamic(_this._template, _this, _this._layout).then(function (emb) {
+                this._onGet(route.query).then(function (response) {
+                    var dyndata = response.data;
+                    _.each(dyndata, function (value, attrname) {
+                        self[attrname] = value;
+                    });
+                    if (self._template) {
+                        console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, self._name, self._template));
+                        internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
                             later.resolve(emb);
                         });
                     }
                     else {
-                        console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, _this._name));
-                        internals.viewJson(_this).then(function (emb) {
+                        console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
+                        internals.viewJson(self).then(function (emb) {
                             later.resolve(emb);
                         });
                     }
+                }).fail(function (rxErr) {
+                    later.reject(rxErr);
                 });
                 return later.promise;
             }
             else {
                 console.log(_.str.sprintf('%s getting resource from the data ', ctx));
                 if (this._template) {
-                    console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, this._name, this._template));
-                    return internals.viewDynamic(this._template, this, this._layout);
+                    console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, self._name, self._template));
+                    return internals.viewDynamic(self._template, self, self._layout);
                 }
                 else {
-                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, this._name));
-                    return internals.viewJson(this);
+                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
+                    return internals.viewJson(self);
                 }
             }
         }
     };
     ResourceServer.prototype.post = function (route, body) {
-        var _this = this;
         var ctx = '[post] ';
         var laterAction = Q.defer();
-        var thisRes = this;
+        var self = this;
         if (route.path.length > 1) {
-            var direction = thisRes.getDirection(route);
+            var direction = self.getDirection(route);
             if (direction.resource)
                 return direction.resource.post(direction.route, body);
             else {
@@ -323,20 +355,27 @@ var ResourceServer = (function (_super) {
         else {
             if (this._onPost) {
                 var later = Q.defer();
-                console.log(_.str.sprintf('%s Calling onPost()!', ctx));
-                this._onPost(route.query, body).then(function (data) {
-                    var dyndata = data;
+                self._onPost(route.query, body).then(function (response) {
+                    var dyndata = response.data;
                     console.log(_.str.sprintf('%s Post returned %s', ctx, JSON.stringify(dyndata)));
                     _.each(_.keys(dyndata), function (key) {
-                        thisRes[key] = dyndata[key];
+                        self[key] = dyndata[key];
                     });
-                    internals.viewJson(_this).then(function (emb) {
+                    internals.viewJson(self).then(function (emb) {
+                        emb.httpCode = response.httpCode ? response.httpCode : 200;
+                        emb.location = response.location ? response.location : '';
                         later.resolve(emb);
                     });
                 });
                 return later.promise;
             }
             else {
+                _.each(_.keys(body), function (key) {
+                    self[key] = body[key];
+                });
+                internals.viewJson(self).then(function (emb) {
+                    later.resolve(emb);
+                });
             }
         }
         return laterAction.promise;
@@ -376,3 +415,4 @@ function site(name) {
     return Site.$(name);
 }
 exports.site = site;
+//# sourceMappingURL=relaxjs.js.map

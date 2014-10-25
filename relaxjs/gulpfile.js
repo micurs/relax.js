@@ -47,7 +47,7 @@ var typescript_options = {
   module: 'commonjs',
   target: 'ES5',
   declaration: false,
-  sourcemap: false,
+  sourcemap: true,
   emitError: false,
   removeComments: true,
   outDir: './dist' };

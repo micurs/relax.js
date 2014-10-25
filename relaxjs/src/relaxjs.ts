@@ -25,7 +25,47 @@ exports.routing = routing;
 // exports.resources = resources;
 
 export function relax() : void {
-  console.log('relax');
+  console.log('relax.js !');
+}
+
+declare class Error {
+    public name: string;
+    public message: string;
+    public stack: string;
+    constructor(message?: string);
+}
+
+interface IRxError extends Error {
+  httpCode: number;
+  extra: string;
+  getHttpCode(): number;
+  getExtra(): string;
+}
+
+export class RxError implements IRxError {
+  httpCode: number;
+  extra: string;
+  public name: string;
+  public message: string;
+  public stack: string;
+  constructor( message: string, name?: string, code?: number, extra?: string ) {
+    var tmp = new Error();
+    this.message = message;
+    this.name = name;
+    this.httpCode = code;
+    this.stack = tmp.stack;
+    this.extra = extra;
+  }
+  getHttpCode(): number {
+    return this.httpCode;
+  }
+  getExtra(): string {
+    return this.extra ? this.extra : '' ;
+  }
+
+  toString(): string {
+    return _.str.sprintf('RxError %d: %s\n%s\nStack:\n%s',this.httpCode,this.name,this.message,this.stack);
+  }
 }
 
 // Relax Request: a route plus some data
@@ -42,7 +82,7 @@ export interface ResourcePlayer {
 }
 
 export interface DataCallback {
-  ( err: Error, data: any ): void;
+  ( err: Error, data?: any ): void;
 }
 
 export interface Resource {
@@ -64,14 +104,23 @@ export interface ResourceMap {
 
 // Every resource is converted to their embodiment before they can be served
 export class Embodiment {
-  constructor( private data : Buffer, private mimeType: string ) { }
+
+  public httpCode : number;
+  public location : string;
+
+  constructor( private data : Buffer, private mimeType: string ) {
+    this.httpCode = 200;
+  }
 
   serve(response: http.ServerResponse) : void {
+    var headers = { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length };
+    if ( this.location )
+      headers['Location'] = this.location;
     if ( this.data.length>1024 )
       console.log( _.str.sprintf('[serve] %s Kb', _.str.numberFormat(this.data.length/1024,1) ) );
     else
       console.log( _.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length) ) );
-    response.writeHead(200, { 'Content-Type' : this.mimeType, 'Content-Length': this.data.length } );
+    response.writeHead( this.httpCode, headers );
     response.write(this.data);
     response.end();
   }
@@ -221,9 +270,20 @@ export class Site extends Container implements ResourcePlayer {
               rep.serve(response);
             })
             .fail(function (error) {
-              response.writeHead(404, {"Content-Type": "text/html"} );
-              response.write('Relax.js<hr/>');
-              response.write(error);
+              if ( (<any>error).getHttpCode ) {
+                var rxErr: RxError = <RxError>error;
+                console.log(rxErr.toString());
+                response.writeHead( rxErr.getHttpCode(), {"Content-Type": "text/html"} );
+                response.write('<h1>relax.js: error</h1>');
+              }
+              else {
+                console.log(rxErr);
+                response.writeHead( 500, {"Content-Type": "text/html"} );
+                response.write('<h1>Error</h1>');
+              }
+              response.write('<h2>'+error.name+'</h2>');
+              response.write('<h3 style="color:red;">'+_.escape(error.message)+'</h3><hr/>');
+              response.write('<pre>'+error.stack+'</pre>');
               response.end();
             })
             .done();
@@ -280,33 +340,38 @@ export class ResourceServer extends Container implements ResourcePlayer {
 
   constructor( res : Resource ) {
     super();
-    this._name = res.name;
-    this._template = res.view;
-    this._layout = res.layout;
-    this._onGet = res.onGet ? Q.nbind(res.onGet,this) : undefined ;
-    this._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
+    var self = this;
+    self._name = res.name;
+    self._template = res.view;
+    self._layout = res.layout;
+    self._onGet = res.onGet ? Q.nbind(res.onGet,this) : undefined ;
+    self._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
 
     // Add children resources if available
     if ( res.resources ) {
       _.each( res.resources, ( child: Resource, index: number) => {
-        this.add( child );
+        self.add( child );
       });
     }
     // Merge the data into this object to easy access in the view.
-    if ( res.data ) {
-      _.each(res.data, ( value: any, attrname: string ) => {
-        if ( attrname != 'resources') {
-          this[attrname] = value;
-        }
-      } );
-    }
+    _.each(res.data, ( value: any, attrname: string ) => {
+      if ( attrname != 'resources') {
+        self[attrname] = value;
+      }
+    } );
   }
 
   name(): string { return this._name; }
 
+  /*
+   * Resource Player GET
+   * This is the resource facade GET: it will call a GET to a child resource or the onGet() for the current resource.
+  */
   get(  route: routing.Route  ) : Q.Promise< Embodiment > {
     var ctx = _.str.sprintf('[get]');
+    var self = this; // use to consistently access this object.
 
+    // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > 1 ) {
       var direction = this.getDirection( route );
       if ( direction.resource )
@@ -315,57 +380,66 @@ export class ResourceServer extends Container implements ResourcePlayer {
         return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid request "%s"',ctx, route.pathname ), route.pathname );
       }
     }
+    // This is the resource that need to answer either with a onGet or directly with data
     else {
       var dyndata: any = {};
-      // Here we compute/fetch/create the view data.
-      if ( this._onGet ) {
+
+      // If the onGet() is defined use id to get dynamic data from the user defined resource.
+      if ( self._onGet ) {
         var later = Q.defer< Embodiment >();
         console.log( _.str.sprintf('%s Calling onGet()!',ctx) );
         this._onGet( route.query )
-          .then( ( data: any ) => {
-            console.log( _.str.sprintf('%s Got data from callback: ',ctx, JSON.stringify(data) ) );
-            var dyndata = data;
-            if (dyndata) { // Merge the data into this object
-              for (var attrname in dyndata) { this[attrname] = dyndata[attrname]; }
-            }
-            if ( this._template ) {
-              console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, this._name, this._template));
-              internals.viewDynamic(this._template, this, this._layout )
+          .then( function( response: any ) {
+            var dyndata = response.data;
+            _.each( dyndata, ( value: any, attrname: string ) => { self[attrname] = value; } );
+            if ( self._template ) {
+              console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
+              internals.viewDynamic(self._template, self, self._layout )
                 .then( (emb: Embodiment ) => {
                   later.resolve(emb);
                 });
             }
             else {
-              console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, this._name ));
-              internals.viewJson(this)
+              console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
+              internals.viewJson(self)
                 .then( (emb: Embodiment ) => {
                   later.resolve(emb);
                 });
             }
+          })
+          .fail( function( rxErr: RxError ) {
+            later.reject(rxErr);
           });
         return later.promise;
       }
+
+      // When onGet() is NOT available use the static data member to respond to this request.
       else {
         console.log( _.str.sprintf('%s getting resource from the data ',ctx) );
         if ( this._template ) {
-          console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, this._name, this._template));
-          return internals.viewDynamic(this._template, this, this._layout );
+          console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
+          return internals.viewDynamic(self._template, self, self._layout );
         }
         else {
-          console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, this._name ));
-          return internals.viewJson(this);
+          console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
+          return internals.viewJson(self);
         }
       }
     }
   }
 
-  post( route: routing.Route, body: any  ) : Q.Promise< Embodiment > {
+  /*
+   * Resource Player POST
+   * This is the resource facade POST: it will call a POST to a child resource or the onPost() for the current resource.
+  */
+  post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
     var ctx = '[post] ';
     var laterAction = Q.defer< Embodiment >();
-    var thisRes = this;
+    var self = this;
 
+    // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > 1 ) {
-      var direction = thisRes.getDirection( route );
+      var direction = self.getDirection( route );
       if ( direction.resource )
         return direction.resource.post( direction.route, body );
       else {
@@ -373,24 +447,28 @@ export class ResourceServer extends Container implements ResourcePlayer {
       }
     }
     else {
+      // Call the onPost() for this resource (user code)
       if ( this._onPost ) {
         var later = Q.defer< Embodiment >();
-        console.log( _.str.sprintf('%s Calling onPost()!',ctx) );
-        this._onPost( route.query, body )
-          .then( ( data: any ) => {
-            var dyndata = data;
+        self._onPost( route.query, body )
+          .then( ( response: any ) => {
+            var dyndata = response.data;
             console.log( _.str.sprintf('%s Post returned %s',ctx, JSON.stringify(dyndata)) );
-            _.each( _.keys(dyndata), (key) => { thisRes[key] = dyndata[key] } );
-            internals.viewJson(this)
+            _.each( _.keys(dyndata), (key) => { self[key] = dyndata[key] } );
+            internals.viewJson(self)
               .then( (emb: Embodiment ) => {
+                emb.httpCode = response.httpCode ? response.httpCode : 200 ;
+                emb.location = response.location ? response.location : '';
                 later.resolve(emb);
               });
           });
         return later.promise;
       }
+      // Set the data directly
       else {
-        // What we do if there is no post function to receive the data ?
-        // Should we just create a resource and set the data property?
+        _.each( _.keys(body), (key) => { self[key] = body[key] } );
+        internals.viewJson(self)
+          .then( (emb: Embodiment ) => { later.resolve(emb); });
       }
     }
 

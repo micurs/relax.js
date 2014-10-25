@@ -11,6 +11,20 @@ declare module "relaxjs" {
 
   export function relax(): void;
 
+  export interface IRxError extends Error {
+    httpCode: number;
+    getHttpCode(): number;
+  }
+
+  export class RxError implements IRxError {
+    httpCode: number;
+    public name: string;
+    public message: string;
+    public stack: string;
+    constructor( message: string, name?: string, code?: number );
+    getHttpCode(): number;
+  }
+
   export module routing {
 
     export class Route {
@@ -39,7 +53,7 @@ declare module "relaxjs" {
   }
 
   export interface DataCallback {
-    ( err: Error, data: any ): void;
+    ( err: Error, data?: any ): void;
   }
 
   export interface Resource {

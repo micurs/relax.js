@@ -9,6 +9,5 @@
   <div class="container">
     <%= message %>
   </div>
-  <script src="/public/components/bootstrap/dist/js/bootstrap.min.js"></script>
 </body>
 </html>

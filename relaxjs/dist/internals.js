@@ -6,17 +6,17 @@ _.str = require('underscore.string');
 var relaxjs = require('./relaxjs');
 function emitCompileViewError(content, err, filename) {
     var fname = '[view error]';
-    var errTitle = _.str.sprintf('<h1>%s Error while compiling: %s </h1>', fname, filename);
-    var errMsg = _.str.sprintf('<p style="font-weight:bold;">Error: <span style="color:red;">%s</span></p>', _.escape(err.message));
+    var errTitle = _.str.sprintf('%s Error while compiling: %s', fname, filename);
+    var errMsg = err.message;
     var code = _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>', _.escape(content));
-    return _.str.sprintf('%s%s%s', errTitle, errMsg, code);
+    return new relaxjs.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
 function emitError(content, filename) {
     var fname = '[error]';
-    var errTitle = _.str.sprintf('<h1>%s Error while serving: %s </h1>', fname, filename);
-    var errMsg = _.str.sprintf('<p style="font-weight:bold;">Error: <span style="color:red;">%s</span></p>', content);
-    return _.str.sprintf('%s%s', errTitle, errMsg);
+    var errTitle = _.str.sprintf('%s Error while serving: %s', fname, filename);
+    var errMsg = content;
+    return new relaxjs.RxError(errMsg, errTitle, 500);
 }
 exports.emitError = emitError;
 function promiseError(msg, resName) {
@@ -33,7 +33,7 @@ function viewStatic(filename) {
     var staticFile = '.' + filename;
     fs.readFile(staticFile, function (err, content) {
         if (err) {
-            laterAction.reject(filename + ' not found');
+            laterAction.reject(new relaxjs.RxError(filename + ' not found', 'File Not Found', 404));
         }
         else {
             laterAction.resolve(new relaxjs.Embodiment(content, mtype));
@@ -78,7 +78,7 @@ function viewDynamic(viewName, viewData, layoutName) {
     else {
         readFile(templateFilename, { 'encoding': 'utf8' }).then(function (content) {
             try {
-                console.log(_.str.sprintf('%s Compiling view %s\n%s', fname, templateFilename, JSON.stringify(viewData)));
+                console.log(_.str.sprintf('%s Compiling view %s', fname, templateFilename));
                 var fullContent = new Buffer(_.template(content)(viewData), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment(fullContent, 'utf-8'));
             }
@@ -92,3 +92,4 @@ function viewDynamic(viewName, viewData, layoutName) {
     return laterAct.promise;
 }
 exports.viewDynamic = viewDynamic;
+//# sourceMappingURL=internals.js.map

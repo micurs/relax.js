@@ -4,14 +4,19 @@
 var _ = require("underscore");
 var relaxjs = require('relaxjs');
 var redis = require("redis");
+function genGuid() {
+    // from: http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 // Create the data store (with redis)
 var store = redis.createClient();
-store.hset('user', '100', '{ "firstName": "Mary", "lastName": "Stewart", "userId": "100" }');
-store.hset('user', '101', '{ "firstName": "John", "lastName": "Smith", "userId": "101" }');
-store.save();
-var newKey = 102;
+// store.del('user');
+// store.save();
 // Create the application by assembling the resources
-var mysite = relaxjs.site('Example #3');
+var mysite = relaxjs.site('Example #4');
 // Create a resource that can retrieve and store users info into redis
 var usersResource = {
     name: 'users',
@@ -23,29 +28,36 @@ var usersResource = {
         store.hgetall('user', function (err, items) {
             var userList = _.object(_.keys(items), _.map(_.values(items), function (item) { return JSON.parse(item); }));
             console.log(JSON.stringify(userList, null, ' '));
-            respond(null, { users: userList });
+            respond(null, { data: { users: userList } });
         });
     },
     resources: [{
         name: 'user',
         view: 'user',
         layout: 'layout',
+        /*
+         * POST method: save a user
+        */
         onPost: function (query, userData, respond) {
-            console.log('Create New User Request: ' + JSON.stringify(userData));
+            var newKey = genGuid();
             userData['userId'] = newKey;
             store.hset('user', newKey, JSON.stringify(userData));
             store.save();
-            newKey++;
-            respond(null, { result: 'ok', user: userData });
+            respond(null, { result: 'ok', httpCode: 303, location: '/users', data: userData });
         },
+        /*
+         * -- GET method: retrieve a user
+        */
         onGet: function (query, respond) {
-            var userid = parseInt(query['id']);
+            var userid = query['id'];
             store.hget('user', userid, function (err, data) {
                 if (data) {
-                    respond(null, JSON.parse(data));
+                    respond(null, { data: JSON.parse(data) });
                 }
                 else {
-                    respond(null, {});
+                    var errMsg = 'Could not find User with id: ' + userid;
+                    var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
+                    respond(respError);
                 }
             });
         }
@@ -53,3 +65,4 @@ var usersResource = {
 };
 mysite.add(usersResource);
 mysite.serve().listen(3000);
+//# sourceMappingURL=sample04.js.map

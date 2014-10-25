@@ -32,7 +32,7 @@ var dynamicResource = {
   view : 'helloworld',
   onGet : function( query, response ) {
     var date = new Date();
-    response( null, { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' } );
+    response( null, { data: { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' } } );
   }
 };
 

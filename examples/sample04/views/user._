@@ -1,6 +1,10 @@
-<h1>User</h1>
+<h1>User Info</h1>
+<dl class="dl-horizontal">
+<dt>Name</dt><dd><%= firstName %></dd>
+<dt>Last Name</dt><dd><%= lastName %></dd>
+<dt>Email</dt><dd><%= email %></dd>
+</dl>
 <p>
-  <%= userId %>
-  <%= firstName %>
-  <%= lastName %>
-<p>
+<small><%= userId %></small>
+</p>
+<a href="/users">&laquo; Back to users</a>

@@ -4,12 +4,12 @@ var relaxjs = require('relaxjs');
 var usersResource = {
     name: 'users',
     onGet: function (query, respond) {
-        respond(null, { title: 'Users Collection Example', count: this.childCount() });
+        respond(null, { data: { title: 'Users Collection Example', count: this.childCount() } });
     },
     resources: [
         { name: 'tracy-stewart', onGet: function (query, respond) {
             var now = new Date();
-            respond(null, { firstName: 'Mary', lastName: 'Stewart', date: now });
+            respond(null, { data: { firstName: 'Mary', lastName: 'Stewart', date: now } });
         }, resources: [
             { name: 'address', data: { address: '101 John St. San Francisco CA. ' } }
         ] },

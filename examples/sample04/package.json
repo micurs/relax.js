@@ -6,7 +6,7 @@
   "author": "Michele Ursino",
   "license": "MIT",
   "scripts": {
-    "build": "tsc -m commonjs -t ES5 sample04.ts",
+    "build": "tsc -m commonjs -t ES5 --sourceMap sample04.ts",
     "typings": "tsd reinstall --save --overwrite",
     "start": "node sample04.js",
     "debug": "node-debug sample04.js"
