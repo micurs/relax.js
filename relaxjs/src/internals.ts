@@ -41,7 +41,7 @@ export function redirect( location: string ) : Q.Promise< relaxjs.Embodiment > {
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
     var redir = new relaxjs.Embodiment('text/html');
-    redir.httpCode = 301; // Moved Permanently
+    redir.httpCode = 307; // Temporary Redirect (since HTTP/1.1)
     redir.location = location;
     later.resolve(redir);
     });

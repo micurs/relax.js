@@ -30,7 +30,7 @@ function redirect(location) {
     var later = Q.defer();
     _.defer(function () {
         var redir = new relaxjs.Embodiment('text/html');
-        redir.httpCode = 301;
+        redir.httpCode = 307;
         redir.location = location;
         later.resolve(redir);
     });
