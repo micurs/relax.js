@@ -166,6 +166,10 @@ export class Embodiment {
     else
       console.log( _.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length) ) );
   }
+
+  dataAsString() : string {
+    return this.data.toString('utf-8');
+  }
 }
 
 // A container of resources. This class offer helper functions to add and retrieve resources
@@ -254,7 +258,7 @@ export class Site extends Container implements HttpPlayer {
     super();
     this._siteName = siteName;
     if(Site._instance){
-      throw new Error("Error: Only one site is allowed.");
+      throw new Error('Error: Only one site is allowed.');
     }
     Site._instance = this;
   }
@@ -456,6 +460,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var ctx = _.str.sprintf('[get]');
     var self = this; // use to consistently access this object.
 
+    // console.log( _.str.sprintf('%s Route: %s',ctx, JSON.stringify(route) ) );
+
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > 1 ) {
       var direction = this.getDirection( route );
@@ -502,11 +508,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       else {
         console.log( _.str.sprintf('%s getting resource from the data ',ctx) );
         if ( this._template ) {
-          console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
+          // console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
           return internals.viewDynamic(self._template, self, self._layout );
         }
         else {
-          console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
+          // console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
           return internals.viewJson(self);
         }
       }

@@ -64,6 +64,9 @@ var Embodiment = (function () {
         else
             console.log(_.str.sprintf('[serve] %s bytes', _.str.numberFormat(this.data.length)));
     };
+    Embodiment.prototype.dataAsString = function () {
+        return this.data.toString('utf-8');
+    };
     return Embodiment;
 })();
 exports.Embodiment = Embodiment;
@@ -142,7 +145,7 @@ var Site = (function (_super) {
         this._home = '/';
         this._siteName = siteName;
         if (Site._instance) {
-            throw new Error("Error: Only one site is allowed.");
+            throw new Error('Error: Only one site is allowed.');
         }
         Site._instance = this;
     }
@@ -377,11 +380,9 @@ var ResourcePlayer = (function (_super) {
             else {
                 console.log(_.str.sprintf('%s getting resource from the data ', ctx));
                 if (this._template) {
-                    console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, self._name, self._template));
                     return internals.viewDynamic(self._template, self, self._layout);
                 }
                 else {
-                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
                     return internals.viewJson(self);
                 }
             }

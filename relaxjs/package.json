@@ -12,7 +12,8 @@
     "definition": "dist/relaxjs.d.ts"
   },
   "scripts": {
-    "build": "gulp"
+    "build": "gulp",
+    "test": "jasmine-node --verbose --color tests"
   },
   "version": "0.0.2",
   "dependencies": {

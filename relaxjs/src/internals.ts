@@ -80,8 +80,7 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
     var e = new relaxjs.Embodiment( 'application/json',
       new Buffer(
         JSON.stringify( viewData,
-          ( key : string, value : any ) => ( key.indexOf('_') === 0 ) ?  undefined : value ,
-          '  '),
+          ( key : string, value : any ) => ( key.indexOf('_') === 0 ) ?  undefined : value ),
         'utf-8')
     );
     later.resolve( e );

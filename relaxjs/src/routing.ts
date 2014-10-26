@@ -25,6 +25,24 @@ export class Route {
   path : string[];
   query: any;
 
+  constructor( uri?: string ) {
+    if ( uri ) {
+      var parsedUrl : url.Url = url.parse(uri, true);
+      var extension = path.extname(parsedUrl.pathname)
+      var resources : string[] = parsedUrl.pathname.split('/');//.splice(0,1);
+      if ( parsedUrl.pathname.charAt(0) == '/' ) {
+        resources.unshift('site');
+      }
+      resources = _(resources).map( (item) => decodeURI(item) );
+
+      this.pathname = parsedUrl.pathname;
+      this.query = parsedUrl.query;
+      this.path = _.filter( resources, (res) => res.length>0 );
+      // console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',ctx, route.path, extension ) );
+      this.static = ( extension.length>0 ) ;
+    }
+  }
+
   // Create a new Route with a new path without the first item
   stepThrough( stpes: number ) : Route {
     var newRoute : Route = new Route();
@@ -63,6 +81,8 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   if ( !request.url )
     request.url = '/';
 
+  return new Route( request.url );
+  /*
   //console.log( _.str.sprintf('%s http.ServerRequest Body:\n%s\n-------',ctx,JSON.stringify(request.read(),null, ' ')));
 
   var parsedUrl : url.Url = url.parse(request.url, true);
@@ -79,4 +99,5 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   route.static = ( extension.length>0 ) ;
 
   return route;
+  */
 }

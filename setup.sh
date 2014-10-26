@@ -39,5 +39,7 @@ echo ' -> use nodemon to reload source code everytime they change'
 node_install nodemon
 echo ' -> use midnight commander to easily navigate the filesystem and copy/move files around'
 node_install mc
+echo ' -> use jasmin-node to run the tests under /relaxjs/tests'
+node_install jasmine-node
 
 echo "= System Provision Complete "

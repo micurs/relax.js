@@ -56,7 +56,7 @@ exports.viewStatic = viewStatic;
 function viewJson(viewData) {
     var later = Q.defer();
     _.defer(function () {
-        var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) { return (key.indexOf('_') === 0) ? undefined : value; }, '  '), 'utf-8'));
+        var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) { return (key.indexOf('_') === 0) ? undefined : value; }), 'utf-8'));
         later.resolve(e);
     });
     return later.promise;
