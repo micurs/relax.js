@@ -1,4 +1,5 @@
 var gulp = require('gulp');
+var shell = require('gulp-shell')
 var uglify = require('gulp-uglify');
 var print = require('gulp-print');
 var tsc  = require('gulp-tsc');
@@ -55,6 +56,11 @@ var typescript_options = {
 var sources_to_compile = [ './src/relaxjs.ts',
                            './src/internals.ts',
                            './src/routing.ts' ];
+
+var js_to_test = [ './dist/relaxjs.ts',
+                   './dist/internals.ts',
+                   './dist/routing.ts' ];
+
 var sources_to_copy = [ './src/relaxjs.d.ts' ];
 var dests = [ './dist/*.js' ];
 
@@ -77,7 +83,7 @@ gulp.task('relaxjs_compile', function() {
 gulp.task('lint', ['relaxjs_compile', 'relaxjs_copy' ], function() {
   return gulp.src(dests)
     .pipe(jshint())
-    .pipe(jshint.reporter('default'));
+    .pipe(jshint.reporter(stylish));
 });
 
 
@@ -87,5 +93,7 @@ gulp.task( 'watch', function() {
   gulp.watch( sources_to_copy ,  ['relaxjs_copy'] );
 });
 
+gulp.task('test', [ 'lint' ], shell.task(['jasmine-node --verbose --color tests']) );
+
 // Default Task
-gulp.task( 'default', [ 'lint' ] );
+gulp.task( 'default', [ 'test' ] );

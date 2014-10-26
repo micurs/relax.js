@@ -19,7 +19,7 @@ cd /relaxjs
 echo "+ Restore/Update all type definitions in typings"
 tsd reinstall --save --overwrite
 echo "+ Npm install packages in package.json"
-npm install --no-bin-link
+sudo npm install --no-bin-link
 echo "+ Link this folder to the global node package directory..."
 sudo npm link --no-bin-link
 
@@ -27,13 +27,19 @@ sudo npm link --no-bin-link
 echo .
 echo "= sample02 update and compile"
 cd /examples/sample02
-npm install
+npm install --no-bin-link
 npm run typings
 
 echo .
 echo "= sample03 update and compile"
 cd /examples/sample03
-npm install
+npm install --no-bin-link
+npm run typings
+
+echo .
+echo "= sample04 update and compile"
+cd /examples/sample04
+npm install --no-bin-link
 npm run typings
 
 

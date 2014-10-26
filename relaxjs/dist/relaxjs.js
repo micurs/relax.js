@@ -209,8 +209,8 @@ var Site = (function (_super) {
                         site.get(route).then(function (rep) {
                             rep.serve(response);
                         }).fail(function (error) {
+                            var rxErr = error;
                             if (error.getHttpCode) {
-                                var rxErr = error;
                                 console.log(rxErr.toString());
                                 response.writeHead(rxErr.getHttpCode(), { "Content-Type": "text/html" });
                                 response.write('<h1>relax.js: error</h1>');

@@ -317,8 +317,8 @@ export class Site extends Container implements HttpPlayer {
               rep.serve(response);
             })
             .fail(function (error) {
+              var rxErr: RxError = <RxError>error;
               if ( (<any>error).getHttpCode ) {
-                var rxErr: RxError = <RxError>error;
                 console.log(rxErr.toString());
                 response.writeHead( rxErr.getHttpCode(), {"Content-Type": "text/html"} );
                 response.write('<h1>relax.js: error</h1>');

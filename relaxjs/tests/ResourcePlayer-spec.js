@@ -9,7 +9,7 @@ describe('GET static data from a Resource', function() {
     var result;
     rp.get( new routing.Route('hello') )
       .then( function(emb) { result = emb; });
-    waitsFor( function() { return result!=undefined } , 'To long for Embodiment of the resource to be ready.', 10 );
+    waitsFor( function() { return result!=undefined } , 'To long for Embodiment of the resource to be ready.', 1000 );
     runs( function() {
       expect( result.dataAsString() ).toBe('{"message":"Hello World!"}');
     });
@@ -28,7 +28,7 @@ describe('GET dynamic data from a Resource', function() {
     var result;
     rp.get( new routing.Route('hello') )
       .then( function(emb) { result = emb; });
-    waitsFor( function() { return result!=undefined } , 'To long for Embodiment of the resource to be ready.', 10 );
+    waitsFor( function() { return result!=undefined } , 'To long for Embodiment of the resource to be ready.', 1000 );
     runs( function() {
       expect( result.dataAsString() ).toBe('{"message":"Hello World!"}');
     });
