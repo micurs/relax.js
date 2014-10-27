@@ -1,10 +1,31 @@
-<h1>User Info</h1>
-<dl class="dl-horizontal">
-<dt>Name</dt><dd><%= firstName %></dd>
-<dt>Last Name</dt><dd><%= lastName %></dd>
-<dt>Email</dt><dd><%= email %></dd>
-</dl>
+<h1>User Info <small>(<%= userId %>)</small></h1>
 <p>
-<small><%= userId %></small>
+  <a href="/users">&laquo; Back to users</a>
 </p>
-<a href="/users">&laquo; Back to users</a>
+<form role="form">
+  <div class="form-group">
+    <label class="control-label">First Name</label>
+    <div class="form-control-static"><%= firstName %></div>
+  </div>
+  <div class="form-group">
+    <label class="control-label">Last Name</label>
+    <div class="form-control-static"><%= lastName %></div>
+  </div>
+  <div class="form-group">
+    <label class="control-label">Email</label>
+    <div class="form-control-static"><%= email %></div>
+  </div>
+</form>
+<p>
+  <input type="button" class="btn btn-primary" value="Edit this user">
+  <input id="deleteBt" type="button" class="btn btn-warning" value="Delete this user">
+</p>
+<p>
+  <a href="/users">&laquo; Back to users</a>
+</p>
+
+<script type="text/javascript">
+  document.getElementById("deleteBt").onclick = function() {
+    httpExecute('DELETE','/users/user?id=<%= userId %>', function() { window.location = '/users'; } );
+  };
+</script>

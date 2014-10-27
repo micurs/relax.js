@@ -20,6 +20,8 @@ export function emitCompileViewError( content: string, err: TypeError, filename:
   var errTitle = _.str.sprintf('%s Error while compiling: %s',fname, filename );
   var errMsg = err.message;
   var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
+  console.log(errTitle);
+  console.log(errMsg);
   return new relaxjs.RxError(errMsg, errTitle, 500, code );
 }
 
@@ -72,16 +74,17 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
 
 // Return a promise for a JSON Embodiment for the given data.
 // Note that this function strips automatically all the data item starting with '_'
-// since - as a convention in relax.js - there are private member variables.
+// (undercore) since - as a convention in relax.js - these are private member variables.
 // -------------------------------------------------------------------------------
 export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
     var e = new relaxjs.Embodiment( 'application/json',
       new Buffer(
-        JSON.stringify( viewData,
-          ( key : string, value : any ) => ( key.indexOf('_') === 0 ) ?  undefined : value ),
-        'utf-8')
+        JSON.stringify(
+          viewData,
+          ( key : string, value : any ) => { return ( key.indexOf('_') === 0 ) ?  undefined : value; }),
+          'utf-8')
     );
     later.resolve( e );
   });

@@ -8,6 +8,14 @@
   <!-- Bootstrap theme -->
   <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css" rel="stylesheet">
   <title><%= name %></title>
+  <script>
+    function httpExecute($method,$url,callback){
+      xmlhttp=new XMLHttpRequest();
+      xmlhttp.onreadystatechange = callback;
+      xmlhttp.open($method,$url,true)
+      xmlhttp.send(null);
+    }
+  </script>
 </head>
 <body>
   <div class="container">

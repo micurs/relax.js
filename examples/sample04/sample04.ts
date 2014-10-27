@@ -61,6 +61,21 @@ var usersResource : relaxjs.Resource = {
             respond( respError );
           }
         });
+      },
+
+      // DELETE : remove a given user
+      onDelete: function( query: any, respond: relaxjs.DataCallback  ) {
+        var userid = query['id'];
+        store.hdel( 'user', userid, function( err: Error, data: string ) {
+          if ( !err ) {
+            respond( null, { result: 'ok', httpCode: 303, location: '/users', data : {} } );
+          }
+          else {
+            var errMsg = 'Could not find User with id: '+userid;
+            var respError = new relaxjs.RxError(errMsg,'User not found',404);
+            respond( respError );
+          }
+        });
       }
     }
   ]

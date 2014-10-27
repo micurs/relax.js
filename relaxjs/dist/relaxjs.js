@@ -71,9 +71,24 @@ var Embodiment = (function () {
 })();
 exports.Embodiment = Embodiment;
 var Container = (function () {
-    function Container() {
+    function Container(parent) {
         this._resources = {};
+        this._parent = parent;
     }
+    Object.defineProperty(Container.prototype, "parent", {
+        get: function () {
+            return this._parent;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Container.prototype.remove = function (child) {
+        var resArr = this._resources[child.name()];
+        var idx = _.indexOf(resArr, child);
+        if (idx < 0)
+            return false;
+        resArr.splice(idx, 1);
+    };
     Container.prototype.getFirstMatching = function (typeName) {
         var childArray = this._resources[typeName];
         if (childArray === undefined) {
@@ -84,7 +99,7 @@ var Container = (function () {
     Container.prototype.add = function (newRes) {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
-        var resourcePlayer = new ResourcePlayer(newRes);
+        var resourcePlayer = new ResourcePlayer(newRes, this);
         var indexName = _.str.slugify(newRes.name);
         var childArray = this._resources[indexName];
         if (childArray === undefined)
@@ -137,8 +152,8 @@ var Container = (function () {
 exports.Container = Container;
 var Site = (function (_super) {
     __extends(Site, _super);
-    function Site(siteName) {
-        _super.call(this);
+    function Site(siteName, parent) {
+        _super.call(this, parent);
         this._name = "site";
         this._version = '0.0.1';
         this._siteName = 'site';
@@ -182,53 +197,50 @@ var Site = (function (_super) {
             var route = routing.fromUrl(msg);
             var site = _this;
             console.log(msg.method);
-            switch (msg.method) {
-                case 'POST':
-                    {
-                        var body = '';
-                        msg.on('data', function (data) {
-                            body += data;
-                        });
-                        msg.on('end', function () {
-                            console.log("Full Body: " + body);
-                            var bodyData = querystring.parse(body);
-                            site.post(route, bodyData).then(function (rep) {
-                                rep.serve(response);
-                            }).fail(function (error) {
-                                response.writeHead(404, { "Content-Type": "text/html" });
-                                response.write('Relax.js<hr/>');
-                                response.write(error);
-                                response.end();
-                            }).done();
-                        });
-                    }
-                    ;
-                    break;
-                case 'GET':
-                    {
-                        site.get(route).then(function (rep) {
-                            rep.serve(response);
-                        }).fail(function (error) {
-                            var rxErr = error;
-                            if (error.getHttpCode) {
-                                console.log(rxErr.toString());
-                                response.writeHead(rxErr.getHttpCode(), { "Content-Type": "text/html" });
-                                response.write('<h1>relax.js: error</h1>');
-                            }
-                            else {
-                                console.log(rxErr);
-                                response.writeHead(500, { "Content-Type": "text/html" });
-                                response.write('<h1>Error</h1>');
-                            }
-                            response.write('<h2>' + error.name + '</h2>');
-                            response.write('<h3 style="color:red;">' + _.escape(error.message) + '</h3><hr/>');
-                            response.write('<pre>' + error.stack + '</pre>');
-                            response.end();
-                        }).done();
-                    }
-                    ;
-                    break;
-            }
+            var body = '';
+            msg.on('data', function (data) {
+                body += data;
+            });
+            msg.on('end', function () {
+                var bodyData = querystring.parse(body);
+                var promise;
+                switch (msg.method) {
+                    case 'DELETE':
+                        promise = site.delete(route);
+                        break;
+                    case 'GET':
+                        promise = site.get(route);
+                        break;
+                    case 'POST':
+                        promise = site.post(route, bodyData);
+                        break;
+                }
+                if (promise) {
+                    console.log('>>>>> Check the promise');
+                    promise.then(function (rep) {
+                        console.log('>>>>> RESOLVED ');
+                        rep.serve(response);
+                    }).fail(function (error) {
+                        console.log('>>>>> FAIL');
+                        console.log(error);
+                        var rxErr = error;
+                        if (error.getHttpCode) {
+                            console.log(rxErr.toString());
+                            response.writeHead(rxErr.getHttpCode(), { "Content-Type": "text/html" });
+                            response.write('<h1>relax.js: error</h1>');
+                        }
+                        else {
+                            console.log(rxErr);
+                            response.writeHead(500, { "Content-Type": "text/html" });
+                            response.write('<h1>Error</h1>');
+                        }
+                        response.write('<h2>' + error.name + '</h2>');
+                        response.write('<h3 style="color:red;">' + _.escape(error.message) + '</h3><hr/>');
+                        response.write('<pre>' + error.stack + '</pre>');
+                        response.end();
+                    }).done();
+                }
+            });
         });
     };
     Site.prototype.setHome = function (path) {
@@ -242,29 +254,27 @@ var Site = (function (_super) {
         return later.promise;
     };
     Site.prototype.get = function (route) {
-        var ctx = '[' + this.name() + '.get] ';
         var self = this;
+        var ctx = '[' + this.name() + '.get] ';
         console.log(ctx + ' route:' + route.path);
         if (route.static) {
             return internals.viewStatic(route.pathname);
         }
-        else {
-            if (route.path.length > 1) {
-                var direction = this.getDirection(route);
-                if (direction.resource) {
-                    console.log(_.str.sprintf('%s "%s"', ctx, direction.resource.name()));
-                    return direction.resource.get(direction.route);
-                }
-                else {
-                    return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
-                }
-            }
-            if (self._home === '/') {
-                return internals.viewDynamic(self.name(), this);
+        if (route.path.length > 1) {
+            var direction = this.getDirection(route);
+            if (direction.resource) {
+                console.log(_.str.sprintf('%s "%s"', ctx, direction.resource.name()));
+                return direction.resource.get(direction.route);
             }
             else {
-                return internals.redirect(self._home);
+                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
             }
+        }
+        if (self._home === '/') {
+            return internals.viewDynamic(self.name(), this);
+        }
+        else {
+            return internals.redirect(self._home);
         }
     };
     Site.prototype.post = function (route, body) {
@@ -282,6 +292,8 @@ var Site = (function (_super) {
         return internals.promiseError(_.str.sprintf('%s ERROR Invalid in request "%s"', ctx, route.pathname), route.pathname);
     };
     Site.prototype.put = function (route, body) {
+        var self = this;
+        var ctx = '[' + this.name() + '.put] ';
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
@@ -289,6 +301,21 @@ var Site = (function (_super) {
         return later.promise;
     };
     Site.prototype.delete = function (route) {
+        var self = this;
+        var ctx = '[' + this.name() + '.delete] ';
+        if (route.static) {
+            return internals.promiseError('DELETE not supported on static resources', route.pathname);
+        }
+        if (route.path.length > 1) {
+            var direction = this.getDirection(route);
+            if (direction.resource) {
+                console.log(_.str.sprintf('%s "%s"', ctx, direction.resource.name()));
+                return direction.resource.delete(direction.route);
+            }
+            else {
+                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
+            }
+        }
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
@@ -296,6 +323,11 @@ var Site = (function (_super) {
         return later.promise;
     };
     Site.prototype.patch = function (route, body) {
+        var self = this;
+        var ctx = '[' + this.name() + '.patch] ';
+        if (route.static) {
+            return internals.promiseError('DELETE not supported on static resources', route.pathname);
+        }
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
@@ -308,8 +340,8 @@ var Site = (function (_super) {
 exports.Site = Site;
 var ResourcePlayer = (function (_super) {
     __extends(ResourcePlayer, _super);
-    function ResourcePlayer(res) {
-        _super.call(this);
+    function ResourcePlayer(res, parent) {
+        _super.call(this, parent);
         this._name = '';
         this._template = '';
         var self = this;
@@ -318,6 +350,7 @@ var ResourcePlayer = (function (_super) {
         self._layout = res.layout;
         self._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
         self._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
+        self._onDelete = res.onPost ? Q.nbind(res.onDelete, this) : undefined;
         if (res.resources) {
             _.each(res.resources, function (child, index) {
                 self.add(child);
@@ -333,6 +366,8 @@ var ResourcePlayer = (function (_super) {
         return this._name;
     };
     ResourcePlayer.prototype.head = function (route) {
+        var self = this;
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.head]', self._name));
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
@@ -340,8 +375,8 @@ var ResourcePlayer = (function (_super) {
         return later.promise;
     };
     ResourcePlayer.prototype.get = function (route) {
-        var ctx = _.str.sprintf('[get]');
         var self = this;
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.get]', self._name));
         if (route.path.length > 1) {
             var direction = this.getDirection(route);
             if (direction.resource)
@@ -350,48 +385,82 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
             }
         }
-        else {
-            var dyndata = {};
-            if (self._onGet) {
-                var later = Q.defer();
-                console.log(_.str.sprintf('%s Calling onGet()!', ctx));
-                this._onGet(route.query).then(function (response) {
-                    var dyndata = response.data;
-                    _.each(dyndata, function (value, attrname) {
-                        self[attrname] = value;
-                    });
-                    if (self._template) {
-                        console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, self._name, self._template));
-                        internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
-                            later.resolve(emb);
-                        });
-                    }
-                    else {
-                        console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
-                        internals.viewJson(self).then(function (emb) {
-                            later.resolve(emb);
-                        });
-                    }
-                }).fail(function (rxErr) {
-                    later.reject(rxErr);
+        var dyndata = {};
+        if (self._onGet) {
+            var later = Q.defer();
+            console.log(_.str.sprintf('%s Calling onGet()!', ctx));
+            this._onGet(route.query).then(function (response) {
+                var dyndata = response.data;
+                _.each(dyndata, function (value, attrname) {
+                    self[attrname] = value;
                 });
-                return later.promise;
-            }
-            else {
-                console.log(_.str.sprintf('%s getting resource from the data ', ctx));
-                if (this._template) {
-                    return internals.viewDynamic(self._template, self, self._layout);
+                if (self._template) {
+                    console.log(_.str.sprintf('%s View "%s" as HTML using %s', ctx, self._name, self._template));
+                    internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
+                        later.resolve(emb);
+                    }).fail(function (err) {
+                        later.reject(err);
+                    });
                 }
                 else {
-                    return internals.viewJson(self);
+                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
+                    internals.viewJson(self).then(function (emb) {
+                        later.resolve(emb);
+                    }).fail(function (err) {
+                        later.reject(err);
+                    });
                 }
-            }
+            }).fail(function (rxErr) {
+                later.reject(rxErr);
+            });
+            return later.promise;
+        }
+        console.log(_.str.sprintf('%s getting resource from the data ', ctx));
+        if (this._template) {
+            return internals.viewDynamic(self._template, self, self._layout);
+        }
+        else {
+            return internals.viewJson(self);
         }
     };
-    ResourcePlayer.prototype.post = function (route, body) {
-        var ctx = '[post] ';
-        var laterAction = Q.defer();
+    ResourcePlayer.prototype.delete = function (route) {
         var self = this;
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.delete]', self._name));
+        if (route.path.length > 1) {
+            var direction = this.getDirection(route);
+            if (direction.resource)
+                return direction.resource.delete(direction.route);
+            else {
+                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
+            }
+        }
+        if (self._onDelete) {
+            var later = Q.defer();
+            console.log(_.str.sprintf('%s Calling onDelete()', ctx));
+            this._onDelete(route.query).then(function (response) {
+                var dyndata = response.data;
+                _.each(dyndata, function (value, attrname) {
+                    self[attrname] = value;
+                });
+                internals.viewJson(self).then(function (emb) {
+                    emb.httpCode = response.httpCode ? response.httpCode : 200;
+                    emb.location = response.location ? response.location : '';
+                    later.resolve(emb);
+                }).fail(function (err) {
+                    later.reject(err);
+                });
+            }).fail(function (rxErr) {
+                later.reject(rxErr);
+            });
+            return later.promise;
+        }
+        console.log(_.str.sprintf('%s Removing static resource', ctx));
+        self.parent.remove(self);
+        return internals.viewJson(self);
+    };
+    ResourcePlayer.prototype.post = function (route, body) {
+        var self = this;
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.post]', self._name));
         if (route.path.length > 1) {
             var direction = self.getDirection(route);
             if (direction.resource)
@@ -401,21 +470,23 @@ var ResourcePlayer = (function (_super) {
             }
         }
         else {
+            var later = Q.defer();
             if (this._onPost) {
-                var later = Q.defer();
                 self._onPost(route.query, body).then(function (response) {
                     var dyndata = response.data;
-                    console.log(_.str.sprintf('%s Post returned %s', ctx, JSON.stringify(dyndata)));
+                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
                     _.each(_.keys(dyndata), function (key) {
                         self[key] = dyndata[key];
                     });
                     internals.viewJson(self).then(function (emb) {
                         emb.httpCode = response.httpCode ? response.httpCode : 200;
                         emb.location = response.location ? response.location : '';
+                        console.log(_.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString()));
                         later.resolve(emb);
+                    }).fail(function (err) {
+                        later.reject(err);
                     });
                 });
-                return later.promise;
             }
             else {
                 _.each(_.keys(body), function (key) {
@@ -423,19 +494,16 @@ var ResourcePlayer = (function (_super) {
                 });
                 internals.viewJson(self).then(function (emb) {
                     later.resolve(emb);
+                }).fail(function (err) {
+                    later.reject(err);
                 });
             }
+            return later.promise;
         }
-        return laterAction.promise;
     };
     ResourcePlayer.prototype.put = function (route, body) {
-        var later = Q.defer();
-        _.defer(function () {
-            later.reject(new RxError('Not Implemented'));
-        });
-        return later.promise;
-    };
-    ResourcePlayer.prototype.delete = function (route) {
+        var self = this;
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.put]', self._name));
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
@@ -443,6 +511,8 @@ var ResourcePlayer = (function (_super) {
         return later.promise;
     };
     ResourcePlayer.prototype.patch = function (route, body) {
+        var self = this;
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.patch]', self._name));
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));

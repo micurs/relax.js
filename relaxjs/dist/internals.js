@@ -9,6 +9,8 @@ function emitCompileViewError(content, err, filename) {
     var errTitle = _.str.sprintf('%s Error while compiling: %s', fname, filename);
     var errMsg = err.message;
     var code = _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>', _.escape(content));
+    console.log(errTitle);
+    console.log(errMsg);
     return new relaxjs.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
@@ -56,7 +58,9 @@ exports.viewStatic = viewStatic;
 function viewJson(viewData) {
     var later = Q.defer();
     _.defer(function () {
-        var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) { return (key.indexOf('_') === 0) ? undefined : value; }), 'utf-8'));
+        var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) {
+            return (key.indexOf('_') === 0) ? undefined : value;
+        }), 'utf-8'));
         later.resolve(e);
     });
     return later.promise;
