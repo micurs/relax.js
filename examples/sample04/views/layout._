@@ -9,13 +9,28 @@
   <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css" rel="stylesheet">
   <title><%= name %></title>
   <script>
-    function httpExecute($method,$url,callback){
+    function httpExecute($method,$url,$body,$type, callback){
       xmlhttp=new XMLHttpRequest();
-      xmlhttp.onreadystatechange = callback;
+      if ( callback )
+        xmlhttp.onreadystatechange = callback;
       xmlhttp.open($method,$url,true)
-      xmlhttp.send(null);
+      if ( $type )
+        xmlhttp.setRequestHeader("Content-type", $type );
+      xmlhttp.send($body);
     }
   </script>
+  <style>
+  .form-control-static {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgb(33, 137, 242);
+    /* background-color: gainsboro; */
+    padding: 6px 12px;
+    border-radius: 4px;
+    height:34px;
+    border: solid 1px #eee;
+  }
+  </style>
 </head>
 <body>
   <div class="container">

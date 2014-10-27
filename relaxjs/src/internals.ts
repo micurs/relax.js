@@ -9,15 +9,32 @@
 import fs = require('fs');
 import mime = require('mime');
 import Q = require('q');
+import querystring = require('querystring');
+
 import _ = require("underscore");
 _.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
 
+export function parseData( bodyData: string,  contentType: string ) {
+  try {
+    if ( contentType === 'application/json' ) {
+      console.log(_.str.sprintf('BODY DECODING: "%s"',bodyData) );
+      return JSON.parse(bodyData);
+    }
+    else
+      return querystring.parse(bodyData);
+  }
+  catch( err ) {
+    console.log('ERROR PARSING INCOMING DATA: '+ err );
+    return {};
+  }
+}
+
 // Internal functions to emit error/warning messages
 export function emitCompileViewError( content: string, err: TypeError, filename: string ) : relaxjs.RxError {
   var fname = '[view error]';
-  var errTitle = _.str.sprintf('%s Error while compiling: %s',fname, filename );
+  var errTitle = _.str.sprintf('%s while compiling: %s',fname, filename );
   var errMsg = err.message;
   var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
   console.log(errTitle);
@@ -27,7 +44,7 @@ export function emitCompileViewError( content: string, err: TypeError, filename:
 
 export function emitError( content: string, filename: string ) : relaxjs.RxError {
   var fname = '[error]';
-  var errTitle = _.str.sprintf('%s Error while serving: %s',fname, filename );
+  var errTitle = _.str.sprintf('%s while serving: %s',fname, filename );
   var errMsg = content;
   return new relaxjs.RxError(errMsg, errTitle, 500 );
 }

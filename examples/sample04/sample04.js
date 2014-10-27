@@ -65,7 +65,34 @@ var usersResource = {
                     respond(respError);
                 }
             });
-        }
+        },
+        resources: [{
+            name: 'edit',
+            view: 'edituser',
+            layout: 'layout',
+            onGet: function (query, respond) {
+                var userid = query['id'];
+                store.hget('user', userid, function (err, data) {
+                    if (data) {
+                        respond(null, { data: JSON.parse(data) });
+                    }
+                    else {
+                        var errMsg = 'Could not find User with id: ' + userid;
+                        var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
+                        respond(respError);
+                    }
+                });
+            },
+            onPatch: function (query, userData, respond) {
+                var userid = query['id'];
+                console.log('PATCH for user:' + userid);
+                userData['userId'] = userid;
+                console.log('Setting these data:\n' + JSON.stringify(userData));
+                store.hset('user', userid, JSON.stringify(userData));
+                store.save();
+                respond(null, { result: 'ok', httpCode: 303, location: '/users', data: userData });
+            }
+        }]
     }]
 };
 mysite.add(usersResource);

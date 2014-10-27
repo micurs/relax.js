@@ -10,7 +10,6 @@
 ///<reference path='../typings/mime/mime.d.ts' />
 
 import http = require("http");
-import querystring = require('querystring');
 import fs = require("fs");
 import url = require('url');
 import path = require('path');
@@ -127,6 +126,7 @@ export interface Resource {
   resources?: Resource[];
   onGet?: ( query: any, callback: DataCallback ) => void;
   onPost?: ( query: any, body: any, callback: DataCallback) => void;
+  onPatch?: ( query: any, body: any, callback: DataCallback) => void;
   onDelete?: ( query: any, callback: DataCallback ) => void;
 }
 
@@ -152,9 +152,9 @@ export class Embodiment {
   }
 
   serve(response: http.ServerResponse) : void {
-    var headers = { 'Content-Type' : this.mimeType };
+    var headers = { 'content-type' : this.mimeType };
     if ( this.data )
-      headers['Content-Length'] = this.data.length;
+      headers['content-length'] = this.data.length;
     if ( this.location )
       headers['Location'] = this.location;
 
@@ -303,35 +303,37 @@ export class Site extends Container implements HttpPlayer {
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(msg);
       var site : Site = this;
+
+      console.log('\n----------- NEW REQUEST');
       console.log(msg.method);
 
+      // Read the message body (if available)
       var body : string = '';
       msg.on('data', function (data) {
           body += data;
         });
       msg.on('end', function () {
-        var bodyData = querystring.parse(body);
+        var bodyData = {};
+        if ( body.length>0 )
+          bodyData = internals.parseData(body,msg.headers['content-type']); // querystring.parse(body);
 
         var promise: Q.Promise<Embodiment>;
         promise = site[msg.method.toLowerCase()]( route, bodyData );
 
         if ( promise ) {
           promise.then( ( rep : Embodiment ) => {
-            console.log('>>>>> RESOLVED ')
             rep.serve(response);
           })
           .fail( function (error) {
-            console.log('>>>>> FAIL')
             console.log(error);
             var rxErr: RxError = <RxError>error;
+            console.log(rxErr.toString());
             if ( (<any>error).getHttpCode ) {
-              console.log(rxErr.toString());
-              response.writeHead( rxErr.getHttpCode(), {"Content-Type": "text/html"} );
+              response.writeHead( rxErr.getHttpCode(), {"content-type": "text/html"} );
               response.write('<h1>relax.js: we got an error</h1>');
             }
             else {
-              console.log(rxErr);
-              response.writeHead( 500, {"Content-Type": "text/html"} );
+              response.writeHead( 500, {"content-type": "text/html"} );
               response.write('<h1>Error</h1>');
             }
             response.write('<h2>'+error.name+'</h2>');
@@ -398,6 +400,22 @@ export class Site extends Container implements HttpPlayer {
     return internals.promiseError( _.str.sprintf('%s ERROR Invalid in request "%s"',ctx, route.pathname ), route.pathname );
   }
 
+  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+    var self = this;
+    var ctx = '['+this.name()+'.patch] ';
+    if ( route.path.length > 1 ) {
+      var direction = this.getDirection(route);
+      if ( direction.resource ) {
+        console.log(_.str.sprintf('%s "%s"',ctx,direction.resource.name() ));
+        return direction.resource.patch( direction.route, body );
+      }
+      else {
+        return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid in request "%s"',ctx, route.pathname ), route.pathname );
+      }
+    }
+    return internals.promiseError( _.str.sprintf('%s ERROR Invalid in request "%s"',ctx, route.pathname ), route.pathname );
+  }
+
   put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this;
     var ctx = '['+this.name()+'.put] ';
@@ -430,16 +448,6 @@ export class Site extends Container implements HttpPlayer {
     return later.promise;
   }
 
-  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
-    var self = this;
-    var ctx = '['+this.name()+'.patch] ';
-    if ( route.static ) {
-      return internals.promiseError( 'DELETE not supported on static resources', route.pathname );
-    }
-    var later = Q.defer< Embodiment >();
-    _.defer( () => { later.reject( new RxError('Not Implemented')) });
-    return later.promise;
-  }
 
 }
 
@@ -454,6 +462,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   private _layout: string;
   private _onGet : ( query: any ) => Q.Promise<any>;
   private _onPost : ( query: any, body: any ) => Q.Promise<any>;
+  private _onPatch : ( query: any, body: any ) => Q.Promise<any>;
   private _onDelete : ( query: any ) => Q.Promise<any>;
 
   constructor( res : Resource, parent?: Container ) {
@@ -464,7 +473,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     self._layout = res.layout;
     self._onGet = res.onGet ? Q.nbind(res.onGet,this) : undefined ;
     self._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
-    self._onDelete = res.onPost ? Q.nbind(res.onDelete,this) : undefined ;
+    self._onPatch = res.onPatch ? Q.nbind(res.onPatch,this) : undefined ;
+    self._onDelete = res.onDelete ? Q.nbind(res.onDelete,this) : undefined ;
 
     // Add children resources if available
     if ( res.resources ) {
@@ -517,19 +527,19 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
       var later = Q.defer< Embodiment >();
-      console.log( _.str.sprintf('%s Calling onGet()!',ctx) );
+      // console.log( _.str.sprintf('%s Calling onGet()!',ctx) );
       this._onGet( route.query )
         .then( function( response: any ) {
           var dyndata = response.data;
           _.each( dyndata, ( value: any, attrname: string ) => { self[attrname] = value; } );
           if ( self._template ) {
-            console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
+            // console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
             internals.viewDynamic(self._template, self, self._layout )
               .then( (emb: Embodiment ) => { later.resolve(emb); })
               .fail( (err) => { later.reject(err) } );
           }
           else {
-            console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
+            // console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
             internals.viewJson(self)
               .then( (emb: Embodiment ) => { later.resolve(emb); })
               .fail( (err) => { later.reject(err) } );
@@ -542,7 +552,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // When onGet() is NOT available use the static data member to respond to this request.
-    console.log( _.str.sprintf('%s getting resource from the data ',ctx) );
+    // console.log( _.str.sprintf('%s getting resource from the data ',ctx) );
     if ( this._template ) {
       // console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
       return internals.viewDynamic(self._template, self, self._layout );
@@ -573,7 +583,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onDelete() is defined use id to get dynamic data from the user defined resource.
     if ( self._onDelete ) {
       var later = Q.defer< Embodiment >();
-      console.log( _.str.sprintf('%s Calling onDelete()',ctx) );
+      // console.log( _.str.sprintf('%s Calling onDelete()',ctx) );
       this._onDelete( route.query )
         .then( function( response: any ) {
           var dyndata = response.data;
@@ -645,6 +655,54 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   }
 
 
+  // HttpPlayer PATCH
+  // Applies partial modifications to a resource (as identified in the URI).
+  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+    var self = this; // use to consistently access this object.
+    var ctx = _.str.sprintf( _.str.sprintf('[%s.patch]',self._name) );
+
+    console.log( _.str.sprintf('%s on %s %s',ctx, JSON.stringify(route.path), JSON.stringify(route.query) ));
+    // Dives in and navigates through the path to find the child resource that can answer this POST call
+    if ( route.path.length > 1 ) {
+      var direction = self.getDirection( route );
+      if ( direction.resource )
+        return direction.resource.patch( direction.route, body );
+      else {
+        return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid request "%s"',ctx, route.pathname ), route.pathname );
+      }
+    }
+    else {
+      var later = Q.defer< Embodiment >();
+      // Call the onPost() for this resource (user code)
+      console.log('call this._onPatch()');
+      if ( this._onPatch ) {
+        self._onPatch( route.query, body )
+          .then( ( response: any ) => {
+            var dyndata = response.data;
+            console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
+            _.each( _.keys(dyndata), (key) => { self[key] = dyndata[key] } );
+            internals.viewJson(self)
+              .then( function(emb: Embodiment ) {
+                emb.httpCode = response.httpCode ? response.httpCode : 200 ;
+                emb.location = response.location ? response.location : '';
+                console.log( _.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString() ) );
+                later.resolve(emb);
+              })
+              .fail( function(err) { later.reject(err); } );
+          });
+      }
+      // Set the data directly
+      else {
+        console.log('no onPatch: updating the data element');
+        _.each( _.keys(body), (key) => { self[key] = body[key] } );
+        internals.viewJson(self)
+          .then( (emb: Embodiment ) => { later.resolve(emb); })
+          .fail( (err) => { later.reject(err); } );
+      }
+      return later.promise;
+    }
+  }
+
   // HttpPlayer PUT
   // Asks that the enclosed entity be stored under the supplied URI.
   // The body sent to a post does not contain the resource name to be stored since that name is the URI.
@@ -657,18 +715,6 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     return later.promise;
   }
 
-
-
-  // HttpPlayer PATCH
-  // Applies partial modifications to a resource (as identified in the URI).
-  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
-    var self = this; // use to consistently access this object.
-    var ctx = _.str.sprintf( _.str.sprintf('[%s.patch]',self._name) );
-
-    var later = Q.defer< Embodiment >();
-    _.defer( () => { later.reject( new RxError('Not Implemented')) });
-    return later.promise;
-  }
 }
 
 export function site( name?: string ) : Site {
