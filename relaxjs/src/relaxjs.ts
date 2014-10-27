@@ -313,20 +313,9 @@ export class Site extends Container implements HttpPlayer {
         var bodyData = querystring.parse(body);
 
         var promise: Q.Promise<Embodiment>;
-        switch( msg.method ) {
-          case 'DELETE' :
-            promise = site.delete( route )
-            break;
-          case 'GET':
-            promise = site.get( route );
-            break;
-          case 'POST':
-            promise = site.post( route, bodyData );
-            break;
-          }
+        promise = site[msg.method.toLowerCase()]( route, bodyData );
 
         if ( promise ) {
-          console.log('>>>>> Check the promise')
           promise.then( ( rep : Embodiment ) => {
             console.log('>>>>> RESOLVED ')
             rep.serve(response);
@@ -338,7 +327,7 @@ export class Site extends Container implements HttpPlayer {
             if ( (<any>error).getHttpCode ) {
               console.log(rxErr.toString());
               response.writeHead( rxErr.getHttpCode(), {"Content-Type": "text/html"} );
-              response.write('<h1>relax.js: error</h1>');
+              response.write('<h1>relax.js: we got an error</h1>');
             }
             else {
               console.log(rxErr);
@@ -361,13 +350,13 @@ export class Site extends Container implements HttpPlayer {
     this._home = path;
   }
 
-  head( route : routing.Route) : Q.Promise<Embodiment> {
+  head( route : routing.Route, body?: any ) : Q.Promise<Embodiment> {
     var later = Q.defer< Embodiment >();
     _.defer( () => { later.reject( new RxError('Not Implemented')) });
     return later.promise;
   }
 
-  get( route : routing.Route ) : Q.Promise< Embodiment > {
+  get( route : routing.Route, body?: any  ) : Q.Promise< Embodiment > {
     var self = this;
     var ctx = '['+this.name()+'.get] ';
     console.log(ctx+' route:'+ route.path);
@@ -394,7 +383,7 @@ export class Site extends Container implements HttpPlayer {
     }
   }
 
-  post( route : routing.Route, body: any ) : Q.Promise< Embodiment > {
+  post( route : routing.Route, body?: any ) : Q.Promise< Embodiment > {
     var ctx = '[site.post] ';
     if ( route.path.length > 1 ) {
       var direction = this.getDirection(route);
@@ -417,7 +406,7 @@ export class Site extends Container implements HttpPlayer {
     return later.promise;
   }
 
-  delete( route : routing.Route ) : Q.Promise<Embodiment> {
+  delete( route : routing.Route, body?: any  ) : Q.Promise<Embodiment> {
     var self = this;
     var ctx = '['+this.name()+'.delete] ';
     if ( route.static ) {

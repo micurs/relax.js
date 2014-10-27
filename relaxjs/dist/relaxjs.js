@@ -204,19 +204,8 @@ var Site = (function (_super) {
             msg.on('end', function () {
                 var bodyData = querystring.parse(body);
                 var promise;
-                switch (msg.method) {
-                    case 'DELETE':
-                        promise = site.delete(route);
-                        break;
-                    case 'GET':
-                        promise = site.get(route);
-                        break;
-                    case 'POST':
-                        promise = site.post(route, bodyData);
-                        break;
-                }
+                promise = site[msg.method.toLowerCase()](route, bodyData);
                 if (promise) {
-                    console.log('>>>>> Check the promise');
                     promise.then(function (rep) {
                         console.log('>>>>> RESOLVED ');
                         rep.serve(response);
@@ -227,7 +216,7 @@ var Site = (function (_super) {
                         if (error.getHttpCode) {
                             console.log(rxErr.toString());
                             response.writeHead(rxErr.getHttpCode(), { "Content-Type": "text/html" });
-                            response.write('<h1>relax.js: error</h1>');
+                            response.write('<h1>relax.js: we got an error</h1>');
                         }
                         else {
                             console.log(rxErr);
@@ -246,14 +235,14 @@ var Site = (function (_super) {
     Site.prototype.setHome = function (path) {
         this._home = path;
     };
-    Site.prototype.head = function (route) {
+    Site.prototype.head = function (route, body) {
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
         });
         return later.promise;
     };
-    Site.prototype.get = function (route) {
+    Site.prototype.get = function (route, body) {
         var self = this;
         var ctx = '[' + this.name() + '.get] ';
         console.log(ctx + ' route:' + route.path);
@@ -300,7 +289,7 @@ var Site = (function (_super) {
         });
         return later.promise;
     };
-    Site.prototype.delete = function (route) {
+    Site.prototype.delete = function (route, body) {
         var self = this;
         var ctx = '[' + this.name() + '.delete] ';
         if (route.static) {
