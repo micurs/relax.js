@@ -106,9 +106,9 @@ var Container = (function () {
         else {
             childArray.push(resourcePlayer);
         }
-        console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length - 1, indexName));
     };
-    Container.prototype.getByIdx = function (name, idx) {
+    Container.prototype.getChild = function (name, idx) {
+        if (idx === void 0) { idx = 0; }
         return this._resources[name][idx];
     };
     Container.prototype.childTypeCount = function (typeName) {
@@ -129,7 +129,6 @@ var Container = (function () {
         var direction = new routing.Direction();
         direction.route = route.stepThrough(1);
         var childResName = direction.route.getNextStep();
-        console.log(_.str.sprintf('%s following the next step in: "%s" ', ctx, direction.route.path));
         if (childResName in this._resources) {
             var idx = 0;
             if (direction.route.path[1] !== undefined) {
@@ -141,8 +140,7 @@ var Container = (function () {
                     direction.route = direction.route.stepThrough(1);
                 }
             }
-            console.log(_.str.sprintf('%s [%s] matching "%s" ', ctx, idx, childResName));
-            direction.resource = this.getByIdx(childResName, idx);
+            direction.resource = this.getChild(childResName, idx);
         }
         return direction;
     };
@@ -164,8 +162,8 @@ var Site = (function (_super) {
         Site._instance = this;
     }
     Site.$ = function (name) {
-        if (Site._instance === null && name) {
-            Site._instance = new Site(name);
+        if (Site._instance === null) {
+            Site._instance = new Site(name ? name : 'site');
         }
         return Site._instance;
     };

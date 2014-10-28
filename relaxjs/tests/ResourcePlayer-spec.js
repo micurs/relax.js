@@ -28,7 +28,7 @@ beforeEach(function() {
 
 describe('GET responses: ', function() {
 
-  describe('GET static data from a Resource', function() {
+  describe('1.1 GET static data from a Resource', function() {
     it('should get {"message":"Hello World!"}', function() {
       var result;
       var rp = new relaxjs.ResourcePlayer( { name: 'hello', data: { message: "Hello World!" } });
@@ -36,13 +36,14 @@ describe('GET responses: ', function() {
         .then( function(emb) { result = emb; });
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
       runs( function() {
+        expect( result ).toBeDefined();
         expect( result.dataAsString() ).toBe('{"message":"Hello World!"}');
       });
     });
   });
 
 
-  describe('GET dynamic data from a Resource', function() {
+  describe('1.2 GET dynamic data from a Resource', function() {
     it('should get {"message":"Hello World!"}', function() {
       var result;
       var rp = new relaxjs.ResourcePlayer( {
@@ -55,17 +56,39 @@ describe('GET responses: ', function() {
         .then( function(emb) { result = emb; });
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
       runs( function() {
+        expect( result ).toBeDefined();
+        expect( result.dataAsString() ).toBe('{"message":"Hello World!"}' );
+      });
+    });
+  });
+
+  describe('1.3 GET static data from a child Resource', function() {
+    it('should get {"message":"Hello World!"}', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'hello',
+        resources: [ {
+          name: 'world',
+          data: { message: "Hello World!" }
+        }]
+      });
+      rp.get( new routing.Route('hello/world') )
+        .then( function(emb) { result = emb; });
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
         expect( result.dataAsString() ).toBe('{"message":"Hello World!"}');
       });
     });
   });
+
 
 })
 
 
 describe('POST responses: ', function() {
 
-  describe('POST JSON data to a Resource', function() {
+  describe('2.1 POST JSON data to a Resource with no onPost() function', function() {
     it('should add the data as member of the resource', function() {
       var result;
       var rp = new relaxjs.ResourcePlayer( {
@@ -77,11 +100,55 @@ describe('POST responses: ', function() {
         .then( function(emb){ result = emb; } );
       waitsFor( function() { return result!=undefined } , 'Waited to long for the POST call to be completed.', 1000 );
       runs( function() {
+        expect( result ).toBeDefined();
         expect( rp ).toHave( { message:"Hello World!"} );
+      });
+    });
+  });
+
+  describe('2.2 POST JSON data to a Resource with onPost() function', function() {
+    it('should add the data under the postData new member of the resource', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'test',
+        onPost: function(query , data , respond ) {
+          this['postData'] = data;
+          respond( null, { result: 'ok' } );
+        }
+      });
+      var postData = { message: 'Hello World' };
+      rp.post(new routing.Route('test'),postData )
+        .then( function(emb){ result = emb; } );
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the POST call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( rp ).toHave( { postData : { message:"Hello World!"} } );
       });
 
     });
   });
+
+  describe('2.3 POST JSON data to a child Resource with no onPost() function', function() {
+    it('should add the data as member of the resource', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'hello',
+        resources: [{
+          name: 'world',
+          data: { }
+        }]
+      });
+      var postData = { message: 'Hello World' };
+      rp.post(new routing.Route('hello/world'),postData )
+        .then( function(emb){ result = emb; } );
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the POST call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( rp.getChild('world') ).toHave( { message:"Hello World!"} );
+      });
+    });
+  });
+
 
 });
 

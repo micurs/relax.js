@@ -88,7 +88,7 @@ declare module "relaxjs" {
 
     getFirstMatching( typeName: string ) : HttpPlayer;
     add( newRes: Resource ) : void ;
-    getByIdx( name: string, idx: number ) : HttpPlayer ;
+    getChild( name: string, idx: number ) : HttpPlayer ;
     childTypeCount( typeName: string ) : number ;
     childCount() : number;
     getDirection( route : routing.Route ) : routing.Direction;

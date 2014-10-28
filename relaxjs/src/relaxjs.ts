@@ -216,10 +216,10 @@ export class Container {
     else {
       childArray.push(resourcePlayer);
     }
-    console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length-1, indexName ) );
+    // console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length-1, indexName ) );
   }
 
-  getByIdx( name: string, idx: number ) : HttpPlayer {
+  getChild( name: string, idx: number = 0 ) : HttpPlayer {
     return this._resources[name][idx];
   }
 
@@ -242,7 +242,7 @@ export class Container {
     var direction: routing.Direction = new routing.Direction();
     direction.route = route.stepThrough(1);
     var childResName = direction.route.getNextStep();
-    console.log( _.str.sprintf('%s following the next step in: "%s" ',ctx, direction.route.path ) );
+    // console.log( _.str.sprintf('%s following the next step in: "%s" ',ctx, direction.route.path ) );
     if ( childResName in this._resources ) {
       var idx:number = 0;
       if ( direction.route.path[1] !== undefined ) {
@@ -254,8 +254,8 @@ export class Container {
           direction.route = direction.route.stepThrough(1);
         }
       }
-      console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
-      direction.resource = this.getByIdx(childResName, idx);
+      // console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
+      direction.resource = this.getChild(childResName, idx);
     }
     return direction;
   }
@@ -281,8 +281,8 @@ export class Site extends Container implements HttpPlayer {
   }
 
   public static $( name?:string ):Site {
-    if(Site._instance === null && name ) {
-      Site._instance = new Site(name);
+    if(Site._instance === null ) {
+      Site._instance = new Site( name ? name : 'site' );
     }
     return Site._instance;
   }
