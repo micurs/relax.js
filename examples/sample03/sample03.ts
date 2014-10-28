@@ -10,8 +10,10 @@ import redis = require("redis");
 // Create the data store (with redis)
 var store = redis.createClient();
 
-store.hset('user', '100', '{ "firstName": "Mary", "lastName": "Stewart", "userId": "100" }');
-store.hset('user', '101', '{ "firstName": "John", "lastName": "Smith", "userId": "101" }');
+store.hset('user', 'f40705f1-58b3-47e6-98da-5955c6bd1e30',
+            '{ "firstName": "Mary", "lastName": "Stewart", "userId": "f40705f1-58b3-47e6-98da-5955c6bd1e30" }');
+store.hset('user', 'f40705f1-58b3-47e6-98da-3956c6fd1e31',
+            '{ "firstName": "John", "lastName": "Smith", "userId": "f40705f1-58b3-47e6-98da-3956c6fd1e31" }');
 store.save();
 
 // Create the application by assembling the resources
@@ -24,7 +26,7 @@ var usersResource : relaxjs.Resource = {
   onGet: function( query: any, respond: relaxjs.DataCallback  ) {
     store.hgetall( 'user', ( err: Error, items: any ) => {
         var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
-        respond( null, { data: { users: userList } } );
+        this.ok(respond, { users: userList } );
       });
   },
   resources : [ {
@@ -35,7 +37,7 @@ var usersResource : relaxjs.Resource = {
         store.hget( 'user',userid,
           ( err: Error, data: string ) => {
             if ( data ) {
-              respond( null, { data: JSON.parse(data) } );
+              this.ok(respond, JSON.parse(data) );
             }
             else {
               var errMsg = 'Could not find User with id: '+userid;

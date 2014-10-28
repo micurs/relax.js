@@ -21,12 +21,14 @@ import internals = require('./internals');
 import routing = require('./routing');
 
 exports.routing = routing;
-// exports.resources = resources;
 
 export function relax() : void {
   console.log('relax.js !');
 }
 
+/*
+ * Standard node Error: type declaration
+*/
 declare class Error {
     public name: string;
     public message: string;
@@ -34,6 +36,10 @@ declare class Error {
     constructor(message?: string);
 }
 
+
+/*
+ * Extended Error information for Relax.js
+*/
 interface IRxError extends Error {
   httpCode: number;
   extra: string;
@@ -70,17 +76,10 @@ export class RxError implements IRxError {
   }
 }
 
-// Relax Request: a route plus some data
-export class Request {
-  route: routing.Route;
-  data: Buffer;
-}
-
-
 /*
- * The resource player implement a resource runtime capabilities
- * managing the flow of requests coming from the site. HttpPlayer implements
- * all the HTTP verb functions and manage the calls to the user defined resources.
+ * The resource player implement the resource runtime capabilities.
+ * Derived classed manage the flow of requests coming from the site.
+ * HttpPlayer defines all the HTTP verb functions.
 */
 export interface HttpPlayer {
   name(): string;
@@ -106,17 +105,28 @@ export interface HttpPlayer {
   patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
 }
 
+
+/*
+ * Response definition every resource generate an instance of ResourceResponse
+ * by calling the DataCallback response function.
+*/
 export interface ResourceResponse {
-  data: any;
+  result: string;
+  data?: any;
   httpCode?: number;
   location?: string;
-  result?: string;
 }
 
+/*
+ * Type definition for the response callback function to use on the HTTP verb function
+*/
 export interface DataCallback {
   ( err: Error, resp?: ResourceResponse ): void;
 }
 
+/*
+ * This is the definition for a resource as entered by the user of the library.
+*/
 export interface Resource {
   name: string;
   key?: string;
@@ -130,13 +140,17 @@ export interface Resource {
   onDelete?: ( query: any, callback: DataCallback ) => void;
 }
 
-// A Resource map is a collection of Resource arrays.
-// Each arrray contain resource of the same type.
+/*
+ * A Resource map is a collection of Resource arrays.
+ * Each arrray contain resource of the same type.
+*/
 export interface ResourceMap {
   [name: string]: HttpPlayer [];
 }
 
-// Every resource is converted to their embodiment before they can be served
+/*
+ * Every resource is converted to their embodiment before they can be served
+*/
 export class Embodiment {
 
   public httpCode : number;
@@ -174,8 +188,10 @@ export class Embodiment {
   }
 }
 
-// A container of resources. This class offer helper functions to add and retrieve resources
-// child resources
+/*
+ * A container of resources. This class offer helper functions to add and retrieve resources
+ * child resources
+*/
 export class Container {
   public _resources:ResourceMap = {};
   private _parent: Container;
@@ -194,6 +210,7 @@ export class Container {
     if ( idx<0 )
       return false;
     resArr.splice(idx,1);
+    return true;
   }
 
   // Find the first resource of the given type
@@ -220,7 +237,10 @@ export class Container {
   }
 
   getChild( name: string, idx: number = 0 ) : HttpPlayer {
-    return this._resources[name][idx];
+    if ( this._resources[name])
+      return this._resources[name][idx];
+    else
+      return undefined;
   }
 
   childTypeCount( typeName: string ) : number {
@@ -262,8 +282,10 @@ export class Container {
 
 }
 
-// Root object for the application is the Site.
-// The site is in itself a Resource and is accessed via the root / in a url.
+/*
+ * Root object for the application is the Site.
+ * The site is in itself a Resource and is accessed via the root / in a url.
+*/
 export class Site extends Container implements HttpPlayer {
   private static _instance : Site = null;
   private _name: string = "site";
@@ -491,6 +513,28 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   }
 
   name(): string { return this._name; }
+
+  ok( response: DataCallback, data?: any ) : void {
+    var respObj = { result: 'ok'};
+    if ( data )
+      respObj['data'] = data;
+    response( null, respObj );
+  }
+  redirect( response: DataCallback, where: string, data?: any ) : void {
+    var respObj = { result: 'ok', httpCode: 303, location: where };
+    if ( data )
+      respObj['data'] = data;
+    console.log(respObj);
+    response( null, respObj );
+  }
+  fail( response: DataCallback, data?: any ) : void {
+    var respObj = { result: 'fail'};
+    if ( data )
+      respObj['data'] = data;
+    response( null, respObj );
+  }
+
+  // -------------------- HTTP VERB FUNCIONS -------------------------------------
 
   // Resource Player HEAD
   // Get the response as for a GET request, but without the response body.

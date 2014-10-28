@@ -36,12 +36,6 @@ var RxError = (function () {
     return RxError;
 })();
 exports.RxError = RxError;
-var Request = (function () {
-    function Request() {
-    }
-    return Request;
-})();
-exports.Request = Request;
 var Embodiment = (function () {
     function Embodiment(mimeType, data) {
         this.httpCode = 200;
@@ -87,6 +81,7 @@ var Container = (function () {
         if (idx < 0)
             return false;
         resArr.splice(idx, 1);
+        return true;
     };
     Container.prototype.getFirstMatching = function (typeName) {
         var childArray = this._resources[typeName];
@@ -109,7 +104,10 @@ var Container = (function () {
     };
     Container.prototype.getChild = function (name, idx) {
         if (idx === void 0) { idx = 0; }
-        return this._resources[name][idx];
+        if (this._resources[name])
+            return this._resources[name][idx];
+        else
+            return undefined;
     };
     Container.prototype.childTypeCount = function (typeName) {
         if (this._resources[typeName])
@@ -354,6 +352,25 @@ var ResourcePlayer = (function (_super) {
     }
     ResourcePlayer.prototype.name = function () {
         return this._name;
+    };
+    ResourcePlayer.prototype.ok = function (response, data) {
+        var respObj = { result: 'ok' };
+        if (data)
+            respObj['data'] = data;
+        response(null, respObj);
+    };
+    ResourcePlayer.prototype.redirect = function (response, where, data) {
+        var respObj = { result: 'ok', httpCode: 303, location: where };
+        if (data)
+            respObj['data'] = data;
+        console.log(respObj);
+        response(null, respObj);
+    };
+    ResourcePlayer.prototype.fail = function (response, data) {
+        var respObj = { result: 'fail' };
+        if (data)
+            respObj['data'] = data;
+        response(null, respObj);
     };
     ResourcePlayer.prototype.head = function (route) {
         var self = this;

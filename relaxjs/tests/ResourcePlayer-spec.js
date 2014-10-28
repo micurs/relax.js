@@ -113,7 +113,7 @@ describe('POST responses: ', function() {
         name: 'test',
         onPost: function(query , data , respond ) {
           this['postData'] = data;
-          respond( null, { result: 'ok' } );
+          this.OK(respond);
         }
       });
       var postData = { message: 'Hello World' };
@@ -154,6 +154,52 @@ describe('POST responses: ', function() {
 
 
 describe('DELETE responses', function() {
+
+  describe('3.1 DELETE a static child Resource', function() {
+    it('should remove the resource from its parent', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'parent',
+        resources: [{
+          name: 'child',
+          data: { }
+        }]
+      });
+      rp.delete(new routing.Route('parent/child') )
+        .then( function(emb){ result = emb; } );
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( rp.getChild('child') ).toBeUndefined();
+      });
+    });
+  });
+
+  describe('3.2 DELETE a dynamic Resource', function() {
+    it('should remove the item "second-item" from its data', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'parent',
+        resources: [{
+          name: 'child',
+          data: { testArray : [ 'first-item', 'second-item', 'third-item' ] },
+          onDelete: function(query, respond ) {
+            var idx = query['idx'];
+            this.testArray.splice(idx,1);
+            this.OK(respond);
+          }
+        }]
+      });
+      rp.delete(new routing.Route('parent/child?idx=1') )
+        .then( function(emb){ result = emb; } );
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( rp.getChild('child')['testArray'] ).toNotContain( ['second-item'] );
+      });
+    });
+  });
+
 });
 
 

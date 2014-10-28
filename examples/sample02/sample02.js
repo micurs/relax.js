@@ -9,7 +9,7 @@ var usersResource = {
     resources: [
         { name: 'tracy-stewart', onGet: function (query, respond) {
             var now = new Date();
-            respond(null, { data: { firstName: 'Mary', lastName: 'Stewart', date: now } });
+            this.ok(respond, { firstName: 'Mary', lastName: 'Stewart', date: now });
         }, resources: [
             { name: 'address', data: { address: '101 John St. San Francisco CA. ' } }
         ] },

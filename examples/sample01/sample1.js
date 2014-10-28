@@ -32,13 +32,12 @@ var dynamicResource = {
   view : 'helloworld',
   onGet : function( query, response ) {
     var date = new Date();
-    response( null, { data: { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' } } );
+    this.ok(response, { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' }  );
   }
 };
 
 
 site.add( staticResource );
-
 site.add( dynamicResource );
 
 // Create the application server for the site

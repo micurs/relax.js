@@ -36,14 +36,15 @@ var usersResource = {
             userData['userId'] = newKey;
             store.hset('user', newKey, JSON.stringify(userData));
             store.save();
-            respond(null, { result: 'ok', httpCode: 303, location: '/users', data: userData });
+            this.redirect(respond, '/users', userData);
         },
         // GET method: retrieve a user
         onGet: function (query, respond) {
+            var self = this;
             var userid = query['id'];
             store.hget('user', userid, function (err, data) {
                 if (data) {
-                    respond(null, { data: JSON.parse(data) });
+                    self.ok(respond, JSON.parse(data));
                 }
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;
@@ -54,10 +55,11 @@ var usersResource = {
         },
         // DELETE : remove a given user
         onDelete: function (query, respond) {
+            var self = this;
             var userid = query['id'];
             store.hdel('user', userid, function (err, data) {
                 if (!err) {
-                    respond(null, { result: 'ok', httpCode: 303, location: '/users', data: {} });
+                    self.redirect(respond, '/users');
                 }
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;
@@ -71,10 +73,11 @@ var usersResource = {
             view: 'edituser',
             layout: 'layout',
             onGet: function (query, respond) {
+                var self = this;
                 var userid = query['id'];
                 store.hget('user', userid, function (err, data) {
                     if (data) {
-                        respond(null, { data: JSON.parse(data) });
+                        self.ok(respond, JSON.parse(data));
                     }
                     else {
                         var errMsg = 'Could not find User with id: ' + userid;
@@ -85,12 +88,10 @@ var usersResource = {
             },
             onPatch: function (query, userData, respond) {
                 var userid = query['id'];
-                console.log('PATCH for user:' + userid);
                 userData['userId'] = userid;
-                console.log('Setting these data:\n' + JSON.stringify(userData));
                 store.hset('user', userid, JSON.stringify(userData));
                 store.save();
-                respond(null, { result: 'ok', httpCode: 303, location: '/users', data: userData });
+                this.redirect(respond, '/users');
             }
         }]
     }]

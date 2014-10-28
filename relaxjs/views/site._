@@ -67,20 +67,20 @@ function getResourcesUL( resources, root ) {
   </div>
   <div class="container-fluid">
     <div class="jumbotron">
-      <h1>Welcome to <%= siteName %></h1>
+      <h1><%= siteName %></h1>
     </div>
     <div class="row">
       <div class="col-md-8">
-        <h2>Site Resources</h2>
+        <h2><%= siteName %> Resources</h2>
         <p>
 <% print( getResourcesUL(_resources, '/' ) ) %>
         </p>
       </div>
       <div class="col-md-4">
         <h2>Info</h2>
-        <p>
+        <h3>
           Welcome to your relax.js site!
-        </p>
+        </h3>
         <p>
           This page is automatically generated and it is the default view for your site as resource.
         </p>
@@ -88,16 +88,24 @@ function getResourcesUL( resources, root ) {
           Learn more
         </h3>
         <ul  class="fa-ul">
-          <li><i class="fa-li fa fa-chevron-circle-right"></i><a href="">relaxjs.io</a> official page</li>
-          <li><i class="fa-li fa fa-chevron-circle-right"></i><a href="">Gitub</a> official repo</li>
+          <li><i class="fa-li fa fa-chevron-circle-right"></i><a href="">relaxjs.io</a> official site.</li>
+          <li><i class="fa-li fa fa-chevron-circle-right"></i>Gitub official <a href="">repo</a></li>
         </ul>
         <h3>How to disable this page</h3>
         <p>
           Use the setHome() on the Site object and pass the path to your home resource.
         </p>
+        <p>
+          For example:
+        </p>
+        <p>
+          <kbd> site.setHome('/home') </kbd>
+        </p>
+        </p>
       </div>
     </div>
   </div>
+  <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
   <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 </body>
 </html>

@@ -125,6 +125,10 @@ declare module "relaxjs" {
 
     constructor( res : Resource );
     name(): string;
+    ok( response: DataCallback, data?: any ) : void;
+    redirect( response: DataCallback, where: string, data?: any ) : void ;
+    fail( response: DataCallback, data?: any ) : void;
+
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
