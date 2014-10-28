@@ -615,8 +615,12 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var self = this; // use to consistently access this object.
     var ctx = _.str.sprintf( _.str.sprintf('[%s.post]',self._name) );
 
+    // console.log(_.str.sprintf('%s Adding data to resource: %s',ctx,JSON.stringify(body)) );
+
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > 1 ) {
+      //console.log(_.str.sprintf('%s GetDirection',ctx );
+
       var direction = self.getDirection( route );
       if ( direction.resource )
         return direction.resource.post( direction.route, body );
@@ -624,34 +628,37 @@ export class ResourcePlayer extends Container implements HttpPlayer {
         return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid request "%s"',ctx, route.pathname ), route.pathname );
       }
     }
-    else {
-      var later = Q.defer< Embodiment >();
-      // Call the onPost() for this resource (user code)
-      if ( this._onPost ) {
-        self._onPost( route.query, body )
-          .then( ( response: any ) => {
-            var dyndata = response.data;
-            console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
-            _.each( _.keys(dyndata), (key) => { self[key] = dyndata[key] } );
-            internals.viewJson(self)
-              .then( function(emb: Embodiment ) {
-                emb.httpCode = response.httpCode ? response.httpCode : 200 ;
-                emb.location = response.location ? response.location : '';
-                console.log( _.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString() ) );
-                later.resolve(emb);
-              })
-              .fail( function(err) { later.reject(err); } );
-          });
-      }
-      // Set the data directly
-      else {
-        _.each( _.keys(body), (key) => { self[key] = body[key] } );
-        internals.viewJson(self)
-          .then( (emb: Embodiment ) => { later.resolve(emb); })
-          .fail( (err) => { later.reject(err); } );
-      }
-      return later.promise;
+
+    var later = Q.defer< Embodiment >();
+    // Call the onPost() for this resource (user code)
+    if ( this._onPost ) {
+      // console.log(_.str.sprintf('%s Invoke onPost',ctx ) );
+      self._onPost( route.query, body )
+        .then( ( response: any ) => {
+          var dyndata = response.data;
+          console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
+          _.each( _.keys(dyndata), (key) => { self[key] = dyndata[key] } );
+          internals.viewJson(self)
+            .then( function(emb: Embodiment ) {
+              emb.httpCode = response.httpCode ? response.httpCode : 200 ;
+              emb.location = response.location ? response.location : '';
+              console.log( _.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString() ) );
+              later.resolve(emb);
+            })
+            .fail( function(err) { later.reject(err); } );
+        });
     }
+    // Set the data directly
+    else {
+      //console.log(_.str.sprintf('%s Adding data directly: %s',ctx,JSON.stringify(body)) );
+
+      _.each( _.keys(body), (key) => { self[key] = body[key] } );
+      internals.viewJson(self)
+        .then( (emb: Embodiment ) => { later.resolve(emb); })
+        .fail( (err) => { later.reject(err); } );
+    }
+    return later.promise;
+
   }
 
 

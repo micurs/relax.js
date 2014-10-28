@@ -99,9 +99,7 @@ var usersResource : relaxjs.Resource = {
 
         onPatch: function( query: any, userData: any, respond: relaxjs.DataCallback  ) {
           var userid = query['id'];
-          console.log('PATCH for user:'+userid);
           userData['userId'] = userid;
-          console.log('Setting these data:\n'+ JSON.stringify(userData) );
           store.hset('user', userid, JSON.stringify(userData) );
           store.save();
           respond( null, { result: 'ok', httpCode: 303, location: '/users' , data: userData } );

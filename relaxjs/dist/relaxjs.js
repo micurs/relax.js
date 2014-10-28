@@ -456,37 +456,35 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
             }
         }
-        else {
-            var later = Q.defer();
-            if (this._onPost) {
-                self._onPost(route.query, body).then(function (response) {
-                    var dyndata = response.data;
-                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
-                    _.each(_.keys(dyndata), function (key) {
-                        self[key] = dyndata[key];
-                    });
-                    internals.viewJson(self).then(function (emb) {
-                        emb.httpCode = response.httpCode ? response.httpCode : 200;
-                        emb.location = response.location ? response.location : '';
-                        console.log(_.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString()));
-                        later.resolve(emb);
-                    }).fail(function (err) {
-                        later.reject(err);
-                    });
-                });
-            }
-            else {
-                _.each(_.keys(body), function (key) {
-                    self[key] = body[key];
+        var later = Q.defer();
+        if (this._onPost) {
+            self._onPost(route.query, body).then(function (response) {
+                var dyndata = response.data;
+                console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
+                _.each(_.keys(dyndata), function (key) {
+                    self[key] = dyndata[key];
                 });
                 internals.viewJson(self).then(function (emb) {
+                    emb.httpCode = response.httpCode ? response.httpCode : 200;
+                    emb.location = response.location ? response.location : '';
+                    console.log(_.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString()));
                     later.resolve(emb);
                 }).fail(function (err) {
                     later.reject(err);
                 });
-            }
-            return later.promise;
+            });
         }
+        else {
+            _.each(_.keys(body), function (key) {
+                self[key] = body[key];
+            });
+            internals.viewJson(self).then(function (emb) {
+                later.resolve(emb);
+            }).fail(function (err) {
+                later.reject(err);
+            });
+        }
+        return later.promise;
     };
     ResourcePlayer.prototype.patch = function (route, body) {
         var self = this;
