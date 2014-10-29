@@ -653,7 +653,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var self = this; // use to consistently access this object.
     var ctx = _.str.sprintf( _.str.sprintf('[%s.delete] ',self._name) );
     var paramCount = self._paramterNames.length;
-    console.log(ctx+paramCount)
+
+    // console.log(ctx+paramCount)
 
     // Dives in and navigates through the path to find the child resource that can answer this DELETE call
     if ( route.path.length > ( 1+paramCount ) ) {
@@ -702,11 +703,12 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
     var ctx = _.str.sprintf( _.str.sprintf('[%s.post]',self._name) );
+    var paramCount = self._paramterNames.length;
 
     // console.log(_.str.sprintf('%s Adding data to resource: %s',ctx,JSON.stringify(body)) );
 
     // Dives in and navigates through the path to find the child resource that can answer this POST call
-    if ( route.path.length > 1 ) {
+    if ( route.path.length > ( 1+paramCount ) ) {
       //console.log(_.str.sprintf('%s GetDirection',ctx );
 
       var direction = self.getDirection( route );
@@ -716,6 +718,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
         return internals.promiseError( _.str.sprintf('%s ERROR Resource not found or invalid request "%s"',ctx, route.pathname ), route.pathname );
       }
     }
+
+    // Read the parameters from the route
+    if ( paramCount>0 )
+      self._readParameters(route.path);
 
     var later = Q.defer< Embodiment >();
     // Call the onPost() for this resource (user code)

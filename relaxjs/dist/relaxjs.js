@@ -449,7 +449,6 @@ var ResourcePlayer = (function (_super) {
         var self = this;
         var ctx = _.str.sprintf(_.str.sprintf('[%s.delete] ', self._name));
         var paramCount = self._paramterNames.length;
-        console.log(ctx + paramCount);
         if (route.path.length > (1 + paramCount)) {
             var direction = this.getDirection(route);
             if (direction.resource)
@@ -482,7 +481,8 @@ var ResourcePlayer = (function (_super) {
     ResourcePlayer.prototype.post = function (route, body) {
         var self = this;
         var ctx = _.str.sprintf(_.str.sprintf('[%s.post]', self._name));
-        if (route.path.length > 1) {
+        var paramCount = self._paramterNames.length;
+        if (route.path.length > (1 + paramCount)) {
             var direction = self.getDirection(route);
             if (direction.resource)
                 return direction.resource.post(direction.route, body);
@@ -490,6 +490,8 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
             }
         }
+        if (paramCount > 0)
+            self._readParameters(route.path);
         var later = Q.defer();
         if (this._onPost) {
             self._onPost(route.query, body).then(function (response) {
