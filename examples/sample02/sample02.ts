@@ -14,7 +14,7 @@ var usersResource : relaxjs.Resource = {
     { name: 'tracy-stewart',
       onGet: function( query: any, respond: relaxjs.DataCallback ) {
         var now = new Date();
-        this.ok(respond,{ firstName: 'Mary', lastName: 'Stewart', date: now } );
+        this.ok(respond, { firstName: 'Mary', lastName: 'Stewart', date: now } );
       },
       resources: [
         { name: 'address', data: { address: '101 John St. San Francisco CA. ' } }

@@ -19,7 +19,7 @@ import relaxjs = require('./relaxjs');
 export function parseData( bodyData: string,  contentType: string ) {
   try {
     if ( contentType === 'application/json' ) {
-      console.log(_.str.sprintf('BODY DECODING: "%s"',bodyData) );
+      // console.log(_.str.sprintf('BODY DECODING: "%s"',bodyData) );
       return JSON.parse(bodyData);
     }
     else

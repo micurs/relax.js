@@ -129,13 +129,15 @@ var Container = (function () {
         var childResName = direction.route.getNextStep();
         if (childResName in this._resources) {
             var idx = 0;
-            if (direction.route.path[1] !== undefined) {
-                idx = parseInt(direction.route.path[1]);
-                if (isNaN(idx)) {
-                    idx = 0;
-                }
-                else {
-                    direction.route = direction.route.stepThrough(1);
+            if (this._resources[childResName].length > 1) {
+                if (direction.route.path[1] !== undefined) {
+                    idx = parseInt(direction.route.path[1]);
+                    if (isNaN(idx)) {
+                        idx = 0;
+                    }
+                    else {
+                        direction.route = direction.route.stepThrough(1);
+                    }
                 }
             }
             direction.resource = this.getChild(childResName, idx);
@@ -331,10 +333,14 @@ var ResourcePlayer = (function (_super) {
         _super.call(this, parent);
         this._name = '';
         this._template = '';
+        this._parameters = {};
+        this.data = {};
         var self = this;
         self._name = res.name;
         self._template = res.view;
         self._layout = res.layout;
+        self._paramterNames = res.urlParameters ? res.urlParameters : [];
+        self._parameters = {};
         self._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
         self._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
         self._onPatch = res.onPatch ? Q.nbind(res.onPatch, this) : undefined;
@@ -344,11 +350,7 @@ var ResourcePlayer = (function (_super) {
                 self.add(child);
             });
         }
-        _.each(res.data, function (value, attrname) {
-            if (attrname != 'resources') {
-                self[attrname] = value;
-            }
-        });
+        self._updateData(res.data);
     }
     ResourcePlayer.prototype.name = function () {
         return this._name;
@@ -363,7 +365,6 @@ var ResourcePlayer = (function (_super) {
         var respObj = { result: 'ok', httpCode: 303, location: where };
         if (data)
             respObj['data'] = data;
-        console.log(respObj);
         response(null, respObj);
     };
     ResourcePlayer.prototype.fail = function (response, data) {
@@ -371,6 +372,24 @@ var ResourcePlayer = (function (_super) {
         if (data)
             respObj['data'] = data;
         response(null, respObj);
+    };
+    ResourcePlayer.prototype._readParameters = function (path) {
+        var _this = this;
+        var counter = 0;
+        _.each(this._paramterNames, function (parameterName, idx, list) {
+            _this._parameters[parameterName] = path[idx + 1];
+            counter++;
+        });
+        return counter;
+    };
+    ResourcePlayer.prototype._updateData = function (newData) {
+        var _this = this;
+        this.data = {};
+        _.each(newData, function (value, attrname) {
+            if (attrname != 'resources') {
+                _this.data[attrname] = value;
+            }
+        });
     };
     ResourcePlayer.prototype.head = function (route) {
         var self = this;
@@ -384,22 +403,22 @@ var ResourcePlayer = (function (_super) {
     ResourcePlayer.prototype.get = function (route) {
         var self = this;
         var ctx = _.str.sprintf(_.str.sprintf('[%s.get]', self._name));
-        if (route.path.length > 1) {
-            var direction = this.getDirection(route);
+        var paramCount = self._paramterNames.length;
+        if (route.path.length > (1 + paramCount)) {
+            var direction = self.getDirection(route);
             if (direction.resource)
                 return direction.resource.get(direction.route);
             else {
                 return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
             }
         }
+        if (paramCount > 0)
+            self._readParameters(route.path);
         var dyndata = {};
         if (self._onGet) {
             var later = Q.defer();
             this._onGet(route.query).then(function (response) {
-                var dyndata = response.data;
-                _.each(dyndata, function (value, attrname) {
-                    self[attrname] = value;
-                });
+                self._updateData(response.data);
                 if (self._template) {
                     internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
                         later.resolve(emb);
@@ -408,7 +427,7 @@ var ResourcePlayer = (function (_super) {
                     });
                 }
                 else {
-                    internals.viewJson(self).then(function (emb) {
+                    internals.viewJson(self.data).then(function (emb) {
                         later.resolve(emb);
                     }).fail(function (err) {
                         later.reject(err);
@@ -423,13 +442,15 @@ var ResourcePlayer = (function (_super) {
             return internals.viewDynamic(self._template, self, self._layout);
         }
         else {
-            return internals.viewJson(self);
+            return internals.viewJson(self.data);
         }
     };
     ResourcePlayer.prototype.delete = function (route) {
         var self = this;
-        var ctx = _.str.sprintf(_.str.sprintf('[%s.delete]', self._name));
-        if (route.path.length > 1) {
+        var ctx = _.str.sprintf(_.str.sprintf('[%s.delete] ', self._name));
+        var paramCount = self._paramterNames.length;
+        console.log(ctx + paramCount);
+        if (route.path.length > (1 + paramCount)) {
             var direction = this.getDirection(route);
             if (direction.resource)
                 return direction.resource.delete(direction.route);
@@ -437,13 +458,12 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid request "%s"', ctx, route.pathname), route.pathname);
             }
         }
+        if (paramCount > 0)
+            self._readParameters(route.path);
         if (self._onDelete) {
             var later = Q.defer();
             this._onDelete(route.query).then(function (response) {
-                var dyndata = response.data;
-                _.each(dyndata, function (value, attrname) {
-                    self[attrname] = value;
-                });
+                self._updateData(response.data);
                 internals.viewJson(self).then(function (emb) {
                     emb.httpCode = response.httpCode ? response.httpCode : 200;
                     emb.location = response.location ? response.location : '';
@@ -456,7 +476,6 @@ var ResourcePlayer = (function (_super) {
             });
             return later.promise;
         }
-        console.log(_.str.sprintf('%s Removing static resource', ctx));
         self.parent.remove(self);
         return internals.viewJson(self);
     };
@@ -474,15 +493,10 @@ var ResourcePlayer = (function (_super) {
         var later = Q.defer();
         if (this._onPost) {
             self._onPost(route.query, body).then(function (response) {
-                var dyndata = response.data;
-                console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
-                _.each(_.keys(dyndata), function (key) {
-                    self[key] = dyndata[key];
-                });
+                self._updateData(response.data);
                 internals.viewJson(self).then(function (emb) {
                     emb.httpCode = response.httpCode ? response.httpCode : 200;
                     emb.location = response.location ? response.location : '';
-                    console.log(_.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString()));
                     later.resolve(emb);
                 }).fail(function (err) {
                     later.reject(err);
@@ -490,10 +504,8 @@ var ResourcePlayer = (function (_super) {
             });
         }
         else {
-            _.each(_.keys(body), function (key) {
-                self[key] = body[key];
-            });
-            internals.viewJson(self).then(function (emb) {
+            self._updateData(body);
+            internals.viewJson(self.data).then(function (emb) {
                 later.resolve(emb);
             }).fail(function (err) {
                 later.reject(err);
@@ -504,7 +516,6 @@ var ResourcePlayer = (function (_super) {
     ResourcePlayer.prototype.patch = function (route, body) {
         var self = this;
         var ctx = _.str.sprintf(_.str.sprintf('[%s.patch]', self._name));
-        console.log(_.str.sprintf('%s on %s %s', ctx, JSON.stringify(route.path), JSON.stringify(route.query)));
         if (route.path.length > 1) {
             var direction = self.getDirection(route);
             if (direction.resource)
@@ -515,18 +526,12 @@ var ResourcePlayer = (function (_super) {
         }
         else {
             var later = Q.defer();
-            console.log('call this._onPatch()');
             if (this._onPatch) {
                 self._onPatch(route.query, body).then(function (response) {
-                    var dyndata = response.data;
-                    console.log(_.str.sprintf('%s View "%s" as JSON.', ctx, self._name));
-                    _.each(_.keys(dyndata), function (key) {
-                        self[key] = dyndata[key];
-                    });
+                    self._updateData(response.data);
                     internals.viewJson(self).then(function (emb) {
                         emb.httpCode = response.httpCode ? response.httpCode : 200;
                         emb.location = response.location ? response.location : '';
-                        console.log(_.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString()));
                         later.resolve(emb);
                     }).fail(function (err) {
                         later.reject(err);
@@ -534,11 +539,8 @@ var ResourcePlayer = (function (_super) {
                 });
             }
             else {
-                console.log('no onPatch: updating the data element');
-                _.each(_.keys(body), function (key) {
-                    self[key] = body[key];
-                });
-                internals.viewJson(self).then(function (emb) {
+                self._updateData(body);
+                internals.viewJson(self.data).then(function (emb) {
                     later.resolve(emb);
                 }).fail(function (err) {
                     later.reject(err);

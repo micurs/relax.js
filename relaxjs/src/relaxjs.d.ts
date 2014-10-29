@@ -73,8 +73,12 @@ declare module "relaxjs" {
     layout?: string;
     data?: any;
     resources?: Resource[];
+    urlParameters?: string[];
     onGet?: ( query: any, cp:DataCallback ) => void;
     onPost?: ( query: any, body: string, cp:DataCallback ) => void;
+    onPut?: ( query: any, body: string, cp:DataCallback ) => void;
+    onPatch?: ( query: any, body: string, cp:DataCallback ) => void;
+    onDelete?: ( query: any, cp:DataCallback ) => void;
   }
 
   export interface ResourceMap {
@@ -128,6 +132,8 @@ declare module "relaxjs" {
     ok( response: DataCallback, data?: any ) : void;
     redirect( response: DataCallback, where: string, data?: any ) : void ;
     fail( response: DataCallback, data?: any ) : void;
+    readParameters( path: string[]) : number ;
+
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;

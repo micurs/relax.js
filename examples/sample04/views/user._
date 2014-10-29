@@ -1,19 +1,19 @@
-<h1>User Info <small>(<%= userId %>)</small></h1>
+<h1>User Info <small>(<%= data.userId %>)</small></h1>
 <p>
   <a href="/users">&laquo; Back to users</a>
 </p>
 <form role="form">
   <div class="form-group">
     <label class="control-label">First Name</label>
-    <div class="form-control-static"><%= firstName %></div>
+    <div class="form-control-static"><%= data.firstName %></div>
   </div>
   <div class="form-group">
     <label class="control-label">Last Name</label>
-    <div class="form-control-static"><%= lastName %></div>
+    <div class="form-control-static"><%= data.lastName %></div>
   </div>
   <div class="form-group">
     <label class="control-label">Email</label>
-    <div class="form-control-static"><%= email %></div>
+    <div class="form-control-static"><%= data.email %></div>
   </div>
 </form>
 <p>
@@ -27,12 +27,12 @@
 <script type="text/javascript">
   document.getElementById("deleteBt").onclick = function() {
     httpExecute('DELETE',
-                '/users/user?id=<%= userId %>',
+                '/users/user?id=<%= data.userId %>',
                 null,
                 'application/json',
                 function() { window.location = '/users'; } );
   };
   document.getElementById("editBt").onclick = function() {
-    window.location = '/users/user/edit?id=<%= userId %>';
+    window.location = '/users/user/edit?id=<%= data.userId %>';
   }
 </script>

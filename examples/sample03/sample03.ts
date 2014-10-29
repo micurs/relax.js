@@ -35,9 +35,9 @@ var usersResource : relaxjs.Resource = {
       onGet: function( query: any, respond: relaxjs.DataCallback  ) {
         var userid = query['id'];
         store.hget( 'user',userid,
-          ( err: Error, data: string ) => {
-            if ( data ) {
-              this.ok(respond, JSON.parse(data) );
+          ( err: Error, userdata: string ) => {
+            if ( userdata ) {
+              this.ok(respond, JSON.parse(userdata) );
             }
             else {
               var errMsg = 'Could not find User with id: '+userid;

@@ -7,7 +7,7 @@
 </head>
 <body>
   <div class="container">
-    <%= message %>
+    <%= data.message %>
   </div>
 </body>
 </html>

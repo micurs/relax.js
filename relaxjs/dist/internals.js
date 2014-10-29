@@ -8,7 +8,6 @@ var relaxjs = require('./relaxjs');
 function parseData(bodyData, contentType) {
     try {
         if (contentType === 'application/json') {
-            console.log(_.str.sprintf('BODY DECODING: "%s"', bodyData));
             return JSON.parse(bodyData);
         }
         else
