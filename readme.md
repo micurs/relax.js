@@ -1,22 +1,22 @@
-# Relaxjs frameworks + samples
+# Relax.js frameworks + samples
 
-This repo contains the relaxjs node module and multiple simple examples (tests) making use of this framework.
+Welcome to the Relax.js node project.
 
-micurs.com is a full site running on node/express completely written in Typescript built on top of relaxjs.
+Relax.js is a simple node framework for building truly RESTful web applications in Javascript (or Typescript) using node.js.
 
-The overall stack includes:
+This repo contains the actual module (in the `relaxjs` folder) and a few working sample in the `examples` folder.
 
-* relax.js - a framework for building truly RESTful web services
-* node.js: the basic runtime engine
-* typescript: the language for both client and server ( v 1.0 compiler )
-* gulp: the build manager
-* bower: the package manager
+The entire repo can run within a Vagrant box (as Ubuntu 64bit) so you can compile and run this on a Mac or
+Windows without any changes.
 
-All these projects can run within a Vagrant box so you can run this on a Mac or Windows without any changes.
+- For more information on how to compile and change Relax.js check this [readme](relaxjs/readme.md).
+- Also check the [wiki](https://github.com/micurs/relax.js/wiki) to understand how it works.
 
-For more information on the Relax.js framework check this [readme](relaxjs/readme.md).
+# Running on Vagrant
 
-# Install on Windows
+First clone the repo on your machine the instal VirtualBox and Vagrant
+
+## Install Vagrant on Windows
 
 If you are on Windows I do recommend getting chocolatey at https://chocolatey.org/.
 I use the PowerShell running in admin mode to install it:
@@ -42,7 +42,7 @@ Now you can close the admin console. Open a regular command prompt or powershell
 vagrant up
 ```
 
-# Install on Mac
+## Install Vagrant on Mac
 
 On a Mac I installed VirtualBox and Vagrant by downloading the apps from the web sites:
 
@@ -55,17 +55,16 @@ After that open the terminal, cd to the directory of the project and type
 vagrant up
 ```
 
+# Compile the Relax.js module
 
-# Compile relax.js
-
-The Realx.js framework is written in Typescript. To compile it type the following:
+The Relax.js framework is written in Typescript. To compile it type the following:
 
 ```bash
 cd /relaxjs
 gulp
 ```
 
-To compile on the fly everytime you change any `*.ts` file in `/relaxjs/src` you can run the watch task define in the gulpfile.
+To compile on the fly every time you change any `*.ts` file in `/relaxjs/src` you can run the watch task define in the gulpfile.
 
 ```bash
 gulp watch
@@ -84,7 +83,7 @@ The details for the VM environment are in the Vagrantfile. When the provisioning
 vagrant ssh
 ```
 
-Within the Ubuntu you can launch the first example:
+Within the Ubuntu you can launch the first example (**sample01**):
 
 ```bash
 cd /examples/sample01
@@ -93,7 +92,7 @@ node sample1.js
 
 Then open your browser to `http://localhost:3000`
 
-The second example is written in typescript. Here is how you compile and run it:
+The second example (**sample02**) is written in typescript. Here is how you compile and run it:
 
 ```bash
 cd /examples/sample02
@@ -103,6 +102,6 @@ npm start
 
 All these example start a server listening on port 3000.
 
-Read on the [introduction to the Relax.js](relaxjs/readme.md) .
+Read more on how to use Relax.js on the [wiki](https://github.com/micurs/relax.js/wiki).
 
 Enjoy!
