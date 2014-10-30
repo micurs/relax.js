@@ -4,7 +4,7 @@
     <p>
       <ul>
         <%= _.reduce( data.users, function(memo, user, key ) {
-          return memo + '<li><a href="/users/user?id='+key+'">'+user.firstName+' '+user.lastName+'</a></li>';
+          return memo + '<li><a href="/users/user/'+key+'">'+user.firstName+' '+user.lastName+'</a></li>';
         },'' ) %>
       </ul>
     <p>

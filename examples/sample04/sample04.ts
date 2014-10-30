@@ -38,7 +38,7 @@ var usersResource : relaxjs.Resource = {
       name: 'user',
       view: 'user',
       layout: 'layout',
-
+      urlParameters: [ 'idx' ],
       // POST method: save a user
       onPost: function( query: any, userData: any, respond: relaxjs.DataCallback ) {
         var newKey = genGuid();
@@ -51,7 +51,7 @@ var usersResource : relaxjs.Resource = {
       // GET method: retrieve a user
       onGet: function( query: any, respond: relaxjs.DataCallback  ) {
         var self = this;
-        var userid = query['id'];
+        var userid = this._parameters.idx; // query['id'];
         store.hget( 'user',userid, function( err: Error, data: string ) {
           if ( data ) {
             self.ok(respond, JSON.parse(data))
@@ -67,7 +67,7 @@ var usersResource : relaxjs.Resource = {
       // DELETE : remove a given user
       onDelete: function( query: any, respond: relaxjs.DataCallback  ) {
         var self = this;
-        var userid = query['id'];
+        var userid = this._parameters.idx; // query['id'];
         store.hdel( 'user', userid, function( err: Error, data: string ) {
           if ( !err ) {
             self.redirect(respond,'/users');
@@ -84,10 +84,10 @@ var usersResource : relaxjs.Resource = {
         name: 'edit',
         view: 'edituser',
         layout: 'layout',
-
+        urlParameters: [ 'idx' ],
         onGet: function( query: any, respond: relaxjs.DataCallback  ) {
           var self = this;
-          var userid = query['id'];
+          var userid = this._parameters.idx; // query['id'];
           store.hget( 'user',userid, function( err: Error, data: string ) {
             if ( data ) {
               self.ok ( respond, JSON.parse(data) );

@@ -27,12 +27,12 @@
 <script type="text/javascript">
   document.getElementById("deleteBt").onclick = function() {
     httpExecute('DELETE',
-                '/users/user?id=<%= data.userId %>',
+                '/users/user/<%= data.userId %>',
                 null,
                 'application/json',
                 function() { window.location = '/users'; } );
   };
   document.getElementById("editBt").onclick = function() {
-    window.location = '/users/user/edit?id=<%= data.userId %>';
+    window.location = '/users/user/edit/<%= data.userId %>';
   }
 </script>

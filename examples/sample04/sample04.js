@@ -30,6 +30,7 @@ var usersResource = {
         name: 'user',
         view: 'user',
         layout: 'layout',
+        urlParameters: ['idx'],
         // POST method: save a user
         onPost: function (query, userData, respond) {
             var newKey = genGuid();
@@ -41,7 +42,7 @@ var usersResource = {
         // GET method: retrieve a user
         onGet: function (query, respond) {
             var self = this;
-            var userid = query['id'];
+            var userid = this._parameters.idx; // query['id'];
             store.hget('user', userid, function (err, data) {
                 if (data) {
                     self.ok(respond, JSON.parse(data));
@@ -56,7 +57,7 @@ var usersResource = {
         // DELETE : remove a given user
         onDelete: function (query, respond) {
             var self = this;
-            var userid = query['id'];
+            var userid = this._parameters.idx; // query['id'];
             store.hdel('user', userid, function (err, data) {
                 if (!err) {
                     self.redirect(respond, '/users');
@@ -72,9 +73,10 @@ var usersResource = {
             name: 'edit',
             view: 'edituser',
             layout: 'layout',
+            urlParameters: ['idx'],
             onGet: function (query, respond) {
                 var self = this;
-                var userid = query['id'];
+                var userid = this._parameters.idx; // query['id'];
                 store.hget('user', userid, function (err, data) {
                     if (data) {
                         self.ok(respond, JSON.parse(data));

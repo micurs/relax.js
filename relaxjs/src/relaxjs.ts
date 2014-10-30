@@ -622,7 +622,6 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       log.info('Invoking onGet()!');
       this._onGet( route.query )
         .then( function( response: any ) {
-          //console.log(_.str.sprintf('%s got response from onGet() => %s', ctx, JSON.stringify(response) ))
           self._updateData(response.data);
           if ( self._template ) {
             internals.viewDynamic(self._template, self, self._layout )
@@ -682,7 +681,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onDelete() is defined use id to get dynamic data from the user defined resource.
     if ( self._onDelete ) {
-      log.info('calling onDelete() for %s',direction.resource.name() );
+      log.info('calling onDelete() for %s',self._name );
       var later = Q.defer< Embodiment >();
       // console.log( _.str.sprintf('%s Calling onDelete()',ctx) );
       this._onDelete( route.query )
@@ -704,7 +703,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // When onDelete() is NOT available need to remove this resource
     // console.log( _.str.sprintf('%s Removing static resource',ctx) );
-    log.info('Removing static resource %s',direction.resource.name() );
+    log.info('Removing static resource %s',self._name );
     self.parent.remove(self);
     return internals.viewJson(self);
   }
@@ -736,7 +735,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Call the onPost() for this resource (user code)
     if ( this._onPost ) {
-      log.info('calling onPost() for %s',direction.resource.name() );
+      log.info('calling onPost() for %s', self._name );
       self._onPost( route.query, body )
         .then( ( response: any ) => {
           self._updateData(response.data);
@@ -757,7 +756,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // Set the data directly
-    log.info('Adding data for %s',direction.resource.name() );
+    log.info('Adding data for %s',self._name );
     self._updateData(body);
     internals.viewJson(self.data)
       .then( (emb: Embodiment ) => { later.resolve(emb); })
@@ -792,7 +791,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       self._readParameters(route.path);
 
     if ( this._onPatch ) {
-      log.info('calling onPatch() for %s',direction.resource.name() );
+      log.info('calling onPatch() for %s',self._name );
       self._onPatch( route.query, body )
         .then( ( response: any ) => {
           // console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
@@ -813,7 +812,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // Set the data directly
-    log.info('Updating data for %s',direction.resource.name() );
+    log.info('Updating data for %s',self._name );
     self._updateData(body);
     internals.viewJson(self.data)
       .then( (emb: Embodiment ) => { later.resolve(emb); })

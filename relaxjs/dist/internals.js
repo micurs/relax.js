@@ -19,6 +19,8 @@ function initLog(appName) {
 }
 exports.initLog = initLog;
 function log() {
+    if (!_log)
+        _log = bunyan.createLogger({ name: 'no app' });
     return _log;
 }
 exports.log = log;

@@ -471,7 +471,7 @@ var ResourcePlayer = (function (_super) {
         if (paramCount > 0)
             self._readParameters(route.path);
         if (self._onDelete) {
-            log.info('calling onDelete() for %s', direction.resource.name());
+            log.info('calling onDelete() for %s', self._name);
             var later = Q.defer();
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
@@ -487,7 +487,7 @@ var ResourcePlayer = (function (_super) {
             });
             return later.promise;
         }
-        log.info('Removing static resource %s', direction.resource.name());
+        log.info('Removing static resource %s', self._name);
         self.parent.remove(self);
         return internals.viewJson(self);
     };
@@ -509,7 +509,7 @@ var ResourcePlayer = (function (_super) {
         if (paramCount > 0)
             self._readParameters(route.path);
         if (this._onPost) {
-            log.info('calling onPost() for %s', direction.resource.name());
+            log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
                 self._updateData(response.data);
                 internals.viewJson(self).then(function (emb) {
@@ -524,7 +524,7 @@ var ResourcePlayer = (function (_super) {
             });
             return later.promise;
         }
-        log.info('Adding data for %s', direction.resource.name());
+        log.info('Adding data for %s', self._name);
         self._updateData(body);
         internals.viewJson(self.data).then(function (emb) {
             later.resolve(emb);
@@ -551,7 +551,7 @@ var ResourcePlayer = (function (_super) {
         if (paramCount > 0)
             self._readParameters(route.path);
         if (this._onPatch) {
-            log.info('calling onPatch() for %s', direction.resource.name());
+            log.info('calling onPatch() for %s', self._name);
             self._onPatch(route.query, body).then(function (response) {
                 self._updateData(response.data);
                 internals.viewJson(self).then(function (emb) {
@@ -566,7 +566,7 @@ var ResourcePlayer = (function (_super) {
             });
             return later.promise;
         }
-        log.info('Updating data for %s', direction.resource.name());
+        log.info('Updating data for %s', self._name);
         self._updateData(body);
         internals.viewJson(self.data).then(function (emb) {
             later.resolve(emb);

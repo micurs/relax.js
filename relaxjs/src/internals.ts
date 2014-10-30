@@ -29,6 +29,8 @@ export function initLog( appName : string ) {
   _log.level(bunyan.WARN)
 }
 export function log(): bunyan.Logger {
+  if ( !_log )
+    _log = bunyan.createLogger( { name: 'no app'} );
   return _log;
 }
 
