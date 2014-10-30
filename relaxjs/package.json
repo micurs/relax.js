@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "gulp",
-    "test": "jasmine-node --verbose --color tests"
+    "tests": "jasmine-node --verbose --color tests"
   },
   "version": "0.0.2",
   "dependencies": {
