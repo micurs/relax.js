@@ -15,12 +15,12 @@ Check the [wiki](https://github.com/micurs/relax.js/wiki) to understand how it w
 
 You can compile and test this module using Gulp:
 
-`gulp` => Compile, Lint and Test
-`gulp watch` => Watch for changes in the Typescript files under src and compile automatically.
+- `gulp` To compile, Lint and Test
+- `gulp watch` To watch for changes in the Typescript files under src and compile automatically.
 
 or via npm:
 
-'npm run build'
+`npm run build`
 
 ## Test
 
