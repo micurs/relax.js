@@ -154,12 +154,14 @@ export function viewDynamic( viewName: string,
   var laterAct = Q.defer< relaxjs.Embodiment >();
   var readFile = Q.denodeify(fs.readFile);
 
-  log.info('Reading template',templateFilename);
 
   var templateFilename = './views/'+viewName+'._';
   if ( viewName === 'site') {
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
+
+  log.info('Reading template %s',templateFilename);
+
   if ( layoutName ) {
     var layoutFilename = './views/'+layoutName+'._';
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
@@ -183,7 +185,7 @@ export function viewDynamic( viewName: string,
     readFile( templateFilename,  { 'encoding':'utf8'} )
     .then( ( content:string ) => {
       try {
-        log.info(_.str.sprintf('%s Compiling view %s',fname, templateFilename ));
+        log.info(_.str.sprintf('Compiling view %s', templateFilename ));
         var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
         laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
       }

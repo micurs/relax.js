@@ -120,11 +120,11 @@ function viewDynamic(viewName, viewData, layoutName) {
     var log = _log.child({ func: 'internals.viewDynamic' });
     var laterAct = Q.defer();
     var readFile = Q.denodeify(fs.readFile);
-    log.info('Reading template', templateFilename);
     var templateFilename = './views/' + viewName + '._';
     if (viewName === 'site') {
         templateFilename = __dirname + '/../views/' + viewName + '._';
     }
+    log.info('Reading template %s', templateFilename);
     if (layoutName) {
         var layoutFilename = './views/' + layoutName + '._';
         Q.all([readFile(templateFilename, { 'encoding': 'utf8' }), readFile(layoutFilename, { 'encoding': 'utf8' })]).spread(function (content, outerContent) {
@@ -144,7 +144,7 @@ function viewDynamic(viewName, viewData, layoutName) {
     else {
         readFile(templateFilename, { 'encoding': 'utf8' }).then(function (content) {
             try {
-                log.info(_.str.sprintf('%s Compiling view %s', fname, templateFilename));
+                log.info(_.str.sprintf('Compiling view %s', templateFilename));
                 var fullContent = new Buffer(_.template(content)(viewData), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment('text/html', fullContent));
             }

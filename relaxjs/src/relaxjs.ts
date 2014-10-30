@@ -291,6 +291,7 @@ export class Container {
 
 }
 
+
 /*
  * Root object for the application is the Site.
  * The site is in itself a Resource and is accessed via the root / in a url.
@@ -301,6 +302,7 @@ export class Site extends Container implements HttpPlayer {
   private _version : string = '0.0.1';
   private _siteName : string = 'site';
   private _home : string = '/';
+  private _pathCache = {};
 
   constructor( siteName:string, parent?: Container ) {
     super(parent);
@@ -332,6 +334,10 @@ export class Site extends Container implements HttpPlayer {
   }
   get siteName() : string {
     return this._siteName;
+  }
+
+  setPathCache( path: string, shortcut: { resource: ResourcePlayer; path: string[] } ) : void {
+    this._pathCache[path] = shortcut;
   }
 
   serve() : http.Server {
@@ -405,13 +411,21 @@ export class Site extends Container implements HttpPlayer {
       return internals.viewStatic( route.pathname );
     }
     if ( route.path.length > 1 ) {
-      var direction = this.getDirection(route);
-      if ( direction.resource ) {
-        log.info('GET on resource "%s"',direction.resource.name() );
-        return direction.resource.get( direction.route );
+      var shortcut = self._pathCache[route.pathname];
+      if ( shortcut ) {
+        route.path = shortcut.path;
+        log.info('Path Cache used to GET resource "%s"',shortcut.resource.name() );
+        return shortcut.resource.get(route);
       }
       else {
-        return internals.promiseError( _.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        var direction = this.getDirection(route);
+        if ( direction.resource ) {
+          log.info('GET resource "%s"',direction.resource.name() );
+          return direction.resource.get( direction.route );
+        }
+        else {
+          return internals.promiseError( _.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        }
       }
     }
     if ( self._home === '/') {
@@ -494,6 +508,7 @@ export class Site extends Container implements HttpPlayer {
 */
 export class ResourcePlayer extends Container implements HttpPlayer {
   private _name: string = '';
+  private _site: Site;
   private _template: string = '';
   private _layout: string;
   private _paramterNames: string[];
@@ -505,7 +520,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   public data = {};
 
-  constructor( res : Resource, parent?: Container ) {
+  constructor( res : Resource, parent: Container ) {
     super(parent);
     var self = this;
     self._name = res.name;
@@ -587,18 +602,15 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     return later.promise;
   }
 
-
   // HttpPlayer GET
   // This is the resource facade GET: it will call a GET to a child resource or the onGet() for the current resource.
-  get(  route: routing.Route  ) : Q.Promise< Embodiment > {
+  get( route: routing.Route, directAccess: boolean = false ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: self._name+'.get'} );
     var paramCount = self._paramterNames.length;
 
-    // console.log( _.str.sprintf('%s Route: %s with %d paramters',ctx, JSON.stringify(route.path), paramCount ) );
-
     // Dives in and navigates through the path to find the child resource that can answer this GET call
-    if ( route.path.length > ( 1+paramCount ) ) {
+    if ( !directAccess && route.path.length > ( 1+paramCount ) ) {
       var direction = self.getDirection( route );
       if ( direction.resource ) {
         log.info('GET on resource "%s"',direction.resource.name() );
@@ -612,6 +624,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Read the parameters from the route
     if ( paramCount>0 )
       self._readParameters(route.path);
+
+    // Set the cach to invoke this resource for this path directly next time
+    site().setPathCache(route.pathname, { resource: this, path: route.path } );
 
     // This is the resource that need to answer either with a onGet or directly with data
     var dyndata: any = {};

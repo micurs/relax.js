@@ -155,6 +155,7 @@ var Site = (function (_super) {
         this._version = '0.0.1';
         this._siteName = 'site';
         this._home = '/';
+        this._pathCache = {};
         this._siteName = siteName;
         if (Site._instance) {
             throw new Error('Error: Only one site is allowed.');
@@ -191,6 +192,9 @@ var Site = (function (_super) {
         enumerable: true,
         configurable: true
     });
+    Site.prototype.setPathCache = function (path, shortcut) {
+        this._pathCache[path] = shortcut;
+    };
     Site.prototype.serve = function () {
         var _this = this;
         return http.createServer(function (msg, response) {
@@ -251,13 +255,21 @@ var Site = (function (_super) {
             return internals.viewStatic(route.pathname);
         }
         if (route.path.length > 1) {
-            var direction = this.getDirection(route);
-            if (direction.resource) {
-                log.info('GET on resource "%s"', direction.resource.name());
-                return direction.resource.get(direction.route);
+            var shortcut = self._pathCache[route.pathname];
+            if (shortcut) {
+                route.path = shortcut.path;
+                log.info('Path Cache used to GET resource "%s"', shortcut.resource.name());
+                return shortcut.resource.get(route);
             }
             else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                var direction = this.getDirection(route);
+                if (direction.resource) {
+                    log.info('GET resource "%s"', direction.resource.name());
+                    return direction.resource.get(direction.route);
+                }
+                else {
+                    return internals.promiseError(_.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                }
             }
         }
         if (self._home === '/') {
@@ -405,11 +417,12 @@ var ResourcePlayer = (function (_super) {
         });
         return later.promise;
     };
-    ResourcePlayer.prototype.get = function (route) {
+    ResourcePlayer.prototype.get = function (route, directAccess) {
+        if (directAccess === void 0) { directAccess = false; }
         var self = this;
         var log = internals.log().child({ func: self._name + '.get' });
         var paramCount = self._paramterNames.length;
-        if (route.path.length > (1 + paramCount)) {
+        if (!directAccess && route.path.length > (1 + paramCount)) {
             var direction = self.getDirection(route);
             if (direction.resource) {
                 log.info('GET on resource "%s"', direction.resource.name());
@@ -421,6 +434,7 @@ var ResourcePlayer = (function (_super) {
         }
         if (paramCount > 0)
             self._readParameters(route.path);
+        site().setPathCache(route.pathname, { resource: this, path: route.path });
         var dyndata = {};
         if (self._onGet) {
             var later = Q.defer();
