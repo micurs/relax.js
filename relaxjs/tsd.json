@@ -25,6 +25,9 @@
     },
     "underscore.string/underscore.string.d.ts": {
       "commit": "b2171552576bc574b97a9fd2ae5f037172049d7b"
+    },
+    "bunyan/bunyan.d.ts": {
+      "commit": "7be40b2a8aca2288fe7011cd24959718756a5664"
     }
   }
 }

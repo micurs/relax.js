@@ -17,9 +17,10 @@
   },
   "version": "0.0.2",
   "dependencies": {
-    "typescript-require": "^0.2.6",
+    "bunyan": "^1.2.1",
     "mime": "^1.2.11",
     "q": "^1.0.1",
+    "typescript-require": "^0.2.6",
     "underscore": "^1.7.0",
     "underscore.string": "^2.3.3"
   },

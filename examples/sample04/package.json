@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -m commonjs -t ES5 --sourceMap sample04.ts",
     "typings": "tsd reinstall --save --overwrite",
-    "start": "node sample04.js",
+    "start": "node sample04.js --relaxjs-verbose | bunyan",
     "debug": "node-debug sample04.js"
   },
   "dependencies": {

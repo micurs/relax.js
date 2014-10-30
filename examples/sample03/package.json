@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -m commonjs -t ES5 sample03.ts",
     "typings": "tsd reinstall --save --overwrite",
-    "start": "node sample03.js"
+    "start": "node sample03.js --relaxjs-verbose | bunyan"
   },
   "dependencies": {
     "node-redis": "^0.1.7",

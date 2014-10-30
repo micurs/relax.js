@@ -2,9 +2,26 @@ var fs = require('fs');
 var mime = require('mime');
 var Q = require('q');
 var querystring = require('querystring');
+var bunyan = require('bunyan');
 var _ = require("underscore");
 _.str = require('underscore.string');
 var relaxjs = require('./relaxjs');
+var _log;
+var _appName;
+function setLogVerbose(flag) {
+    _log.level(bunyan.INFO);
+}
+exports.setLogVerbose = setLogVerbose;
+function initLog(appName) {
+    _appName = appName;
+    _log = bunyan.createLogger({ name: appName });
+    _log.level(bunyan.WARN);
+}
+exports.initLog = initLog;
+function log() {
+    return _log;
+}
+exports.log = log;
 function parseData(bodyData, contentType) {
     try {
         if (contentType === 'application/json') {
@@ -14,7 +31,8 @@ function parseData(bodyData, contentType) {
             return querystring.parse(bodyData);
     }
     catch (err) {
-        console.log('ERROR PARSING INCOMING DATA: ' + err);
+        _log.error('Error parsing incoming data with %s', contentType);
+        _log.error(err);
         return {};
     }
 }
@@ -24,8 +42,8 @@ function emitCompileViewError(content, err, filename) {
     var errTitle = _.str.sprintf('%s while compiling: %s', fname, filename);
     var errMsg = err.message;
     var code = _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>', _.escape(content));
-    console.log(errTitle);
-    console.log(errMsg);
+    _log.warn(errTitle);
+    _log.warn(errMsg);
     return new relaxjs.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
@@ -33,13 +51,18 @@ function emitError(content, filename) {
     var fname = '[error]';
     var errTitle = _.str.sprintf('%s while serving: %s', fname, filename);
     var errMsg = content;
+    _log.warn(errTitle);
+    _log.warn(errMsg);
     return new relaxjs.RxError(errMsg, errTitle, 500);
 }
 exports.emitError = emitError;
 function promiseError(msg, resName) {
-    console.log(msg);
+    _log.error(msg);
     var later = Q.defer();
-    later.reject(emitError(msg, resName));
+    _.defer(function () {
+        _log.warn('[%s] %s', resName, msg);
+        later.reject(emitError(msg, resName));
+    });
     return later.promise;
 }
 exports.promiseError = promiseError;
@@ -56,11 +79,14 @@ function redirect(location) {
 exports.redirect = redirect;
 function viewStatic(filename) {
     var fname = '[view static]';
+    var log = _log.child({ func: 'internals.viewStatic' });
     var mtype = mime.lookup(filename);
     var laterAction = Q.defer();
     var staticFile = '.' + filename;
+    log.info('serving %s %s', fname, staticFile);
     fs.readFile(staticFile, function (err, content) {
         if (err) {
+            log.warn('%s file "%s" not found', fname, staticFile);
             laterAction.reject(new relaxjs.RxError(filename + ' not found', 'File Not Found', 404));
         }
         else {
@@ -71,20 +97,28 @@ function viewStatic(filename) {
 }
 exports.viewStatic = viewStatic;
 function viewJson(viewData) {
+    var log = _log.child({ func: 'internals.viewJson' });
     var later = Q.defer();
     _.defer(function () {
-        var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) {
-            return (key.indexOf('_') === 0) ? undefined : value;
-        }), 'utf-8'));
-        later.resolve(e);
+        try {
+            var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) {
+                return (key.indexOf('_') === 0) ? undefined : value;
+            }), 'utf-8'));
+            later.resolve(e);
+        }
+        catch (err) {
+            log.error(err);
+            later.reject(new relaxjs.RxError('JSON Serialization error: ' + err));
+        }
     });
     return later.promise;
 }
 exports.viewJson = viewJson;
 function viewDynamic(viewName, viewData, layoutName) {
-    var fname = '[view] ';
+    var log = _log.child({ func: 'internals.viewDynamic' });
     var laterAct = Q.defer();
     var readFile = Q.denodeify(fs.readFile);
+    log.info('Reading template', templateFilename);
     var templateFilename = './views/' + viewName + '._';
     if (viewName === 'site') {
         templateFilename = __dirname + '/../views/' + viewName + '._';
@@ -93,7 +127,7 @@ function viewDynamic(viewName, viewData, layoutName) {
         var layoutFilename = './views/' + layoutName + '._';
         Q.all([readFile(templateFilename, { 'encoding': 'utf8' }), readFile(layoutFilename, { 'encoding': 'utf8' })]).spread(function (content, outerContent) {
             try {
-                console.log(_.str.sprintf('%s Compiling composite view %s in %s', fname, layoutFilename, templateFilename));
+                log.info('Compile composite view %s in %s', templateFilename, layoutFilename);
                 var innerContent = new Buffer(_.template(content)(viewData), 'utf-8');
                 var fullContent = new Buffer(_.template(outerContent)({ page: innerContent, name: viewData.Name }), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment('text/html', fullContent));
@@ -108,7 +142,7 @@ function viewDynamic(viewName, viewData, layoutName) {
     else {
         readFile(templateFilename, { 'encoding': 'utf8' }).then(function (content) {
             try {
-                console.log(_.str.sprintf('%s Compiling view %s', fname, templateFilename));
+                log.info(_.str.sprintf('%s Compiling view %s', fname, templateFilename));
                 var fullContent = new Buffer(_.template(content)(viewData), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment('text/html', fullContent));
             }

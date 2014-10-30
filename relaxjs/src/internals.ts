@@ -3,6 +3,7 @@
 ///<reference path='../typings/underscore.string/underscore.string.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
+///<reference path='../typings/bunyan/bunyan.d.ts' />
 
 ///<reference path='./relaxjs.ts' />
 
@@ -10,23 +11,41 @@ import fs = require('fs');
 import mime = require('mime');
 import Q = require('q');
 import querystring = require('querystring');
-
+import bunyan = require('bunyan');
 import _ = require("underscore");
 _.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
 
+var _log : bunyan.Logger;
+var _appName : string;
+
+export function setLogVerbose( flag : boolean ) {
+  _log.level(bunyan.INFO);
+}
+export function initLog( appName : string ) {
+  _appName = appName;
+  _log = bunyan.createLogger( { name: appName} );
+  _log.level(bunyan.WARN)
+}
+export function log(): bunyan.Logger {
+  return _log;
+}
+
+/*
+ * Parse the body of a request according the given mime-type
+*/
 export function parseData( bodyData: string,  contentType: string ) {
   try {
     if ( contentType === 'application/json' ) {
-      // console.log(_.str.sprintf('BODY DECODING: "%s"',bodyData) );
       return JSON.parse(bodyData);
     }
     else
       return querystring.parse(bodyData);
   }
   catch( err ) {
-    console.log('ERROR PARSING INCOMING DATA: '+ err );
+    _log.error('Error parsing incoming data with %s',contentType );
+    _log.error( err );
     return {};
   }
 }
@@ -37,8 +56,8 @@ export function emitCompileViewError( content: string, err: TypeError, filename:
   var errTitle = _.str.sprintf('%s while compiling: %s',fname, filename );
   var errMsg = err.message;
   var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
-  console.log(errTitle);
-  console.log(errMsg);
+  _log.warn(errTitle);
+  _log.warn(errMsg);
   return new relaxjs.RxError(errMsg, errTitle, 500, code );
 }
 
@@ -46,13 +65,18 @@ export function emitError( content: string, filename: string ) : relaxjs.RxError
   var fname = '[error]';
   var errTitle = _.str.sprintf('%s while serving: %s',fname, filename );
   var errMsg = content;
+  _log.warn(errTitle);
+  _log.warn(errMsg);
   return new relaxjs.RxError(errMsg, errTitle, 500 );
 }
 
 export function promiseError( msg: string, resName : string ) : Q.Promise< relaxjs.Embodiment > {
-  console.log(msg);
+  _log.error(msg);
   var later = Q.defer< relaxjs.Embodiment >();
-  later.reject( emitError(msg, resName )  );
+  _.defer( () => {
+    _log.warn('[%s] %s',resName,msg);
+    later.reject( emitError( msg, resName )  )
+  });
   return later.promise;
 }
 
@@ -72,13 +96,15 @@ export function redirect( location: string ) : Q.Promise< relaxjs.Embodiment > {
 // -------------------------------------------------------------------------------
 export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment > {
   var fname = '[view static]';
+  var log = _log.child( { func: 'internals.viewStatic'} );
+
   var mtype = mime.lookup(filename);
   var laterAction = Q.defer< relaxjs.Embodiment >();
   var staticFile = '.'+filename;
-  // console.log( _.str.sprintf('%s %s',fname,staticFile) );
+  log.info('serving %s %s',fname,staticFile);
   fs.readFile( staticFile, function( err : Error, content : Buffer ) {
     if ( err ) {
-      // console.log( _.str.sprintf('%s ERROR file "%s" not found',fname,staticFile) );
+      log.warn('%s file "%s" not found',fname,staticFile);
       laterAction.reject( new relaxjs.RxError( filename + ' not found', 'File Not Found', 404 ) );
     }
     else {
@@ -94,16 +120,23 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
 // (undercore) since - as a convention in relax.js - these are private member variables.
 // -------------------------------------------------------------------------------
 export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
+  var log = _log.child( { func: 'internals.viewJson'} );
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
-    var e = new relaxjs.Embodiment( 'application/json',
-      new Buffer(
-        JSON.stringify(
-          viewData,
-          ( key : string, value : any ) => { return ( key.indexOf('_') === 0 ) ?  undefined : value; }),
-          'utf-8')
-    );
-    later.resolve( e );
+    try {
+      var e = new relaxjs.Embodiment( 'application/json',
+        new Buffer(
+          JSON.stringify(
+            viewData,
+            ( key : string, value : any ) => { return ( key.indexOf('_') === 0 ) ?  undefined : value; }),
+            'utf-8')
+      );
+      later.resolve( e );
+    }
+    catch( err ) {
+      log.error(err);
+      later.reject( new relaxjs.RxError('JSON Serialization error: '+err ) )
+    }
   });
   return later.promise;
 }
@@ -115,23 +148,23 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
 export function viewDynamic( viewName: string,
                       viewData: any,
                       layoutName?: string ) : Q.Promise< relaxjs.Embodiment > {
-  var fname = '[view] ';
+  var log = _log.child( { func: 'internals.viewDynamic'} );
   var laterAct = Q.defer< relaxjs.Embodiment >();
   var readFile = Q.denodeify(fs.readFile);
 
-  //console.log( _.str.sprintf('%s  dynamic %s for %s',fname,viewName,JSON.stringify(viewData,null,'  ') ) );
+  log.info('Reading template',templateFilename);
+
   var templateFilename = './views/'+viewName+'._';
   if ( viewName === 'site') {
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
   if ( layoutName ) {
-    // console.log( _.str.sprintf('%s Using Layout "%s"',fname,layoutName) );
     var layoutFilename = './views/'+layoutName+'._';
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
              readFile( layoutFilename,    { 'encoding':'utf8'} ) ])
-    .spread( ( content: string, outerContent : string) => {
+    .spread( (content: string, outerContent : string) => {
       try {
-        console.log(_.str.sprintf('%s Compiling composite view %s in %s',fname,layoutFilename,templateFilename));
+        log.info('Compile composite view %s in %s',templateFilename,layoutFilename);
         var innerContent = new Buffer( _.template(content)(viewData), 'utf-8' );
         var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
         laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
@@ -145,11 +178,10 @@ export function viewDynamic( viewName: string,
     });
   }
   else {
-    // console.log( _.str.sprintf('%s Using View "%s"',fname,templateFilename) );
     readFile( templateFilename,  { 'encoding':'utf8'} )
     .then( ( content:string ) => {
       try {
-        console.log(_.str.sprintf('%s Compiling view %s',fname, templateFilename ));
+        log.info(_.str.sprintf('%s Compiling view %s',fname, templateFilename ));
         var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
         laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
       }

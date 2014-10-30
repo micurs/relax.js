@@ -41,5 +41,7 @@ echo ' -> use midnight commander to easily navigate the filesystem and copy/move
 node_install mc
 echo ' -> use jasmin-node to run the tests under /relaxjs/tests'
 node_install jasmine-node
+echo ' -> use jasmin-node to run the tests under /relaxjs/tests'
+node_install bunyan
 
 echo "= System Provision Complete "
