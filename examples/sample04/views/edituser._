@@ -1,0 +1,53 @@
+<h1>User Edit <small>(<%= data.userId %>)</small></h1>
+<p>
+  <a href="/users">&laquo; Back to users</a>
+</p>
+<form id="editform">
+  <div class="form-group">
+    <label for="firstName">First Name:</label>
+    <input type="text" name="firstName" class="form-control" placeholder="First Name" value="<%= data.firstName %>">
+  </div>
+  <div class="form-group">
+    <label for="lastName">Last Name:</label>
+    <input type="text" name="lastName" class="form-control" placeholder="Last Name" value="<%= data.lastName %>">
+  </div>
+  <div class="form-group">
+    <label for="email">Email:</label>
+    <input type="text" name="email" class="form-control" placeholder="someone@somewhere.com" value="<%= data.email %>">
+  </div>
+  <input id="saveBt" type="submit" class="btn btn-primary" value="Save">
+  <input id="cancelBt" type="button" class="btn " value="Cancel">
+</form>
+<p>
+  <a href="/users">&laquo; Back to users</a>
+</p>
+
+<script type="text/javascript">
+  document.getElementById("cancelBt").onclick = function() {
+    window.location = '/users/user/<%= data.userId %>';
+  }
+  document.getElementById("saveBt").onclick = function() {
+    try {
+      var form = document.getElementById("editform");
+      var inputs = form.querySelectorAll('input[type="text"]');
+      var data = {};
+      for( idx in inputs ) {
+        if ( idx == 'length ')
+          break;
+        var item = inputs[idx];
+        if ( typeof(item)=='object' && item.attributes['type'].value == 'text')
+          data[item.attributes['name'].value] = item.value;
+      }
+      alert('Sending a PATCH call to /users/user/edit/<%= data.userId %>\n'+JSON.stringify(data,null,'  ') );
+      httpExecute('PATCH',
+                  '/users/user/edit/<%= data.userId %>',
+                  JSON.stringify(data),
+                  'application/json',
+                  function() { window.location = '/users'; } );
+    }
+    catch( err ) {
+      alert(err);
+    }
+    return false;
+  }
+</script>
