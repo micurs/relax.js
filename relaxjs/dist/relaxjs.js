@@ -417,12 +417,11 @@ var ResourcePlayer = (function (_super) {
         });
         return later.promise;
     };
-    ResourcePlayer.prototype.get = function (route, directAccess) {
-        if (directAccess === void 0) { directAccess = false; }
+    ResourcePlayer.prototype.get = function (route) {
         var self = this;
         var log = internals.log().child({ func: self._name + '.get' });
         var paramCount = self._paramterNames.length;
-        if (!directAccess && route.path.length > (1 + paramCount)) {
+        if (route.path.length > (1 + paramCount)) {
             var direction = self.getDirection(route);
             if (direction.resource) {
                 log.info('GET on resource "%s"', direction.resource.name());
@@ -438,8 +437,8 @@ var ResourcePlayer = (function (_super) {
         var dyndata = {};
         if (self._onGet) {
             var later = Q.defer();
-            log.info('Invoking onGet()!');
-            this._onGet(route.query).then(function (response) {
+            log.info('Invoking onGet()! on %s', self._name);
+            self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
                 if (self._template) {
                     internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
@@ -457,6 +456,8 @@ var ResourcePlayer = (function (_super) {
                 }
             }).fail(function (rxErr) {
                 later.reject(rxErr);
+            }).catch(function (error) {
+                later.reject(error);
             });
             return later.promise;
         }
@@ -522,7 +523,7 @@ var ResourcePlayer = (function (_super) {
         }
         if (paramCount > 0)
             self._readParameters(route.path);
-        if (this._onPost) {
+        if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
                 self._updateData(response.data);
@@ -552,7 +553,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.patch' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
-        if (route.path.length > 1) {
+        if (route.path.length > (1 + paramCount)) {
             var direction = self.getDirection(route);
             if (direction.resource) {
                 log.info('PATCH on resource "%s"', direction.resource.name());
@@ -564,7 +565,7 @@ var ResourcePlayer = (function (_super) {
         }
         if (paramCount > 0)
             self._readParameters(route.path);
-        if (this._onPatch) {
+        if (self._onPatch) {
             log.info('calling onPatch() for %s', self._name);
             self._onPatch(route.query, body).then(function (response) {
                 self._updateData(response.data);

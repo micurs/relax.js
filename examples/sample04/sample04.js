@@ -21,9 +21,11 @@ var usersResource = {
     view: 'users',
     layout: 'layout',
     onGet: function (query, respond) {
+        var self = this;
+        console.log("Resource: ", self._name);
         store.hgetall('user', function (err, items) {
             var userList = _.object(_.keys(items), _.map(_.values(items), function (item) { return JSON.parse(item); }));
-            respond(null, { data: { users: userList } });
+            self.ok(respond, { users: userList });
         });
     },
     resources: [{
@@ -33,16 +35,17 @@ var usersResource = {
         urlParameters: ['idx'],
         // POST method: save a user
         onPost: function (query, userData, respond) {
+            var self = this;
             var newKey = genGuid();
             userData['userId'] = newKey;
             store.hset('user', newKey, JSON.stringify(userData));
             store.save();
-            this.redirect(respond, '/users', userData);
+            self.redirect(respond, '/users', userData);
         },
         // GET method: retrieve a user
         onGet: function (query, respond) {
             var self = this;
-            var userid = this._parameters.idx; // query['id'];
+            var userid = self._parameters.idx; // query['id'];
             store.hget('user', userid, function (err, data) {
                 if (data) {
                     self.ok(respond, JSON.parse(data));
@@ -50,14 +53,14 @@ var usersResource = {
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;
                     var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
-                    respond(respError);
+                    self.fail(respond, respError);
                 }
             });
         },
         // DELETE : remove a given user
         onDelete: function (query, respond) {
             var self = this;
-            var userid = this._parameters.idx; // query['id'];
+            var userid = self._parameters.idx; // query['id'];
             store.hdel('user', userid, function (err, data) {
                 if (!err) {
                     self.redirect(respond, '/users');
@@ -65,7 +68,7 @@ var usersResource = {
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;
                     var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
-                    respond(respError);
+                    self.fail(respond, respError);
                 }
             });
         },
@@ -76,7 +79,7 @@ var usersResource = {
             urlParameters: ['idx'],
             onGet: function (query, respond) {
                 var self = this;
-                var userid = this._parameters.idx; // query['id'];
+                var userid = self._parameters.idx; // query['id'];
                 store.hget('user', userid, function (err, data) {
                     if (data) {
                         self.ok(respond, JSON.parse(data));
@@ -84,16 +87,25 @@ var usersResource = {
                     else {
                         var errMsg = 'Could not find User with id: ' + userid;
                         var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
-                        respond(respError);
+                        self.fail(respond, respError);
                     }
                 });
             },
             onPatch: function (query, userData, respond) {
-                var userid = query['id'];
+                var self = this;
+                var userid = this._parameters.idx;
                 userData['userId'] = userid;
-                store.hset('user', userid, JSON.stringify(userData));
-                store.save();
-                this.redirect(respond, '/users');
+                store.hset('user', userid, JSON.stringify(userData), function (err, data) {
+                    if (!err) {
+                        store.save();
+                        self.redirect(respond, '/users');
+                    }
+                    else {
+                        var errMsg = 'Could not Save User with id: ' + userid;
+                        var respError = new relaxjs.RxError(errMsg, 'User could not be updated found');
+                        self.fail(respond, respError);
+                    }
+                });
             }
         }]
     }]

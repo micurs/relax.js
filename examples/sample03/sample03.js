@@ -28,9 +28,9 @@ var usersResource = {
         onGet: function (query, respond) {
             var _this = this;
             var userid = query['id'];
-            store.hget('user', userid, function (err, data) {
-                if (data) {
-                    _this.ok(respond, JSON.parse(data));
+            store.hget('user', userid, function (err, userdata) {
+                if (userdata) {
+                    _this.ok(respond, JSON.parse(userdata));
                 }
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;

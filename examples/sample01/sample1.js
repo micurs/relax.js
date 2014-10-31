@@ -31,6 +31,7 @@ var dynamicResource = {
   name: 'dynamic',
   view : 'helloworld',
   onGet : function( query, response ) {
+    console.log("Resource: ",this._name);
     var date = new Date();
     this.ok(response, { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' }  );
   }

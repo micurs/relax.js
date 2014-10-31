@@ -604,13 +604,13 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   // HttpPlayer GET
   // This is the resource facade GET: it will call a GET to a child resource or the onGet() for the current resource.
-  get( route: routing.Route, directAccess: boolean = false ) : Q.Promise< Embodiment > {
+  get( route: routing.Route ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: self._name+'.get'} );
     var paramCount = self._paramterNames.length;
 
     // Dives in and navigates through the path to find the child resource that can answer this GET call
-    if ( !directAccess && route.path.length > ( 1+paramCount ) ) {
+    if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self.getDirection( route );
       if ( direction.resource ) {
         log.info('GET on resource "%s"',direction.resource.name() );
@@ -634,8 +634,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
       var later = Q.defer< Embodiment >();
-      log.info('Invoking onGet()!');
-      this._onGet( route.query )
+      log.info('Invoking onGet()! on %s', self._name );
+
+      self._onGet( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
           if ( self._template ) {
@@ -651,6 +652,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
         })
         .fail( function( rxErr: RxError ) {
           later.reject(rxErr);
+        })
+        .catch(function (error) {
+          later.reject(error);
         });
       return later.promise;
     }
@@ -749,7 +753,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       self._readParameters(route.path);
 
     // Call the onPost() for this resource (user code)
-    if ( this._onPost ) {
+    if ( self._onPost ) {
       log.info('calling onPost() for %s', self._name );
       self._onPost( route.query, body )
         .then( ( response: any ) => {
@@ -790,7 +794,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var later = Q.defer< Embodiment >();
 
     // Dives in and navigates through the path to find the child resource that can answer this POST call
-    if ( route.path.length > 1 ) {
+    if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self.getDirection( route );
       if ( direction.resource ) {
         log.info('PATCH on resource "%s"',direction.resource.name() );
@@ -805,7 +809,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( paramCount>0 )
       self._readParameters(route.path);
 
-    if ( this._onPatch ) {
+    if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self._name );
       self._onPatch( route.query, body )
         .then( ( response: any ) => {
