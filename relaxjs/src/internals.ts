@@ -16,6 +16,7 @@ import _ = require("underscore");
 _.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
+import rxError = require('./rxerror');
 
 var _log : bunyan.Logger;
 var _appName : string;
@@ -53,22 +54,22 @@ export function parseData( bodyData: string,  contentType: string ) {
 }
 
 // Internal functions to emit error/warning messages
-export function emitCompileViewError( content: string, err: TypeError, filename: string ) : relaxjs.RxError {
+export function emitCompileViewError( content: string, err: TypeError, filename: string ) : rxError.RxError {
   var errTitle = _.str.sprintf('[error] Compiling View: %s', filename );
   var errMsg = err.message;
   var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
   _log.error(errTitle);
-  return new relaxjs.RxError(errMsg, errTitle, 500, code );
+  return new rxError.RxError(errMsg, errTitle, 500, code );
 }
 
 /*
  * Creates a RxError object with the given message and resource name
  */
-export function emitError( content: string, resname: string ) : relaxjs.RxError {
+export function emitError( content: string, resname: string ) : rxError.RxError {
   var errTitle = _.str.sprintf('[error.500] Serving: %s', resname );
   var errMsg = content;
   _log.error(errTitle);
-  return new relaxjs.RxError(errMsg, errTitle, 500 );
+  return new rxError.RxError(errMsg, errTitle, 500 );
 }
 
 /*
@@ -113,7 +114,7 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
   fs.readFile( staticFile, function( err : Error, content : Buffer ) {
     if ( err ) {
       log.warn('%s file "%s" not found',fname,staticFile);
-      laterAction.reject( new relaxjs.RxError( filename + ' not found', 'File Not Found', 404 ) );
+      laterAction.reject( new rxError.RxError( filename + ' not found', 'File Not Found', 404 ) );
     }
     else {
       laterAction.resolve( new relaxjs.Embodiment( mtype, content ) );
@@ -143,7 +144,7 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
     }
     catch( err ) {
       log.error(err);
-      later.reject( new relaxjs.RxError('JSON Serialization error: '+err ) )
+      later.reject( new rxError.RxError('JSON Serialization error: '+err ) )
     }
   });
   return later.promise;

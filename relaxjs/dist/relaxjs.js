@@ -10,32 +10,12 @@ var _ = require("underscore");
 _.str = require('underscore.string');
 var internals = require('./internals');
 var routing = require('./routing');
+var rxError = require('./rxerror');
 exports.routing = routing;
 function relax() {
     console.log('relax.js !');
 }
 exports.relax = relax;
-var RxError = (function () {
-    function RxError(message, name, code, extra) {
-        var tmp = new Error();
-        this.message = message;
-        this.name = name;
-        this.httpCode = code;
-        this.stack = tmp.stack;
-        this.extra = extra;
-    }
-    RxError.prototype.getHttpCode = function () {
-        return this.httpCode;
-    };
-    RxError.prototype.getExtra = function () {
-        return this.extra ? this.extra : '';
-    };
-    RxError.prototype.toString = function () {
-        return _.str.sprintf('RxError %d: %s\n%s\nStack:\n%s', this.httpCode, this.name, this.message, this.stack);
-    };
-    return RxError;
-})();
-exports.RxError = RxError;
 var Embodiment = (function () {
     function Embodiment(mimeType, data) {
         this.httpCode = 200;
@@ -133,7 +113,6 @@ var Container = (function () {
         var direction = new routing.Direction();
         log.info('Get the next step on %s', JSON.stringify(route.path));
         direction.route = route.stepThrough(1);
-        log.info('route', JSON.stringify(route.path));
         var childResName = direction.route.getNextStep();
         if (childResName in this._resources) {
             var idx = 0;
@@ -443,7 +422,7 @@ var ResourcePlayer = (function (_super) {
         var self = this;
         var later = Q.defer();
         _.defer(function () {
-            later.reject(new RxError('Not Implemented'));
+            later.reject(new rxError.RxError('Not Implemented'));
         });
         return later.promise;
     };
@@ -626,7 +605,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.patch' });
         var later = Q.defer();
         _.defer(function () {
-            later.reject(new RxError('Not Implemented'));
+            later.reject(new rxError.RxError('Not Implemented'));
         });
         return later.promise;
     };

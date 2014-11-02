@@ -11,24 +11,27 @@ declare module "relaxjs" {
 
   export function relax(): void;
 
-  export interface IRxError extends Error {
-    httpCode: number;
-    extra: string;
-    getHttpCode(): number;
-    getExtra(): string;
+  export module rxError {
+    export interface IRxError extends Error {
+      httpCode: number;
+      extra: string;
+      getHttpCode(): number;
+      getExtra(): string;
+    }
+
+    export class RxError implements IRxError {
+      httpCode: number;
+      extra: string;
+      public name: string;
+      public message: string;
+      public stack: string;
+      constructor( message: string, name?: string, code?: number );
+      getHttpCode(): number;
+      getExtra(): string;
+      toString(): string;
+    }
   }
 
-  export class RxError implements IRxError {
-    httpCode: number;
-    extra: string;
-    public name: string;
-    public message: string;
-    public stack: string;
-    constructor( message: string, name?: string, code?: number );
-    getHttpCode(): number;
-    getExtra(): string;
-    toString(): string;
-  }
 
   export module routing {
 

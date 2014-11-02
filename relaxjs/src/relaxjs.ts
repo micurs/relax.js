@@ -19,62 +19,13 @@ _.str = require('underscore.string');
 
 import internals = require('./internals');
 import routing = require('./routing');
+import rxError = require('./rxerror');
 
 exports.routing = routing;
 
 
 export function relax() : void {
   console.log('relax.js !');
-}
-
-/*
- * Standard node Error: type declaration
-*/
-declare class Error {
-    public name: string;
-    public message: string;
-    public stack: string;
-    constructor(message?: string);
-}
-
-
-/*
- * Extended Error information for Relax.js
-*/
-interface IRxError extends Error {
-  httpCode: number;
-  extra: string;
-  getHttpCode(): number;
-  getExtra(): string;
-}
-
-/*
- * Extended Error class for Relax.js
-*/
-export class RxError implements IRxError {
-  httpCode: number;
-  extra: string;
-  public name: string;
-  public message: string;
-  public stack: string;
-  constructor( message: string, name?: string, code?: number, extra?: string ) {
-    var tmp = new Error();
-    this.message = message;
-    this.name = name;
-    this.httpCode = code;
-    this.stack = tmp.stack;
-    this.extra = extra;
-  }
-  getHttpCode(): number {
-    return this.httpCode;
-  }
-  getExtra(): string {
-    return this.extra ? this.extra : '' ;
-  }
-
-  toString(): string {
-    return _.str.sprintf('RxError %d: %s\n%s\nStack:\n%s',this.httpCode,this.name,this.message,this.stack);
-  }
 }
 
 /*
@@ -253,6 +204,9 @@ export class Container {
       return undefined;
   }
 
+  /*
+   * Return the number of children resources of the given type.
+  */
   childTypeCount( typeName: string ) : number {
     if ( this._resources[typeName] )
       return this._resources[typeName].length;
@@ -260,23 +214,33 @@ export class Container {
       return 0;
   }
 
+  /*
+   * Return the total number of children resources for this node.
+  */
   childrenCount() : number {
     var counter : number = 0;
     _.each< HttpPlayer[]>( this._resources, ( arrayItem : HttpPlayer[] ) => { counter += arrayItem.length; } );
     return counter;
   }
 
+  /*
+   * Inspect the cuurent path in the given route and create the direction
+   * to pass a http request to a child resource.
+   * If the route.path is terminal this function finds the immediate target resource
+   * and assign it to the direction.resource.
+   * This function manages also the interpretaiton of an index in the path immediately
+   * after the resource name.
+  */
   getStepDirection( route : routing.Route ) : routing.Direction {
     var log = internals.log().child( { func: 'Container.getStepDirection'} );
     var direction: routing.Direction = new routing.Direction();
     log.info('Get the next step on %s', JSON.stringify(route.path) );
     direction.route = route.stepThrough(1);
-    log.info('route', JSON.stringify(route.path) );
     var childResName = direction.route.getNextStep();
     if ( childResName in this._resources ) {
-      //console.log(ctx+childResName+' found in _resources' );
       var idx:number = 0;
       if ( this._resources[childResName].length > 1 ) {
+
         // Since there are more than just ONE resource maching the name
         // Here we check if the next element in the path may be the index needed to
         // locate the right resource in the array.
@@ -289,6 +253,7 @@ export class Container {
             direction.route = direction.route.stepThrough(1);
           }
         }
+
       }
       //console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
       log.info('Access Resource "%s"[%d] ', childResName, idx );
@@ -381,7 +346,7 @@ export class Site extends Container implements HttpPlayer {
           })
           .fail( function (error) {
             // console.log(error);
-            var rxErr: RxError = <RxError>error;
+            var rxErr: rxError.RxError = <rxError.RxError>error;
             // console.log(rxErr.toString());
             if ( (<any>error).getHttpCode ) {
               response.writeHead( rxErr.getHttpCode(), {"content-type": "text/html"} );
@@ -641,7 +606,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // var ctx = _.str.sprintf( _.str.sprintf('[%s.head]',self._name) );
 
     var later = Q.defer< Embodiment >();
-    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });
     return later.promise;
   }
 
@@ -698,7 +663,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
               .fail( (err) => { later.reject(err) } );
           }
         })
-        .fail( function( rxErr: RxError ) {
+        .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
         })
         .catch(function (error) {
@@ -762,7 +727,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
             })
             .fail( (err) => { later.reject(err)});
         })
-        .fail( function( rxErr: RxError ) {
+        .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
         });
       return later.promise;
@@ -816,7 +781,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
               later.reject(err);
             });
         })
-        .fail( function( rxErr: RxError ) {
+        .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
         });
       return later.promise;
@@ -872,7 +837,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
             })
             .fail( function(err) { later.reject(err); } );
         })
-        .fail( function( rxErr: RxError ) {
+        .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
         });
       return later.promise;
@@ -896,7 +861,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var log = internals.log().child( { func: self._name+'.patch'} );
 
     var later = Q.defer< Embodiment >();
-    _.defer( () => { later.reject( new RxError('Not Implemented')) });
+    _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });
     return later.promise;
   }
 

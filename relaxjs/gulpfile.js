@@ -55,11 +55,13 @@ var typescript_options = {
 
 var sources_to_compile = [ './src/relaxjs.ts',
                            './src/internals.ts',
-                           './src/routing.ts' ];
+                           './src/routing.ts',
+                           './src/rxerror.ts' ];
 
 var js_to_test = [ './dist/relaxjs.ts',
                    './dist/internals.ts',
-                   './dist/routing.ts' ];
+                   './dist/routing.ts',
+                   './dist/rxerror.ts' ];
 
 var sources_to_copy = [ './src/relaxjs.d.ts' ];
 var dests = [ './dist/*.js' ];

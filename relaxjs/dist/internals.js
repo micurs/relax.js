@@ -6,6 +6,7 @@ var bunyan = require('bunyan');
 var _ = require("underscore");
 _.str = require('underscore.string');
 var relaxjs = require('./relaxjs');
+var rxError = require('./rxerror');
 var _log;
 var _appName;
 function setLogVerbose(flag) {
@@ -44,14 +45,14 @@ function emitCompileViewError(content, err, filename) {
     var errMsg = err.message;
     var code = _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>', _.escape(content));
     _log.error(errTitle);
-    return new relaxjs.RxError(errMsg, errTitle, 500, code);
+    return new rxError.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
 function emitError(content, resname) {
     var errTitle = _.str.sprintf('[error.500] Serving: %s', resname);
     var errMsg = content;
     _log.error(errTitle);
-    return new relaxjs.RxError(errMsg, errTitle, 500);
+    return new rxError.RxError(errMsg, errTitle, 500);
 }
 exports.emitError = emitError;
 function promiseError(msg, resName) {
@@ -85,7 +86,7 @@ function viewStatic(filename) {
     fs.readFile(staticFile, function (err, content) {
         if (err) {
             log.warn('%s file "%s" not found', fname, staticFile);
-            laterAction.reject(new relaxjs.RxError(filename + ' not found', 'File Not Found', 404));
+            laterAction.reject(new rxError.RxError(filename + ' not found', 'File Not Found', 404));
         }
         else {
             laterAction.resolve(new relaxjs.Embodiment(mtype, content));
@@ -106,7 +107,7 @@ function viewJson(viewData) {
         }
         catch (err) {
             log.error(err);
-            later.reject(new relaxjs.RxError('JSON Serialization error: ' + err));
+            later.reject(new rxError.RxError('JSON Serialization error: ' + err));
         }
     });
     return later.promise;
