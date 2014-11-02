@@ -122,10 +122,12 @@ var Container = (function () {
         });
         return counter;
     };
-    Container.prototype.getDirection = function (route) {
-        var ctx = '[Container.getDirection]';
+    Container.prototype.getStepDirection = function (route) {
+        var log = internals.log().child({ func: 'Container.getStepDirection' });
         var direction = new routing.Direction();
+        log.info('Get the next step on %s', JSON.stringify(route.path));
         direction.route = route.stepThrough(1);
+        log.info('route', JSON.stringify(route.path));
         var childResName = direction.route.getNextStep();
         if (childResName in this._resources) {
             var idx = 0;
@@ -140,6 +142,7 @@ var Container = (function () {
                     }
                 }
             }
+            log.info('Access Resource "%s"[%d] ', childResName, idx);
             direction.resource = this.getChild(childResName, idx);
         }
         return direction;
@@ -218,9 +221,7 @@ var Site = (function (_super) {
                 site[msg.method.toLowerCase()](route, bodyData).then(function (rep) {
                     rep.serve(response);
                 }).fail(function (error) {
-                    console.log(error);
                     var rxErr = error;
-                    console.log(rxErr.toString());
                     if (error.getHttpCode) {
                         response.writeHead(rxErr.getHttpCode(), { "content-type": "text/html" });
                         response.write('<h1>relax.js: we got an error</h1>');
@@ -240,12 +241,49 @@ var Site = (function (_super) {
     Site.prototype.setHome = function (path) {
         this._home = path;
     };
+    Site.prototype._getDirection = function (route, verb) {
+        var log = internals.log().child({ func: 'Site._getDirection' });
+        var cachedPath = this._pathCache[route.pathname];
+        if (cachedPath) {
+            var direction = new routing.Direction();
+            direction.resource = cachedPath.resource;
+            direction.route = route;
+            direction.route.path = cachedPath.path;
+            direction.verb = verb;
+            log.info('%s Path Cache found for "%s"', verb, direction.resource.name());
+            return direction;
+        }
+        else {
+            log.info('%s Step into %s ', verb, route.pathname);
+            var direction = this.getStepDirection(route);
+            if (direction && direction.resource) {
+                direction.verb = verb;
+                return direction;
+            }
+        }
+        log.info('No Direction found', verb, route.pathname);
+        return undefined;
+    };
     Site.prototype.head = function (route, body) {
-        var later = Q.defer();
-        _.defer(function () {
-            later.reject(new RxError('Not Implemented'));
-        });
-        return later.promise;
+        var self = this;
+        var log = internals.log().child({ func: 'Site.head' });
+        log.info('route: %s', route.pathname);
+        if (route.path.length > 1) {
+            var direction = self._getDirection(route, 'HEAD');
+            if (!direction) {
+                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+            }
+            log.info('HEAD resource "%s"', direction.resource.name());
+            route.path = direction.route.path;
+            return direction.resource.head(route);
+        }
+        if (self._home === '/') {
+            return internals.viewDynamic(self.name(), this);
+        }
+        else {
+            log.info('HEAD is redirecting to "%s"', self._home);
+            return internals.redirect(self._home);
+        }
     };
     Site.prototype.get = function (route, body) {
         var self = this;
@@ -255,22 +293,12 @@ var Site = (function (_super) {
             return internals.viewStatic(route.pathname);
         }
         if (route.path.length > 1) {
-            var shortcut = self._pathCache[route.pathname];
-            if (shortcut) {
-                route.path = shortcut.path;
-                log.info('Path Cache used to GET resource "%s"', shortcut.resource.name());
-                return shortcut.resource.get(route);
+            var direction = self._getDirection(route, 'GET');
+            if (direction === undefined) {
+                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
             }
-            else {
-                var direction = this.getDirection(route);
-                if (direction.resource) {
-                    log.info('GET resource "%s"', direction.resource.name());
-                    return direction.resource.get(direction.route);
-                }
-                else {
-                    return internals.promiseError(_.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname), route.pathname);
-                }
-            }
+            route.path = direction.route.path;
+            return direction.resource.get(route);
         }
         if (self._home === '/') {
             return internals.viewDynamic(self.name(), this);
@@ -281,42 +309,43 @@ var Site = (function (_super) {
         }
     };
     Site.prototype.post = function (route, body) {
+        var self = this;
         var log = internals.log().child({ func: 'Site.post' });
         if (route.path.length > 1) {
-            var direction = this.getDirection(route);
-            if (direction.resource) {
-                log.info('POST on resource "%s"', direction.resource.name());
-                return direction.resource.post(direction.route, body);
-            }
-            else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname), route.pathname);
-            }
+            var direction = self._getDirection(route, 'POST');
+            if (!direction)
+                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+            log.info('POST on resource "%s"', direction.resource.name());
+            route.path = direction.route.path;
+            return direction.resource.post(direction.route, body);
         }
-        return internals.promiseError(_.str.sprintf('ERROR Invalid in request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(_.str.sprintf('[error] Invalid in request "%s"', route.pathname), route.pathname);
     };
     Site.prototype.patch = function (route, body) {
-        var log = internals.log().child({ func: 'Site.patch' });
         var self = this;
+        var log = internals.log().child({ func: 'Site.patch' });
         if (route.path.length > 1) {
-            var direction = this.getDirection(route);
-            if (direction.resource) {
-                log.info('PATCH on resource "%s"', direction.resource.name());
-                return direction.resource.patch(direction.route, body);
-            }
-            else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found or invalid in request "%s"', route.pathname), route.pathname);
-            }
+            var direction = self._getDirection(route, 'PATCH');
+            if (!direction)
+                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+            log.info('PATCH on resource "%s"', direction.resource.name());
+            route.path = direction.route.path;
+            return direction.resource.patch(direction.route, body);
         }
-        return internals.promiseError(_.str.sprintf('ERROR Invalid in request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(_.str.sprintf('[error] Invalid in request "%s"', route.pathname), route.pathname);
     };
     Site.prototype.put = function (route, body) {
+        var log = internals.log().child({ func: 'Site.put' });
         var self = this;
-        var ctx = '[' + this.name() + '.put] ';
-        var later = Q.defer();
-        _.defer(function () {
-            later.reject(new RxError('Not Implemented'));
-        });
-        return later.promise;
+        if (route.path.length > 1) {
+            var direction = self._getDirection(route, 'PUT');
+            if (!direction)
+                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+            log.info('PATCH on resource "%s"', direction.resource.name());
+            route.path = direction.route.path;
+            return direction.resource.put(direction.route, body);
+        }
+        return internals.promiseError(_.str.sprintf('[error] Invalid PUT request "%s"', route.pathname), route.pathname);
     };
     Site.prototype.delete = function (route, body) {
         var self = this;
@@ -325,20 +354,14 @@ var Site = (function (_super) {
             return internals.promiseError('DELETE not supported on static resources', route.pathname);
         }
         if (route.path.length > 1) {
-            var direction = this.getDirection(route);
-            if (direction.resource) {
-                internals.log().info('%s "%s"', ctx, direction.resource.name());
-                return direction.resource.delete(direction.route);
-            }
-            else {
-                return internals.promiseError(_.str.sprintf('%s ERROR Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
-            }
+            var direction = self._getDirection(route, 'DELETE');
+            if (!direction)
+                return internals.promiseError(_.str.sprintf('%s [error] Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
+            internals.log().info('%s "%s"', ctx, direction.resource.name());
+            route.path = direction.route.path;
+            return direction.resource.delete(direction.route);
         }
-        var later = Q.defer();
-        _.defer(function () {
-            later.reject(new RxError('Not Implemented'));
-        });
-        return later.promise;
+        return internals.promiseError(_.str.sprintf('[error] Invalid DELETE request "%s"', route.pathname), route.pathname);
     };
     Site._instance = null;
     return Site;
@@ -392,11 +415,13 @@ var ResourcePlayer = (function (_super) {
     };
     ResourcePlayer.prototype._readParameters = function (path) {
         var _this = this;
+        var log = internals.log().child({ func: this._name + '._readParameters' });
         var counter = 0;
         _.each(this._paramterNames, function (parameterName, idx, list) {
             _this._parameters[parameterName] = path[idx + 1];
             counter++;
         });
+        log.info(this._parameters);
         return counter;
     };
     ResourcePlayer.prototype._updateData = function (newData) {
@@ -410,7 +435,6 @@ var ResourcePlayer = (function (_super) {
     };
     ResourcePlayer.prototype.head = function (route) {
         var self = this;
-        var ctx = _.str.sprintf(_.str.sprintf('[%s.head]', self._name));
         var later = Q.defer();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
@@ -422,15 +446,16 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.get' });
         var paramCount = self._paramterNames.length;
         if (route.path.length > (1 + paramCount)) {
-            var direction = self.getDirection(route);
+            var direction = self.getStepDirection(route);
             if (direction.resource) {
                 log.info('GET on resource "%s"', direction.resource.name());
                 return direction.resource.get(direction.route);
             }
             else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(_.str.sprintf('[error] ResourcePlayer GET could not find a Resource for "%s"', route.pathname), route.pathname);
             }
         }
+        log.info('GET Target Found : %s', self._name);
         if (paramCount > 0)
             self._readParameters(route.path);
         site().setPathCache(route.pathname, { resource: this, path: route.path });
@@ -474,13 +499,13 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.delete' });
         var paramCount = self._paramterNames.length;
         if (route.path.length > (1 + paramCount)) {
-            var direction = this.getDirection(route);
+            var direction = this.getStepDirection(route);
             if (direction.resource) {
                 log.info('DELETE on resource "%s"', direction.resource.name());
                 return direction.resource.delete(direction.route);
             }
             else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(_.str.sprintf('[error] Resource not found "%s"', route.pathname), route.pathname);
             }
         }
         if (paramCount > 0)
@@ -512,13 +537,13 @@ var ResourcePlayer = (function (_super) {
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
-            var direction = self.getDirection(route);
+            var direction = self.getStepDirection(route);
             if (direction.resource) {
                 log.info('POST on resource "%s"', direction.resource.name());
                 return direction.resource.post(direction.route, body);
             }
             else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(_.str.sprintf('[error] Resource not found "%s"', route.pathname), route.pathname);
             }
         }
         if (paramCount > 0)
@@ -554,13 +579,13 @@ var ResourcePlayer = (function (_super) {
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
-            var direction = self.getDirection(route);
+            var direction = self.getStepDirection(route);
             if (direction.resource) {
                 log.info('PATCH on resource "%s"', direction.resource.name());
                 return direction.resource.patch(direction.route, body);
             }
             else {
-                return internals.promiseError(_.str.sprintf('ERROR Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(_.str.sprintf('[error] Resource not found "%s"', route.pathname), route.pathname);
             }
         }
         if (paramCount > 0)

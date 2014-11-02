@@ -42,7 +42,6 @@ var Direction = (function () {
 })();
 exports.Direction = Direction;
 function fromUrl(request) {
-    var ctx = '[Routing.fromUrl] ';
     if (!request.url)
         request.url = '/';
     return new Route(request.url);

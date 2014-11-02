@@ -18,7 +18,19 @@ site.add( {
 site.add( {
   name: 'Page',
   view: 'helloworld',
-  data: { message: "Ciao Mondo!" }
+  data: { message: "Ciao Mondo!" },
+  resources: [
+    {
+      name: 'Page',
+      view: 'helloworld',
+      data: { message: "Ciao Mondo Interiore #1 !" }
+    },
+    {
+      name: 'Page',
+      view: 'helloworld',
+      data: { message: "Ciao Mondo Interiore #2 !" }
+    }
+  ]
 });
 
 var staticResource = {

@@ -64,6 +64,7 @@ export class Route {
 export class Direction {
   resource : relaxjs.HttpPlayer;
   route: Route;
+  verb: string;
 }
 
 // --------------------------------------------------------------
@@ -75,29 +76,7 @@ export class Direction {
 //  home.users.put( 100, data)
 // --------------------------------------------------------------
 export function fromUrl( request: http.ServerRequest ) : Route {
-  var ctx = '[Routing.fromUrl] ';
-  // console.log( _.str.sprintf('%s Routing url: %s',ctx,request.url) );
-
   if ( !request.url )
     request.url = '/';
-
   return new Route( request.url );
-  /*
-  //console.log( _.str.sprintf('%s http.ServerRequest Body:\n%s\n-------',ctx,JSON.stringify(request.read(),null, ' ')));
-
-  var parsedUrl : url.Url = url.parse(request.url, true);
-  var extension = path.extname(parsedUrl.pathname)
-  var resources : string[] = parsedUrl.pathname.split('/');//.splice(0,1);
-  resources.unshift('site');
-  resources = _(resources).map( (item) => decodeURI(item) );
-
-  var route = new Route();
-  route.pathname = parsedUrl.pathname;
-  route.query = parsedUrl.query;
-  route.path = _.filter( resources, (res) => res.length>0 );
-  // console.log(_.str.sprintf('%s Path:"%s" Extension:"%s"',ctx, route.path, extension ) );
-  route.static = ( extension.length>0 ) ;
-
-  return route;
-  */
 }

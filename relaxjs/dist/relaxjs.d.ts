@@ -13,37 +13,51 @@ declare module "relaxjs" {
 
   export interface IRxError extends Error {
     httpCode: number;
+    extra: string;
     getHttpCode(): number;
+    getExtra(): string;
   }
 
   export class RxError implements IRxError {
     httpCode: number;
+    extra: string;
     public name: string;
     public message: string;
     public stack: string;
     constructor( message: string, name?: string, code?: number );
     getHttpCode(): number;
+    getExtra(): string;
+    toString(): string;
   }
 
   export module routing {
 
     export class Route {
-      private name;
-      constructor( name: string );
-      paperino() : void ;
+      verb: string;
+      static : boolean; // if true it means this rout is mapping to a file
+      pathname : string;
+      path : string[];
+      query: any;
+
+      constructor( uri?: string );
+      stepThrough( stpes: number ) : Route;
+      getNextStep() : string;
     }
     export class Direction {
-      resource : Resource;
+      resource : HttpPlayer;
       route: Route;
     }
-    export function fromUrl(request) : Route;
+    export function fromUrl( request: http.ServerRequest ) : Route ;
   }
 
   export class Embodiment {
-    private data : Buffer;
-    private mimeType: string;
-    constructor( data : Buffer, mimeType: string );
-    serve( response: http.ServerResponse) : void;
+    public httpCode : number;
+    public location : string;
+    public data : Buffer;
+    public mimeType : string;
+    constructor(  mimeType: string, data?: Buffer );
+    serve(response: http.ServerResponse) : void;
+    dataAsString() : string ;
   }
 
   export interface HttpPlayer {
@@ -57,10 +71,10 @@ declare module "relaxjs" {
   }
 
   export interface ResourceResponse {
-    data: any;
+    result: string;
+    data?: any;
     httpCode?: number;
     location?: string;
-    result?: string;
   }
 
   export interface DataCallback {
@@ -69,16 +83,18 @@ declare module "relaxjs" {
 
   export interface Resource {
     name: string;
+    key?: string;
     view?: string;
     layout?: string;
     data?: any;
     resources?: Resource[];
     urlParameters?: string[];
-    onGet?: ( query: any, cp:DataCallback ) => void;
-    onPost?: ( query: any, body: string, cp:DataCallback ) => void;
-    onPut?: ( query: any, body: string, cp:DataCallback ) => void;
-    onPatch?: ( query: any, body: string, cp:DataCallback ) => void;
-    onDelete?: ( query: any, cp:DataCallback ) => void;
+    onHead?: ( query: any, callback: DataCallback ) => void;
+    onGet?: ( query: any, callback: DataCallback ) => void;
+    onPost?: ( query: any, body: any, callback: DataCallback) => void;
+    onPut?: ( query: any, body: any, callback: DataCallback) => void;
+    onDelete?: ( query: any, callback: DataCallback ) => void;
+    onPatch?: ( query: any, body: any, callback: DataCallback) => void;
   }
 
   export interface ResourceMap {
@@ -87,9 +103,13 @@ declare module "relaxjs" {
 
   export class Container {
     public _resources:ResourceMap;
+    private _parent: Container;
 
-    constructor();
+    parent : Container ;
 
+    constructor( parent?: Container );
+
+    remove( child: HttpPlayer ) : boolean;
     getFirstMatching( typeName: string ) : HttpPlayer;
     add( newRes: Resource ) : void ;
     getChild( name: string, idx: number ) : HttpPlayer ;
@@ -99,16 +119,20 @@ declare module "relaxjs" {
   }
 
   export class Site extends Container implements HttpPlayer {
-    private static _instance : Site;
+    private static _instance : Site ;
     private _name: string;
-    private _siteName: string;
     private _version : string;
+    private _siteName : string;
+    private _home : string;
+    private _pathCache;
 
-    constructor( siteName:string );
+    constructor( siteName:string, parent?: Container );
     public static $( name:string ):Site;
     name(): string;
+    setName( newName:string ) : void ;
     version: string;
     siteName: string;
+    setPathCache( path: string, shortcut: { resource: ResourcePlayer; path: string[] } ) : void;
     serve() : http.Server ;
     setHome( path: string ) : void;
 

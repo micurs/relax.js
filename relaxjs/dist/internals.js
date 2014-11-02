@@ -40,29 +40,24 @@ function parseData(bodyData, contentType) {
 }
 exports.parseData = parseData;
 function emitCompileViewError(content, err, filename) {
-    var fname = '[view error]';
-    var errTitle = _.str.sprintf('%s while compiling: %s', fname, filename);
+    var errTitle = _.str.sprintf('[error] Compiling View: %s', filename);
     var errMsg = err.message;
     var code = _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>', _.escape(content));
-    _log.warn(errTitle);
-    _log.warn(errMsg);
+    _log.error(errTitle);
     return new relaxjs.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
-function emitError(content, filename) {
-    var fname = '[error]';
-    var errTitle = _.str.sprintf('%s while serving: %s', fname, filename);
+function emitError(content, resname) {
+    var errTitle = _.str.sprintf('[error.500] Serving: %s', resname);
     var errMsg = content;
-    _log.warn(errTitle);
-    _log.warn(errMsg);
+    _log.error(errTitle);
     return new relaxjs.RxError(errMsg, errTitle, 500);
 }
 exports.emitError = emitError;
 function promiseError(msg, resName) {
-    _log.error(msg);
     var later = Q.defer();
     _.defer(function () {
-        _log.warn('[%s] %s', resName, msg);
+        _log.error(msg);
         later.reject(emitError(msg, resName));
     });
     return later.promise;
@@ -71,6 +66,7 @@ exports.promiseError = promiseError;
 function redirect(location) {
     var later = Q.defer();
     _.defer(function () {
+        _log.info('Sending a Redirect 307 towards %s', location);
         var redir = new relaxjs.Embodiment('text/html');
         redir.httpCode = 307;
         redir.location = location;

@@ -8,7 +8,7 @@ import relaxjs = require('relaxjs');
 var usersResource : relaxjs.Resource = {
   name : 'users',
   onGet : function( query: any, respond: relaxjs.DataCallback ) {
-    respond( null, { data: { title: 'Users Collection Example', count: this.childCount() } } );
+    this.ok(respond, { data: { title: 'Users Collection Example', count: this.childCount() } } );
   },
   resources : [
     { name: 'tracy-stewart',

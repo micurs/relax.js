@@ -54,37 +54,42 @@ export function parseData( bodyData: string,  contentType: string ) {
 
 // Internal functions to emit error/warning messages
 export function emitCompileViewError( content: string, err: TypeError, filename: string ) : relaxjs.RxError {
-  var fname = '[view error]';
-  var errTitle = _.str.sprintf('%s while compiling: %s',fname, filename );
+  var errTitle = _.str.sprintf('[error] Compiling View: %s', filename );
   var errMsg = err.message;
   var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
-  _log.warn(errTitle);
-  _log.warn(errMsg);
+  _log.error(errTitle);
   return new relaxjs.RxError(errMsg, errTitle, 500, code );
 }
 
-export function emitError( content: string, filename: string ) : relaxjs.RxError {
-  var fname = '[error]';
-  var errTitle = _.str.sprintf('%s while serving: %s',fname, filename );
+/*
+ * Creates a RxError object with the given message and resource name
+ */
+export function emitError( content: string, resname: string ) : relaxjs.RxError {
+  var errTitle = _.str.sprintf('[error.500] Serving: %s', resname );
   var errMsg = content;
-  _log.warn(errTitle);
-  _log.warn(errMsg);
+  _log.error(errTitle);
   return new relaxjs.RxError(errMsg, errTitle, 500 );
 }
 
+/*
+ * Emits a promise for a failure message
+*/
 export function promiseError( msg: string, resName : string ) : Q.Promise< relaxjs.Embodiment > {
-  _log.error(msg);
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
-    _log.warn('[%s] %s',resName,msg);
+    _log.error(msg);
     later.reject( emitError( msg, resName )  )
   });
   return later.promise;
 }
 
+/*
+ * Create a Redirect embodiment to force the requester to get the given location
+*/
 export function redirect( location: string ) : Q.Promise< relaxjs.Embodiment > {
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
+    _log.info('Sending a Redirect 307 towards %s',location );
     var redir = new relaxjs.Embodiment('text/html');
     redir.httpCode = 307; // Temporary Redirect (since HTTP/1.1)
     redir.location = location;
@@ -93,9 +98,10 @@ export function redirect( location: string ) : Q.Promise< relaxjs.Embodiment > {
   return later.promise;
 }
 
-// Realize a view from a generic get for a static file
-// Return a promise that will return the full content of the view.
-// -------------------------------------------------------------------------------
+/*
+ * Realize a view from a generic get for a static file
+ * Return a promise that will return the full content of the view.
+*/
 export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment > {
   var fname = '[view static]';
   var log = _log.child( { func: 'internals.viewStatic'} );
@@ -116,11 +122,11 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
   return laterAction.promise;
 }
 
-
-// Return a promise for a JSON Embodiment for the given data.
-// Note that this function strips automatically all the data item starting with '_'
-// (undercore) since - as a convention in relax.js - these are private member variables.
-// -------------------------------------------------------------------------------
+/*
+ * Return a promise for a JSON Embodiment for the given data.
+ * Note that this function strips automatically all the data item starting with '_'
+ * (undercore) since - as a convention in relax.js - these are private member variables.
+*/
 export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
   var log = _log.child( { func: 'internals.viewJson'} );
   var later = Q.defer< relaxjs.Embodiment >();
@@ -143,25 +149,23 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
   return later.promise;
 }
 
-// Realize the given view (viewName) merging it with the given data (viewData)
-// It can use an embedding view layout as third argument (optional)
-// Return a promise that will return the full content of the view + the viewdata.
-// -------------------------------------------------------------------------------
-export function viewDynamic( viewName: string,
-                      viewData: any,
-                      layoutName?: string ) : Q.Promise< relaxjs.Embodiment > {
+/*
+ * Realize the given view (viewName) merging it with the given data (viewData)
+ * It can use an embedding view layout as third argument (optional)
+ * Return a promise that will return the full content of the view + the viewdata.
+*/
+export function viewDynamic(
+    viewName: string,
+    viewData: any,
+    layoutName?: string ) : Q.Promise< relaxjs.Embodiment > {
   var log = _log.child( { func: 'internals.viewDynamic'} );
   var laterAct = Q.defer< relaxjs.Embodiment >();
   var readFile = Q.denodeify(fs.readFile);
-
-
   var templateFilename = './views/'+viewName+'._';
   if ( viewName === 'site') {
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
-
   log.info('Reading template %s',templateFilename);
-
   if ( layoutName ) {
     var layoutFilename = './views/'+layoutName+'._';
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
@@ -197,6 +201,5 @@ export function viewDynamic( viewName: string,
       laterAct.reject( emitCompileViewError('N/A',err, templateFilename ) );
     });
   }
-
   return laterAct.promise;
 }
