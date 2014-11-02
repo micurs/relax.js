@@ -114,7 +114,7 @@ declare module "relaxjs" {
     add( newRes: Resource ) : void ;
     getChild( name: string, idx: number ) : HttpPlayer ;
     childTypeCount( typeName: string ) : number ;
-    childCount() : number;
+    childrenCount() : number;
     getDirection( route : routing.Route ) : routing.Direction;
   }
 

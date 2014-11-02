@@ -76,21 +76,19 @@ var Container = (function () {
         configurable: true
     });
     Container.prototype.remove = function (child) {
+        var log = internals.log().child({ func: 'Container.remove' });
         var resArr = this._resources[child.name()];
+        if (!resArr)
+            return false;
         var idx = _.indexOf(resArr, child);
         if (idx < 0)
             return false;
         resArr.splice(idx, 1);
+        log.info('- %s', child.name());
         return true;
     };
-    Container.prototype.getFirstMatching = function (typeName) {
-        var childArray = this._resources[typeName];
-        if (childArray === undefined) {
-            return null;
-        }
-        return childArray[0];
-    };
     Container.prototype.add = function (newRes) {
+        var log = internals.log().child({ func: 'Container.add' });
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
         var resourcePlayer = new ResourcePlayer(newRes, this);
@@ -101,6 +99,14 @@ var Container = (function () {
         else {
             childArray.push(resourcePlayer);
         }
+        log.info('+ %s', indexName);
+    };
+    Container.prototype.getFirstMatching = function (typeName) {
+        var childArray = this._resources[typeName];
+        if (childArray === undefined) {
+            return null;
+        }
+        return childArray[0];
     };
     Container.prototype.getChild = function (name, idx) {
         if (idx === void 0) { idx = 0; }
@@ -115,7 +121,7 @@ var Container = (function () {
         else
             return 0;
     };
-    Container.prototype.childCount = function () {
+    Container.prototype.childrenCount = function () {
         var counter = 0;
         _.each(this._resources, function (arrayItem) {
             counter += arrayItem.length;

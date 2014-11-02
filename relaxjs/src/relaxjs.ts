@@ -166,7 +166,6 @@ export class Embodiment {
     this.httpCode = 200;
     this.data = data;
     this.mimeType = mimeType;
-    //console.log( _.str.sprintf('[Embodiment] %s ', this.data.toString('utf-8') ) );
   }
 
   serve(response: http.ServerResponse) : void {
@@ -208,25 +207,23 @@ export class Container {
     return this._parent;
   }
 
+  // Remove a child resource from this container
   remove( child: HttpPlayer ) : boolean {
+    var log = internals.log().child( { func: 'Container.remove'} );
     var resArr = this._resources[child.name()];
+    if ( !resArr )
+      return false;
     var idx = _.indexOf(resArr, child );
     if ( idx<0 )
       return false;
     resArr.splice(idx,1);
+    log.info('- %s',child.name());
     return true;
   }
 
-  // Find the first resource of the given type
-  getFirstMatching( typeName: string ) : HttpPlayer {
-    var childArray = this._resources[typeName];
-    if ( childArray === undefined ) {
-      return null;
-    }
-    return childArray[0];
-  }
   // Add a resource of the given type as child
   add( newRes: Resource ) : void {
+    var log = internals.log().child( { func: 'Container.add'} );
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
     var resourcePlayer : ResourcePlayer = new ResourcePlayer(newRes,this);
@@ -237,7 +234,16 @@ export class Container {
     else {
       childArray.push(resourcePlayer);
     }
-    // console.log(_.str.sprintf('new resource: "%s" [%d] (%s)', newRes.name, this._resources[indexName].length-1, indexName ) );
+    log.info('+ %s',indexName);
+  }
+
+  // Find the first resource of the given type
+  getFirstMatching( typeName: string ) : HttpPlayer {
+    var childArray = this._resources[typeName];
+    if ( childArray === undefined ) {
+      return null;
+    }
+    return childArray[0];
   }
 
   getChild( name: string, idx: number = 0 ) : HttpPlayer {
@@ -254,7 +260,7 @@ export class Container {
       return 0;
   }
 
-  childCount() : number {
+  childrenCount() : number {
     var counter : number = 0;
     _.each< HttpPlayer[]>( this._resources, ( arrayItem : HttpPlayer[] ) => { counter += arrayItem.length; } );
     return counter;
