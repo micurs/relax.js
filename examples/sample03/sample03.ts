@@ -41,7 +41,7 @@ var usersResource : relaxjs.Resource = {
             }
             else {
               var errMsg = 'Could not find User with id: '+userid;
-              var respError = new relaxjs.RxError(errMsg,'User not found',404);
+              var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
               respond( respError );
             }
         });

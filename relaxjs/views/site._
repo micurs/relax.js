@@ -24,12 +24,12 @@
 <%
 function getResourceLI( m, res, index , resArray, father ) {
   var indent = _.str.pad(' ', (_.str.count(father,'/')+1)*2 );
-  var cc = res.childCount()
-  // console.log('['+index+'] '+res.name() + ' with '+cc+' children' )
-  // var link = (father+_.str.slugify(res.name())+'/'+index).replace(/\/0\//g,'/');
-  var link = father+_.str.slugify(res.name())+'/'+index;
+  var cc = res.childrenCount()
+  // console.log('['+index+'] '+res.name + ' with '+cc+' children' )
+  // var link = (father+_.str.slugify(res.name+'/'+index).replace(/\/0\//g,'/');
+  var link = father+_.str.slugify(res.name)+'/'+index;
   link = link.replace(/\/0(\/)*/g,'/');
-  var name = res.name();
+  var name = res.name;
   m += indent +'<li><i class="fa-li fa fa-file-o"></i><a href="'+link+'">'+name+'</a>'
   m += '</li>\n';
   return m;
@@ -42,8 +42,8 @@ function getResourcesUL( resources, root ) {
      m += _.reduce( _.values( resArray),
                       function( m , childRes, index ) {
                         var rli = getResourceLI( m, childRes, index, resArray, root );
-                        if ( childRes.childCount()>0 )
-                          rli += getResourcesUL(childRes._resources, root+_.str.slugify(childRes.name())+'/'+index+'/' );
+                        if ( childRes.childrenCount()>0 )
+                          rli += getResourcesUL(childRes._resources, root+_.str.slugify(childRes.name)+'/'+index+'/' );
                         return rli;
                       },
                       '');
