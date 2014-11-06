@@ -28,13 +28,14 @@ export function relax() : void {
   console.log('relax.js !');
 }
 
+
 /*
  * The resource player implement the resource runtime capabilities.
  * Derived classed manage the flow of requests coming from the site.
  * HttpPlayer defines all the HTTP verb functions.
 */
 export interface HttpPlayer {
-  name(): string;
+  name : string;
 
   // Asks for the response identical to the one that would correspond to a GET request, but without the response body.
   head( route : routing.Route) : Q.Promise<Embodiment> ;
@@ -140,6 +141,9 @@ export class Embodiment {
   dataAsString() : string {
     return this.data.toString('utf-8');
   }
+  dataAsJason() : any {
+    return JSON.parse(this.dataAsString());
+  }
 }
 
 /*
@@ -161,14 +165,14 @@ export class Container {
   // Remove a child resource from this container
   remove( child: HttpPlayer ) : boolean {
     var log = internals.log().child( { func: 'Container.remove'} );
-    var resArr = this._resources[child.name()];
+    var resArr = this._resources[child.name];
     if ( !resArr )
       return false;
     var idx = _.indexOf(resArr, child );
     if ( idx<0 )
       return false;
     resArr.splice(idx,1);
-    log.info('- %s',child.name());
+    log.info('- %s',child.name);
     return true;
   }
 
@@ -178,6 +182,8 @@ export class Container {
     newRes['_version'] = site().version;
     newRes['siteName'] = site().siteName;
     var resourcePlayer : ResourcePlayer = new ResourcePlayer(newRes,this);
+
+    // Add the resource player to the child resource container for this container.
     var indexName = _.str.slugify(newRes.name);
     var childArray = this._resources[indexName];
     if ( childArray === undefined )
@@ -293,13 +299,17 @@ export class Site extends Container implements HttpPlayer {
   }
 
   public static $( name?:string ):Site {
-    if(Site._instance === null ) {
+    if(Site._instance === null || name ) {
+      Site._instance = null;
       Site._instance = new Site( name ? name : 'site' );
     }
     return Site._instance;
   }
 
-  name(): string { return this._name; }
+  get name(): string {
+    return this._name;
+  }
+
   setName( newName:string ) : void { this._name = newName; }
 
   get version() : string {
@@ -379,7 +389,7 @@ export class Site extends Container implements HttpPlayer {
       direction.route = route;
       direction.route.path = cachedPath.path;
       direction.verb = verb;
-      log.info('%s Path Cache found for "%s"',verb, direction.resource.name() );
+      log.info('%s Path Cache found for "%s"',verb, direction.resource.name );
       return direction;
     }
     else {
@@ -404,12 +414,12 @@ export class Site extends Container implements HttpPlayer {
       if ( !direction ) {
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
       }
-      log.info('HEAD resource "%s"',direction.resource.name() );
+      log.info('HEAD resource "%s"',direction.resource.name );
       route.path = direction.route.path;
       return direction.resource.head(route);
     }
     if ( self._home === '/') {
-      return internals.viewDynamic(self.name(), this );
+      return internals.viewDynamic(self.name, this );
     }
     else {
       log.info('HEAD is redirecting to "%s"',self._home );
@@ -433,13 +443,15 @@ export class Site extends Container implements HttpPlayer {
       route.path = direction.route.path;
       return direction.resource.get(route);
     }
-    if ( self._home === '/') {
-      return internals.viewDynamic(self.name(), this );
+    if ( route.path[0] === 'site' && self._home === '/') {
+      return internals.viewDynamic(self.name, this );
     }
-    else {
+    if ( self._home !== '/' ) {
       log.info('GET is redirecting to "%s"',self._home );
       return internals.redirect( self._home );
     }
+
+    return internals.promiseError( _.str.sprintf('[error] Root Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
   }
 
 
@@ -450,7 +462,7 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'POST' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
-      log.info('POST on resource "%s"',direction.resource.name() );
+      log.info('POST on resource "%s"',direction.resource.name );
       route.path = direction.route.path;
       return direction.resource.post( direction.route, body );
     }
@@ -465,7 +477,7 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'PATCH' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
-      log.info('PATCH on resource "%s"',direction.resource.name() );
+      log.info('PATCH on resource "%s"',direction.resource.name );
       route.path = direction.route.path;
       return direction.resource.patch( direction.route, body );
     }
@@ -480,7 +492,7 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'PUT' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
-      log.info('PATCH on resource "%s"',direction.resource.name() );
+      log.info('PATCH on resource "%s"',direction.resource.name );
       route.path = direction.route.path;
       return direction.resource.put( direction.route, body );
     }
@@ -490,7 +502,7 @@ export class Site extends Container implements HttpPlayer {
 
   delete( route : routing.Route, body?: any  ) : Q.Promise<Embodiment> {
     var self = this;
-    var ctx = '['+this.name()+'.delete] ';
+    var ctx = '['+this.name+'.delete] ';
     if ( route.static ) {
       return internals.promiseError( 'DELETE not supported on static resources', route.pathname );
     }
@@ -499,7 +511,7 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'DELETE' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('%s [error] Resource not found or invalid in request "%s"',ctx, route.pathname ), route.pathname );
-      internals.log().info('%s "%s"',ctx,direction.resource.name() );
+      internals.log().info('%s "%s"',ctx,direction.resource.name );
       route.path = direction.route.path;
       return direction.resource.delete( direction.route );
     }
@@ -549,7 +561,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     self._updateData(res.data);
   }
 
-  name(): string { return this._name; }
+  get name(): string {
+    return this._name;
+  }
 
   ok( response: DataCallback, data?: any ) : void {
     var respObj = { result: 'ok'};
@@ -624,11 +638,14 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self.getStepDirection( route );
       if ( direction.resource ) {
-        log.info('GET on resource "%s"',direction.resource.name() );
+        log.info('GET on resource "%s"',direction.resource.name );
         return direction.resource.get( direction.route );
       }
       else {
-        return internals.promiseError( _.str.sprintf('[error] ResourcePlayer GET could not find a Resource for "%s"', route.pathname ), route.pathname );
+        if ( _.keys(self._resources).length === 0 )
+          return internals.promiseError( _.str.sprintf('[error: no child] This resource "%s" does not have any child resource to navigate to. Path= "%s"', self.name, JSON.stringify(route.path) ), route.pathname );
+        else
+          return internals.promiseError( _.str.sprintf('[error: no such child] ResourcePlayer GET could not find a Resource for "%s"', JSON.stringify(route.path) ), route.pathname );
       }
     }
 
@@ -685,9 +702,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
   }
 
-
-  // HttpPlayer DELETE
-  // Deletes the specified resource (as identified in the URI).
+  /*
+   * HttpPlayer DELETE
+   * Deletes the specified resource (as identified in the URI within the route).
+  */
   delete( route : routing.Route ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: self._name+'.delete'} );
@@ -699,7 +717,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = this.getStepDirection( route );
       if ( direction.resource ) {
-        log.info('DELETE on resource "%s"',direction.resource.name() );
+        log.info('DELETE on resource "%s"',direction.resource.name );
         return direction.resource.delete( direction.route );
       }
       else {
@@ -711,11 +729,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( paramCount>0 )
       self._readParameters(route.path);
 
-    // If the onDelete() is defined use id to get dynamic data from the user defined resource.
+    // If the onDelete() is defined use it to invoke a user define delete.
     if ( self._onDelete ) {
-      log.info('calling onDelete() for %s',self._name );
+      log.info('call onDelete() for %s',self._name );
       var later = Q.defer< Embodiment >();
-      // console.log( _.str.sprintf('%s Calling onDelete()',ctx) );
       this._onDelete( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
@@ -733,10 +750,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       return later.promise;
     }
 
-    // When onDelete() is NOT available need to remove this resource
-    // console.log( _.str.sprintf('%s Removing static resource',ctx) );
-    log.info('Removing static resource %s',self._name );
+    // When onDelete() is NOT available we fallback on a default implementation
+    // that is the removal of this resource
+    log.info('Default Delete: Removing resource %s',self._name );
     self.parent.remove(self);
+    self.parent = null;
     return internals.viewJson(self);
   }
 
@@ -753,7 +771,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self.getStepDirection( route );
       if ( direction.resource ) {
-        log.info('POST on resource "%s"',direction.resource.name() );
+        log.info('POST on resource "%s"',direction.resource.name );
         return direction.resource.post( direction.route, body );
       }
       else {
@@ -770,8 +788,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       log.info('calling onPost() for %s', self._name );
       self._onPost( route.query, body )
         .then( ( response: any ) => {
-          self._updateData(response.data);
-          internals.viewJson(self)
+          // self._updateData(response.data);
+          internals.viewJson(response.data)
             .then( function(emb: Embodiment ) {
               emb.httpCode = response.httpCode ? response.httpCode : 200 ;
               emb.location = response.location ? response.location : '';
@@ -810,7 +828,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self.getStepDirection( route );
       if ( direction.resource ) {
-        log.info('PATCH on resource "%s"',direction.resource.name() );
+        log.info('PATCH on resource "%s"',direction.resource.name );
         return direction.resource.patch( direction.route, body );
       }
       else {

@@ -20,8 +20,10 @@ function initLog(appName) {
 }
 exports.initLog = initLog;
 function log() {
-    if (!_log)
+    if (!_log) {
         _log = bunyan.createLogger({ name: 'no app' });
+        _log.level(bunyan.WARN);
+    }
     return _log;
 }
 exports.log = log;
@@ -100,9 +102,17 @@ function viewJson(viewData) {
     var later = Q.defer();
     _.defer(function () {
         try {
-            var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(viewData, function (key, value) {
-                return (key.indexOf('_') === 0) ? undefined : value;
-            }), 'utf-8'));
+            var destObj = {};
+            _.each(_.keys(viewData), function (key) {
+                if (key === '_name')
+                    destObj['name'] = viewData[key];
+                else if (key.indexOf('_') === 0)
+                    return;
+                else {
+                    destObj[key] = viewData[key];
+                }
+            });
+            var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(destObj), 'utf-8'));
             later.resolve(e);
         }
         catch (err) {

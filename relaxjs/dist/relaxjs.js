@@ -40,6 +40,9 @@ var Embodiment = (function () {
     Embodiment.prototype.dataAsString = function () {
         return this.data.toString('utf-8');
     };
+    Embodiment.prototype.dataAsJason = function () {
+        return JSON.parse(this.dataAsString());
+    };
     return Embodiment;
 })();
 exports.Embodiment = Embodiment;
@@ -57,14 +60,14 @@ var Container = (function () {
     });
     Container.prototype.remove = function (child) {
         var log = internals.log().child({ func: 'Container.remove' });
-        var resArr = this._resources[child.name()];
+        var resArr = this._resources[child.name];
         if (!resArr)
             return false;
         var idx = _.indexOf(resArr, child);
         if (idx < 0)
             return false;
         resArr.splice(idx, 1);
-        log.info('- %s', child.name());
+        log.info('- %s', child.name);
         return true;
     };
     Container.prototype.add = function (newRes) {
@@ -155,14 +158,19 @@ var Site = (function (_super) {
         }
     }
     Site.$ = function (name) {
-        if (Site._instance === null) {
+        if (Site._instance === null || name) {
+            Site._instance = null;
             Site._instance = new Site(name ? name : 'site');
         }
         return Site._instance;
     };
-    Site.prototype.name = function () {
-        return this._name;
-    };
+    Object.defineProperty(Site.prototype, "name", {
+        get: function () {
+            return this._name;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Site.prototype.setName = function (newName) {
         this._name = newName;
     };
@@ -235,7 +243,7 @@ var Site = (function (_super) {
             direction.route = route;
             direction.route.path = cachedPath.path;
             direction.verb = verb;
-            log.info('%s Path Cache found for "%s"', verb, direction.resource.name());
+            log.info('%s Path Cache found for "%s"', verb, direction.resource.name);
             return direction;
         }
         else {
@@ -258,12 +266,12 @@ var Site = (function (_super) {
             if (!direction) {
                 return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
             }
-            log.info('HEAD resource "%s"', direction.resource.name());
+            log.info('HEAD resource "%s"', direction.resource.name);
             route.path = direction.route.path;
             return direction.resource.head(route);
         }
         if (self._home === '/') {
-            return internals.viewDynamic(self.name(), this);
+            return internals.viewDynamic(self.name, this);
         }
         else {
             log.info('HEAD is redirecting to "%s"', self._home);
@@ -285,13 +293,14 @@ var Site = (function (_super) {
             route.path = direction.route.path;
             return direction.resource.get(route);
         }
-        if (self._home === '/') {
-            return internals.viewDynamic(self.name(), this);
+        if (route.path[0] === 'site' && self._home === '/') {
+            return internals.viewDynamic(self.name, this);
         }
-        else {
+        if (self._home !== '/') {
             log.info('GET is redirecting to "%s"', self._home);
             return internals.redirect(self._home);
         }
+        return internals.promiseError(_.str.sprintf('[error] Root Resource not found or invalid in request "%s"', route.pathname), route.pathname);
     };
     Site.prototype.post = function (route, body) {
         var self = this;
@@ -300,7 +309,7 @@ var Site = (function (_super) {
             var direction = self._getDirection(route, 'POST');
             if (!direction)
                 return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
-            log.info('POST on resource "%s"', direction.resource.name());
+            log.info('POST on resource "%s"', direction.resource.name);
             route.path = direction.route.path;
             return direction.resource.post(direction.route, body);
         }
@@ -313,7 +322,7 @@ var Site = (function (_super) {
             var direction = self._getDirection(route, 'PATCH');
             if (!direction)
                 return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
-            log.info('PATCH on resource "%s"', direction.resource.name());
+            log.info('PATCH on resource "%s"', direction.resource.name);
             route.path = direction.route.path;
             return direction.resource.patch(direction.route, body);
         }
@@ -326,7 +335,7 @@ var Site = (function (_super) {
             var direction = self._getDirection(route, 'PUT');
             if (!direction)
                 return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
-            log.info('PATCH on resource "%s"', direction.resource.name());
+            log.info('PATCH on resource "%s"', direction.resource.name);
             route.path = direction.route.path;
             return direction.resource.put(direction.route, body);
         }
@@ -334,7 +343,7 @@ var Site = (function (_super) {
     };
     Site.prototype.delete = function (route, body) {
         var self = this;
-        var ctx = '[' + this.name() + '.delete] ';
+        var ctx = '[' + this.name + '.delete] ';
         if (route.static) {
             return internals.promiseError('DELETE not supported on static resources', route.pathname);
         }
@@ -342,7 +351,7 @@ var Site = (function (_super) {
             var direction = self._getDirection(route, 'DELETE');
             if (!direction)
                 return internals.promiseError(_.str.sprintf('%s [error] Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
-            internals.log().info('%s "%s"', ctx, direction.resource.name());
+            internals.log().info('%s "%s"', ctx, direction.resource.name);
             route.path = direction.route.path;
             return direction.resource.delete(direction.route);
         }
@@ -377,9 +386,13 @@ var ResourcePlayer = (function (_super) {
         }
         self._updateData(res.data);
     }
-    ResourcePlayer.prototype.name = function () {
-        return this._name;
-    };
+    Object.defineProperty(ResourcePlayer.prototype, "name", {
+        get: function () {
+            return this._name;
+        },
+        enumerable: true,
+        configurable: true
+    });
     ResourcePlayer.prototype.ok = function (response, data) {
         var respObj = { result: 'ok' };
         if (data)
@@ -433,11 +446,14 @@ var ResourcePlayer = (function (_super) {
         if (route.path.length > (1 + paramCount)) {
             var direction = self.getStepDirection(route);
             if (direction.resource) {
-                log.info('GET on resource "%s"', direction.resource.name());
+                log.info('GET on resource "%s"', direction.resource.name);
                 return direction.resource.get(direction.route);
             }
             else {
-                return internals.promiseError(_.str.sprintf('[error] ResourcePlayer GET could not find a Resource for "%s"', route.pathname), route.pathname);
+                if (_.keys(self._resources).length === 0)
+                    return internals.promiseError(_.str.sprintf('[error: no child] This resource "%s" does not have any child resource to navigate to. Path= "%s"', self.name, JSON.stringify(route.path)), route.pathname);
+                else
+                    return internals.promiseError(_.str.sprintf('[error: no such child] ResourcePlayer GET could not find a Resource for "%s"', JSON.stringify(route.path)), route.pathname);
             }
         }
         log.info('GET Target Found : %s', self._name);
@@ -486,7 +502,7 @@ var ResourcePlayer = (function (_super) {
         if (route.path.length > (1 + paramCount)) {
             var direction = this.getStepDirection(route);
             if (direction.resource) {
-                log.info('DELETE on resource "%s"', direction.resource.name());
+                log.info('DELETE on resource "%s"', direction.resource.name);
                 return direction.resource.delete(direction.route);
             }
             else {
@@ -496,7 +512,7 @@ var ResourcePlayer = (function (_super) {
         if (paramCount > 0)
             self._readParameters(route.path);
         if (self._onDelete) {
-            log.info('calling onDelete() for %s', self._name);
+            log.info('call onDelete() for %s', self._name);
             var later = Q.defer();
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
@@ -512,8 +528,9 @@ var ResourcePlayer = (function (_super) {
             });
             return later.promise;
         }
-        log.info('Removing static resource %s', self._name);
+        log.info('Default Delete: Removing resource %s', self._name);
         self.parent.remove(self);
+        self.parent = null;
         return internals.viewJson(self);
     };
     ResourcePlayer.prototype.post = function (route, body) {
@@ -524,7 +541,7 @@ var ResourcePlayer = (function (_super) {
         if (route.path.length > (1 + paramCount)) {
             var direction = self.getStepDirection(route);
             if (direction.resource) {
-                log.info('POST on resource "%s"', direction.resource.name());
+                log.info('POST on resource "%s"', direction.resource.name);
                 return direction.resource.post(direction.route, body);
             }
             else {
@@ -536,8 +553,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
-                self._updateData(response.data);
-                internals.viewJson(self).then(function (emb) {
+                internals.viewJson(response.data).then(function (emb) {
                     emb.httpCode = response.httpCode ? response.httpCode : 200;
                     emb.location = response.location ? response.location : '';
                     later.resolve(emb);
@@ -566,7 +582,7 @@ var ResourcePlayer = (function (_super) {
         if (route.path.length > (1 + paramCount)) {
             var direction = self.getStepDirection(route);
             if (direction.resource) {
-                log.info('PATCH on resource "%s"', direction.resource.name());
+                log.info('PATCH on resource "%s"', direction.resource.name);
                 return direction.resource.patch(direction.route, body);
             }
             else {

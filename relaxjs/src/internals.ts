@@ -27,11 +27,13 @@ export function setLogVerbose( flag : boolean ) {
 export function initLog( appName : string ) {
   _appName = appName;
   _log = bunyan.createLogger( { name: appName} );
-  _log.level(bunyan.WARN)
+  _log.level(bunyan.WARN);
 }
 export function log(): bunyan.Logger {
-  if ( !_log )
+  if ( !_log ) {
     _log = bunyan.createLogger( { name: 'no app'} );
+    _log.level(bunyan.WARN);
+  }
   return _log;
 }
 
@@ -133,13 +135,24 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
   var later = Q.defer< relaxjs.Embodiment >();
   _.defer( () => {
     try {
-      var e = new relaxjs.Embodiment( 'application/json',
-        new Buffer(
-          JSON.stringify(
-            viewData,
-            ( key : string, value : any ) => { return ( key.indexOf('_') === 0 ) ?  undefined : value; }),
-            'utf-8')
-      );
+      // 1 Copy the public properties and _name to a destination object for serialization.
+      var destObj = {};
+      _.each( _.keys( viewData) , function(key: string) {
+        //
+        if ( key === '_name' )
+          destObj['name'] = viewData[key];
+        else if ( key.indexOf('_') === 0 )
+          return;
+        else {
+          //console.log('['+key+'] is '+viewData[key] );
+          destObj[key] = viewData[key];
+        }
+      });
+      // console.log(destObj);
+      var e = new relaxjs.Embodiment(
+        'application/json',
+        new Buffer( JSON.stringify( destObj ),
+        'utf-8' ) );
       later.resolve( e );
     }
     catch( err ) {
