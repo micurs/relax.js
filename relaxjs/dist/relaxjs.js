@@ -12,6 +12,7 @@ var internals = require('./internals');
 var routing = require('./routing');
 var rxError = require('./rxerror');
 exports.routing = routing;
+exports.version = "0.1.0";
 function relax() {
     console.log('relax.js !');
 }
@@ -143,7 +144,7 @@ var Site = (function (_super) {
     function Site(siteName, parent) {
         _super.call(this, parent);
         this._name = "site";
-        this._version = '0.0.1';
+        this._version = exports.version;
         this._siteName = 'site';
         this._home = '/';
         this._pathCache = {};

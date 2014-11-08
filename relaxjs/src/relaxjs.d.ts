@@ -9,6 +9,8 @@ Realx.js v 0..1 type definitons
 declare module "relaxjs" {
   import http = require('http');
 
+  export var version: string;
+  
   export function relax(): void;
 
   export module rxError {

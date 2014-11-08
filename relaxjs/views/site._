@@ -81,7 +81,7 @@ function getResourcesUL( resources, root ) {
           Welcome to your relax.js site!
         </h3>
         <p>
-          This page is automatically generated and it is the default view for your site as resource.
+          This page is automatically generated and it is the default view for your site as a resource.
         </p>
         <h3>
           Learn more

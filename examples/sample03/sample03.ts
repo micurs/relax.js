@@ -34,17 +34,22 @@ var usersResource : relaxjs.Resource = {
       view: 'user',
       onGet: function( query: any, respond: relaxjs.DataCallback  ) {
         var userid = query['id'];
-        store.hget( 'user',userid,
-          ( err: Error, userdata: string ) => {
-            if ( userdata ) {
-              this.ok(respond, JSON.parse(userdata) );
-            }
-            else {
-              var errMsg = 'Could not find User with id: '+userid;
-              var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
-              respond( respError );
-            }
-        });
+        if ( userid ) {
+          store.hget( 'user',userid,
+            ( err: Error, userdata: string ) => {
+              if ( userdata ) {
+                this.ok(respond, JSON.parse(userdata) );
+              }
+              else {
+                var errMsg = 'Could not find User with id: '+userid;
+                var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
+                this.fail(respond, respError );
+              }
+          });
+        }
+        else {
+
+        }
       }
     }
   ]

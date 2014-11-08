@@ -6,8 +6,10 @@
     "email": "michele@micurs.com",
     "url": "http://github.com/micurs"
   },
+  "version": "0.1.0",
   "license": "MIT",
   "main": "dist/relaxjs.js",
+  "keywords" : [ "REST", "RESTful", "webservices" ],
   "typescript": {
     "definition": "dist/relaxjs.d.ts"
   },
@@ -15,7 +17,10 @@
     "build": "gulp",
     "tests": "jasmine-node --verbose --color tests"
   },
-  "version": "0.0.2",
+  "files" : [
+    "dist/", "src/", "views/", "tests", "readme.md", "gulpfile.js", "license.txt", "tsd.json"
+  ],
+  "preferGlobal" : "false",
   "dependencies": {
     "bunyan": "^1.2.1",
     "mime": "^1.2.11",

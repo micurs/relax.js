@@ -1,5 +1,5 @@
 /*
- * Relax.js version 0.0.1
+ * Relax.js version 0.1.0
  * by Michele Ursino Nov - 2014
 */
 
@@ -9,6 +9,7 @@
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 
+//var pjson = require('./package.json');
 import http = require("http");
 import fs = require("fs");
 import url = require('url');
@@ -23,11 +24,11 @@ import rxError = require('./rxerror');
 
 exports.routing = routing;
 
+export var version = "0.1.0";
 
 export function relax() : void {
   console.log('relax.js !');
 }
-
 
 /*
  * The resource player implement the resource runtime capabilities.
@@ -278,7 +279,7 @@ export class Container {
 export class Site extends Container implements HttpPlayer {
   private static _instance : Site = null;
   private _name: string = "site";
-  private _version : string = '0.0.1';
+  private _version : string = version;
   private _siteName : string = 'site';
   private _home : string = '/';
   private _pathCache = {};
