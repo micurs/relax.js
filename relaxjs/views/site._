@@ -77,7 +77,6 @@ function getResourcesUL( resources, root ) {
         </p>
       </div>
       <div class="col-md-4">
-        <h2>Info</h2>
         <h3>
           Welcome to your relax.js site!
         </h3>
