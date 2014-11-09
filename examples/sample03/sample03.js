@@ -28,16 +28,20 @@ var usersResource = {
         onGet: function (query, respond) {
             var _this = this;
             var userid = query['id'];
-            store.hget('user', userid, function (err, userdata) {
-                if (userdata) {
-                    _this.ok(respond, JSON.parse(userdata));
-                }
-                else {
-                    var errMsg = 'Could not find User with id: ' + userid;
-                    var respError = new relaxjs.rxError.RxError(errMsg, 'User not found', 404);
-                    respond(respError);
-                }
-            });
+            if (userid) {
+                store.hget('user', userid, function (err, userdata) {
+                    if (userdata) {
+                        _this.ok(respond, JSON.parse(userdata));
+                    }
+                    else {
+                        var errMsg = 'Could not find User with id: ' + userid;
+                        var respError = new relaxjs.rxError.RxError(errMsg, 'User not found', 404);
+                        _this.fail(respond, respError);
+                    }
+                });
+            }
+            else {
+            }
         }
     }]
 };

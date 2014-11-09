@@ -52,7 +52,7 @@ var usersResource = {
                 }
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;
-                    var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
+                    var respError = new relaxjs.rxError.RxError(errMsg, 'User not found', 404);
                     self.fail(respond, respError);
                 }
             });
@@ -67,7 +67,7 @@ var usersResource = {
                 }
                 else {
                     var errMsg = 'Could not find User with id: ' + userid;
-                    var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
+                    var respError = new relaxjs.rxError.RxError(errMsg, 'User not found', 404);
                     self.fail(respond, respError);
                 }
             });
@@ -86,7 +86,7 @@ var usersResource = {
                     }
                     else {
                         var errMsg = 'Could not find User with id: ' + userid;
-                        var respError = new relaxjs.RxError(errMsg, 'User not found', 404);
+                        var respError = new relaxjs.rxError.RxError(errMsg, 'User not found', 404);
                         self.fail(respond, respError);
                     }
                 });
@@ -102,7 +102,7 @@ var usersResource = {
                     }
                     else {
                         var errMsg = 'Could not Save User with id: ' + userid;
-                        var respError = new relaxjs.RxError(errMsg, 'User could not be updated found');
+                        var respError = new relaxjs.rxError.RxError(errMsg, 'User could not be updated found');
                         self.fail(respond, respError);
                     }
                 });
