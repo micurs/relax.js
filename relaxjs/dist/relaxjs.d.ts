@@ -1,16 +1,14 @@
-///<reference path='../typings/node/node.d.ts' />
-///<reference path='../typings/q/Q.d.ts' />
-///<reference path='../typings/underscore/underscore.d.ts' />
-///<reference path='../typings/underscore.string/underscore.string.d.ts' />
+
 /*
-Realx.js v 0..1 type definitons
+ * Realx.js v 0.1.1 type definitons
+ * by Michele Ursino
 */
 
 declare module "relaxjs" {
   import http = require('http');
 
   export var version: string;
-  
+
   export function relax(): void;
 
   export module rxError {
