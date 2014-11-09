@@ -1,6 +1,6 @@
 # Relax.js frameworks + samples
 
-Welcome to the Relax.js node project.
+Welcome to the Relax.js node project. This framework is still under heavy development and it is not ready for any use in a production environment.
 
 Relax.js is a simple node framework for building truly RESTful web applications in Javascript (or Typescript) using node.js.
 
@@ -11,6 +11,23 @@ Windows without any changes.
 
 - For more information on how to compile and change Relax.js check this [readme](relaxjs/readme.md).
 - Also check the [wiki](https://github.com/micurs/relax.js/wiki) to understand how it works.
+
+# Install from npm
+
+```
+npm install relaxjs
+```
+
+Will download the latest version from npm.
+You can use relax.js from javascript in full. If you want to use it using Typescript the project contains
+a type definition file ``relaxjs.d.ts``.
+
+you can use it from your typescript source files:
+
+```
+///<reference path='node_modules/relaxjs/dist/relaxjs.d.ts' />
+```
+
 
 # Running on Vagrant
 
@@ -92,7 +109,7 @@ node sample1.js
 
 Then open your browser to `http://localhost:3000`
 
-The second example (**sample02**) is written in typescript. Here is how you compile and run it:
+The other examplea (**sample02 to 04**) are written in Typescript. Here is how you compile and run them:
 
 ```bash
 cd /examples/sample02
@@ -100,7 +117,7 @@ npm run build
 npm start
 ```
 
-All these example start a server listening on port 3000.
+All these examples start a server listening on port 3000.
 
 Read more on how to use Relax.js on the [wiki](https://github.com/micurs/relax.js/wiki).
 

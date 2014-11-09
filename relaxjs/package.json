@@ -6,9 +6,10 @@
     "email": "michele@micurs.com",
     "url": "http://github.com/micurs"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "main": "dist/relaxjs.js",
+  "bugs" : "https://github.com/micurs/relax.js/issues",
   "keywords" : [ "REST", "RESTful", "webservices" ],
   "typescript": {
     "definition": "dist/relaxjs.d.ts"
