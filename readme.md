@@ -1,10 +1,10 @@
 # Relax.js frameworks + samples
 
-Welcome to the Relax.js node project. This framework is still under heavy development and it is not ready for any use in a production environment.
+Welcome to the Relax.js node project. This framework is still under development and it is not ready for any use in a production environment.
 
 Relax.js is a simple node framework for building truly RESTful web applications in Javascript (or Typescript) using node.js.
 
-This repo contains the actual module (in the `relaxjs` folder) and a few working sample in the `examples` folder.
+This repo contains the actual module (in the `relaxjs` folder) and a few working samples in the `examples/` folder.
 
 The entire repo can run within a Vagrant box (as Ubuntu 64bit) so you can compile and run this on a Mac or
 Windows without any changes.
