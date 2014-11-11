@@ -1,6 +1,6 @@
 {
   "name": "sample02",
-  "version": "0.0.2",
+  "version": "0.1.1",
   "description": "Sample use of relaxjs using Typescript",
   "main": "sample02.js",
   "author": "Michele Ursino",
