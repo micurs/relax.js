@@ -8,13 +8,7 @@
     "node/node.d.ts": {
       "commit": "ec8e7c8d593e316822f3d6eba89ea09ff6f43161"
     },
-    "moment/moment.d.ts": {
-      "commit": "fe50484fda542dcdb0b47ee0ef20d7676a9630f1"
-    },
     "q/Q.d.ts": {
-      "commit": "eef872b96a458fde22571def5a368a867de9901b"
-    },
-    "jquery/jquery.d.ts": {
       "commit": "eef872b96a458fde22571def5a368a867de9901b"
     },
     "mime/mime.d.ts": {
@@ -28,6 +22,9 @@
     },
     "bunyan/bunyan.d.ts": {
       "commit": "7be40b2a8aca2288fe7011cd24959718756a5664"
+    },
+    "jquery/jquery.d.ts": {
+      "commit": "39531c32fe899cada2cc7e615610644fb6508416"
     }
   }
 }

@@ -1,7 +1,8 @@
 
 /*
  * Realx.js v 0.1.1 type definitons
- * by Michele Ursino
+ * Project: https://github.com/micurs/relax.js
+ * Definitions by: Michele Ursino <http://github.com/micurs>
 */
 
 declare module "relaxjs" {
@@ -20,7 +21,7 @@ declare module "relaxjs" {
     }
 
     export class RxError implements IRxError {
-      httpCode: number;
+      httpCode: number;s
       extra: string;
       public name: string;
       public message: string;
