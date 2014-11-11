@@ -134,6 +134,8 @@ var Container = (function () {
             log.info('Access Resource "%s"[%d] ', childResName, idx);
             direction.resource = this.getChild(childResName, idx);
         }
+        if (!direction.resource)
+            return undefined;
         return direction;
     };
     return Container;
@@ -236,6 +238,7 @@ var Site = (function (_super) {
         this._home = path;
     };
     Site.prototype._getDirection = function (route, verb) {
+        if (verb === void 0) { verb = 'GET'; }
         var log = internals.log().child({ func: 'Site._getDirection' });
         var cachedPath = this._pathCache[route.pathname];
         if (cachedPath) {
@@ -257,6 +260,25 @@ var Site = (function (_super) {
         }
         log.info('No Direction found', verb, route.pathname);
         return undefined;
+    };
+    Site.prototype.getResource = function (pathname) {
+        var route = new routing.Route(pathname);
+        var direction = this._getDirection(route);
+        if (!direction)
+            return undefined;
+        var resource = direction.resource;
+        route.path = direction.route.path;
+        while (route.path.length > 1) {
+            direction = resource.getStepDirection(route);
+            if (direction) {
+                resource = direction.resource;
+                route.path = direction.route.path;
+            }
+            else {
+                return undefined;
+            }
+        }
+        return resource;
     };
     Site.prototype.head = function (route, body) {
         var self = this;

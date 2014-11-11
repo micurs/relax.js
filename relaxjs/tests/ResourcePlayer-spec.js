@@ -37,7 +37,7 @@ beforeEach(function() {
  * GET Tests
 */
 /**/
-describe('GET responses: ', function() {
+describe('Test GET responses: ', function() {
 
   describe('1.1 GET static data from a Resource: hello', function() {
     it('should get {"message":"Hello World!"}', function() {
@@ -229,8 +229,7 @@ describe('GET responses: ', function() {
 /**/
 
 /**/
-describe('POST responses: ', function() {
-
+describe('Test POST responses: ', function() {
 
   describe('2.1 POST JSON data to a Resource with no onPost() function', function() {
     it('should add the data as member of the resource', function() {
@@ -358,7 +357,7 @@ describe('POST responses: ', function() {
 /**/
 
 /**/
-describe('DELETE responses', function() {
+describe('Test DELETE responses', function() {
 
 
   describe('3.1 DELETE a static child Resource', function() {
@@ -447,6 +446,101 @@ describe('DELETE responses', function() {
 
     });
   });
+
+
+  // ---
+
+    describe('3.4 DELETE a static child Resource through a site', function() {
+    it('should remove the resource from its parent', function() {
+      var result;
+      var site = relaxjs.site('test');
+      site.add( {
+        name: 'parent',
+        resources: [{
+          name: 'child',
+          data: { message: 'this resource will be deleted'}
+        }]
+      });
+      site.delete( new routing.Route('/parent/child') )
+        .then( function(emb){ result = emb.dataAsJason(); } )
+        .fail( function (error) { result = error } );
+
+
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( site.getResource('/parent/child') ).toBeUndefined();
+        expect( result.data ).toEqual( { message: 'this resource will be deleted'} );
+      });
+    });
+  });
+
+
+  describe('3.5 DELETE a dynamic Resource data item through a site', function() {
+    it('should remove the item "second-item" from the resource data', function() {
+      var result;
+      var site = relaxjs.site('test');
+      site.add( {
+        name: 'parent',
+        resources: [{
+          name: 'child',
+          data: { testArray : [ 'first-item', 'second-item', 'third-item' ] },
+          onDelete: function(query, respond ) {
+            var idx = query['idx'];
+            this.data.testArray.splice(idx,1);
+            this.ok(respond, this.data );
+          }
+        }]
+      });
+      site.delete(new routing.Route('/parent/child?idx=1') )
+        .then( function(emb){ result = emb.dataAsJason(); } )
+        .fail( function (error) { result = error } );
+
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
+      runs( function() {
+        //var res = JSON.parse(result);
+        expect( result ).toBeDefined();
+        expect( result.data.testArray ).toBeDefined();
+        expect( result.data.testArray ).not.toContain( 'second-item' );
+      });
+    });
+  });
+
+
+
+  describe('3.6 DELETE part of data using url parameters through a site', function() {
+    it('should remove the item "second-item" from its data using URL paramter 1', function() {
+      var result;
+      var site = relaxjs.site('test');
+      site.add( {
+        name: 'container',
+        resources: [{
+          name: 'data-res',
+          urlParameters: [ 'idx' ],
+          data: { testArray : [ 'first-item', 'second-item', 'third-item' ] },
+          onDelete: function( query, respond ) {
+            var idx = parseInt( this._parameters.idx );
+            this.data.testArray.splice(idx,1);
+            this.ok(respond, this.data );
+          }
+        }]
+      });
+      site.delete(new routing.Route('/container/data-res/1') )
+        .then( function(emb){ result = emb.dataAsJason(); } )
+        .fail( function (error) { result = error } );
+
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
+      runs( function() {
+        console.log(result);
+        expect( result ).toBeDefined();
+        expect( result.data.testArray ).toBeDefined();
+        expect( result.data.testArray ).not.toContain( 'second-item' );
+      });
+
+    });
+  });
+
+
 
 });
 /**/

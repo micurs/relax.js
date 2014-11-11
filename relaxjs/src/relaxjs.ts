@@ -102,7 +102,7 @@ export interface Resource {
  * Each arrray contain resource of the same type.
 */
 export interface ResourceMap {
-  [name: string]: HttpPlayer [];
+  [name: string]: ResourcePlayer [];
 }
 
 /*
@@ -196,7 +196,7 @@ export class Container {
   }
 
   // Find the first resource of the given type
-  getFirstMatching( typeName: string ) : HttpPlayer {
+  getFirstMatching( typeName: string ) : ResourcePlayer {
     var childArray = this._resources[typeName];
     if ( childArray === undefined ) {
       return null;
@@ -204,7 +204,7 @@ export class Container {
     return childArray[0];
   }
 
-  getChild( name: string, idx: number = 0 ) : HttpPlayer {
+  getChild( name: string, idx: number = 0 ) : ResourcePlayer {
     if ( this._resources[name])
       return this._resources[name][idx];
     else
@@ -226,7 +226,7 @@ export class Container {
   */
   childrenCount() : number {
     var counter : number = 0;
-    _.each< HttpPlayer[]>( this._resources, ( arrayItem : HttpPlayer[] ) => { counter += arrayItem.length; } );
+    _.each< ResourcePlayer[]>( this._resources, ( arrayItem : ResourcePlayer[] ) => { counter += arrayItem.length; } );
     return counter;
   }
 
@@ -266,6 +266,8 @@ export class Container {
       log.info('Access Resource "%s"[%d] ', childResName, idx );
       direction.resource = this.getChild(childResName, idx);
     }
+    if ( !direction.resource )
+      return undefined;
     return direction;
   }
 
@@ -381,7 +383,12 @@ export class Site extends Container implements HttpPlayer {
     this._home = path;
   }
 
-  private _getDirection( route: routing.Route, verb : string ) {
+  /*
+   * Returns the direction toward the resource in the given route.
+   * The Direction object returned may point directly to the resource requested or
+   * may point to a resource that will lead to the requested resource
+  */
+  private _getDirection( route: routing.Route, verb : string = 'GET' ) {
     var log = internals.log().child( { func: 'Site._getDirection'} );
     var cachedPath = this._pathCache[route.pathname];
     if ( cachedPath ) {
@@ -405,6 +412,30 @@ export class Site extends Container implements HttpPlayer {
     return undefined;
   }
 
+  /*
+   * Return the resource matching the given path.
+  */
+  getResource( pathname: string ) : Resource {
+    var route = new routing.Route(pathname);
+    var direction = this._getDirection(route); // This one may return the resource directly if cached
+    if ( !direction )
+      return undefined;
+    var resource : ResourcePlayer = direction.resource;
+    route.path = direction.route.path;
+    while( route.path.length > 1 ) {
+      direction = resource.getStepDirection(route);
+      if ( direction ) {
+        resource = direction.resource;
+        route.path = direction.route.path;
+      }
+      else {
+        return undefined;
+      }
+    }
+    return resource;
+  }
+
+  // HTTP Verb functions --------------------
 
   head( route : routing.Route, body?: any  ) : Q.Promise< Embodiment > {
     var self = this;
@@ -518,6 +549,7 @@ export class Site extends Container implements HttpPlayer {
     }
     return internals.promiseError( _.str.sprintf('[error] Invalid DELETE request "%s"', route.pathname ), route.pathname );
   }
+
 }
 
 /*
