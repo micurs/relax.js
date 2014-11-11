@@ -7,7 +7,7 @@
     "url": "http://github.com/micurs"
   },
   "repository" : { "type" : "git", "url" : "https://github.com/micurs/relax.js" },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "MIT",
   "main": "dist/relaxjs.js",
   "bugs": "https://github.com/micurs/relax.js/issues",
