@@ -29,7 +29,7 @@ function log() {
 exports.log = log;
 function parseData(bodyData, contentType) {
     try {
-        if (contentType === 'application/json') {
+        if (contentType.indexOf('application/json') > -1) {
             return JSON.parse(bodyData);
         }
         else

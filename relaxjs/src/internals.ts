@@ -42,7 +42,7 @@ export function log(): bunyan.Logger {
 */
 export function parseData( bodyData: string,  contentType: string ) {
   try {
-    if ( contentType === 'application/json' ) {
+    if ( contentType.indexOf('application/json') > -1 ) {
       return JSON.parse(bodyData);
     }
     else

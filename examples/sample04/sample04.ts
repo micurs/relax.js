@@ -1,6 +1,10 @@
 // Relax.js example #4
 
+///<reference path='typings/node/node.d.ts' />
+///<reference path='typings/q/q.d.ts' />
+///<reference path='typings/underscore/underscore.d.ts' />
 ///<reference path='typings/redis/redis.d.ts' />
+
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 
 import _ = require("underscore");
@@ -102,10 +106,12 @@ var usersResource : relaxjs.Resource = {
           });
         },
 
+        // PATCH: Editing an existing user
         onPatch: function( query: any, userData: any, respond: relaxjs.DataCallback  ) {
           var self = this;
-          var userid = this._parameters.idx;
+          var userid = self._parameters.idx;
           userData['userId'] = userid;
+          console.log(userData);
           store.hset('user', userid, JSON.stringify(userData), function( err: Error, data: string ) {
             if (!err) {
               store.save();

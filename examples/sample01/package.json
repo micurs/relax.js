@@ -1,0 +1,12 @@
+{
+  "name": "sample1",
+  "version": "0.1.1",
+  "description": "Sample use of relaxjs using javascript",
+  "main": "sample1.js",
+  "author": "Michele Ursino",
+  "license": "MIT",
+  "scripts": {
+    "start": "node sample1.js --relaxjs-verbose | bunyan",
+    "debug": "node-debug sample1.js"
+  }
+}

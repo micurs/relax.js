@@ -1,4 +1,7 @@
 // Relax.js example #3
+///<reference path='typings/node/node.d.ts' />
+///<reference path='typings/q/q.d.ts' />
+///<reference path='typings/underscore/underscore.d.ts' />
 ///<reference path='typings/redis/redis.d.ts' />
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 var _ = require("underscore");

@@ -1,4 +1,6 @@
 // Relax.js example #2
+///<reference path='typings/node/node.d.ts' />
+///<reference path='typings/q/q.d.ts' />
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 var relaxjs = require('relaxjs');
 var usersResource = {
