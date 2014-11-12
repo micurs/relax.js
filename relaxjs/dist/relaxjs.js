@@ -59,7 +59,7 @@ var Container = (function () {
         enumerable: true,
         configurable: true
     });
-    Container.prototype.remove = function (child) {
+    Container.prototype._remove = function (child) {
         var log = internals.log().child({ func: 'Container.remove' });
         var resArr = this._resources[child.name];
         if (!resArr)
@@ -70,6 +70,32 @@ var Container = (function () {
         resArr.splice(idx, 1);
         log.info('- %s', child.name);
         return true;
+    };
+    Container.prototype._getStepDirection = function (route) {
+        var log = internals.log().child({ func: 'Container.getStepDirection' });
+        var direction = new routing.Direction();
+        log.info('Get the next step on %s', JSON.stringify(route.path));
+        direction.route = route.stepThrough(1);
+        var childResName = direction.route.getNextStep();
+        if (childResName in this._resources) {
+            var idx = 0;
+            if (this._resources[childResName].length > 1) {
+                if (direction.route.path[1] !== undefined) {
+                    idx = parseInt(direction.route.path[1]);
+                    if (isNaN(idx)) {
+                        idx = 0;
+                    }
+                    else {
+                        direction.route = direction.route.stepThrough(1);
+                    }
+                }
+            }
+            log.info('Access Resource "%s"[%d] ', childResName, idx);
+            direction.resource = this.getChild(childResName, idx);
+        }
+        if (!direction.resource)
+            return undefined;
+        return direction;
     };
     Container.prototype.add = function (newRes) {
         var log = internals.log().child({ func: 'Container.add' });
@@ -111,32 +137,6 @@ var Container = (function () {
             counter += arrayItem.length;
         });
         return counter;
-    };
-    Container.prototype.getStepDirection = function (route) {
-        var log = internals.log().child({ func: 'Container.getStepDirection' });
-        var direction = new routing.Direction();
-        log.info('Get the next step on %s', JSON.stringify(route.path));
-        direction.route = route.stepThrough(1);
-        var childResName = direction.route.getNextStep();
-        if (childResName in this._resources) {
-            var idx = 0;
-            if (this._resources[childResName].length > 1) {
-                if (direction.route.path[1] !== undefined) {
-                    idx = parseInt(direction.route.path[1]);
-                    if (isNaN(idx)) {
-                        idx = 0;
-                    }
-                    else {
-                        direction.route = direction.route.stepThrough(1);
-                    }
-                }
-            }
-            log.info('Access Resource "%s"[%d] ', childResName, idx);
-            direction.resource = this.getChild(childResName, idx);
-        }
-        if (!direction.resource)
-            return undefined;
-        return direction;
     };
     return Container;
 })();
@@ -252,7 +252,7 @@ var Site = (function (_super) {
         }
         else {
             log.info('%s Step into %s ', verb, route.pathname);
-            var direction = this.getStepDirection(route);
+            var direction = this._getStepDirection(route);
             if (direction && direction.resource) {
                 direction.verb = verb;
                 return direction;
@@ -269,7 +269,7 @@ var Site = (function (_super) {
         var resource = direction.resource;
         route.path = direction.route.path;
         while (route.path.length > 1) {
-            direction = resource.getStepDirection(route);
+            direction = resource._getStepDirection(route);
             if (direction) {
                 resource = direction.resource;
                 route.path = direction.route.path;
@@ -467,7 +467,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.get' });
         var paramCount = self._paramterNames.length;
         if (route.path.length > (1 + paramCount)) {
-            var direction = self.getStepDirection(route);
+            var direction = self._getStepDirection(route);
             if (direction.resource) {
                 log.info('GET on resource "%s"', direction.resource.name);
                 return direction.resource.get(direction.route);
@@ -523,7 +523,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.delete' });
         var paramCount = self._paramterNames.length;
         if (route.path.length > (1 + paramCount)) {
-            var direction = this.getStepDirection(route);
+            var direction = this._getStepDirection(route);
             if (direction.resource) {
                 log.info('DELETE on resource "%s"', direction.resource.name);
                 return direction.resource.delete(direction.route);
@@ -552,7 +552,7 @@ var ResourcePlayer = (function (_super) {
             return later.promise;
         }
         log.info('Default Delete: Removing resource %s', self._name);
-        self.parent.remove(self);
+        self.parent._remove(self);
         self.parent = null;
         return internals.viewJson(self);
     };
@@ -562,7 +562,7 @@ var ResourcePlayer = (function (_super) {
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
-            var direction = self.getStepDirection(route);
+            var direction = self._getStepDirection(route);
             if (direction.resource) {
                 log.info('POST on resource "%s"', direction.resource.name);
                 return direction.resource.post(direction.route, body);
@@ -603,7 +603,7 @@ var ResourcePlayer = (function (_super) {
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
-            var direction = self.getStepDirection(route);
+            var direction = self._getStepDirection(route);
             if (direction.resource) {
                 log.info('PATCH on resource "%s"', direction.resource.name);
                 return direction.resource.patch(direction.route, body);

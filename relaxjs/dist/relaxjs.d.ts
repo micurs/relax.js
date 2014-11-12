@@ -102,24 +102,21 @@ declare module "relaxjs" {
   }
 
   export interface ResourceMap {
-    [name: string]: HttpPlayer;
+    [name: string]: ResourcePlayer;
   }
 
   export class Container {
     public _resources:ResourceMap;
+    public parent : Container ;
     private _parent: Container;
-
-    parent : Container ;
 
     constructor( parent?: Container );
 
-    remove( child: HttpPlayer ) : boolean;
-    getFirstMatching( typeName: string ) : HttpPlayer;
     add( newRes: Resource ) : void ;
-    getChild( name: string, idx: number ) : HttpPlayer ;
+    getFirstMatching( typeName: string ) : ResourcePlayer;
+    getChild( name: string, idx: number ) : ResourcePlayer ;
     childTypeCount( typeName: string ) : number ;
     childrenCount() : number;
-    getDirection( route : routing.Route ) : routing.Direction;
   }
 
   export class Site extends Container implements HttpPlayer {
@@ -139,6 +136,7 @@ declare module "relaxjs" {
     setPathCache( path: string, shortcut: { resource: ResourcePlayer; path: string[] } ) : void;
     serve() : http.Server ;
     setHome( path: string ) : void;
+    getResource( pathname: string ) : Resource;
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
@@ -147,6 +145,7 @@ declare module "relaxjs" {
     delete( route : routing.Route ) : Q.Promise<Embodiment> ;
     patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
   }
+
 
   export class ResourcePlayer extends Container implements HttpPlayer {
     private _name: string;
@@ -161,7 +160,6 @@ declare module "relaxjs" {
     redirect( response: DataCallback, where: string, data?: any ) : void ;
     fail( response: DataCallback, data?: any ) : void;
     readParameters( path: string[]) : number ;
-
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;

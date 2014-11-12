@@ -163,8 +163,11 @@ export class Container {
     return this._parent;
   }
 
-  // Remove a child resource from this container
-  remove( child: HttpPlayer ) : boolean {
+  /*
+   * Remove a child resource from this container
+   * (this should be protected and accessible only to derived classses)
+  */
+  _remove( child: ResourcePlayer ) : boolean {
     var log = internals.log().child( { func: 'Container.remove'} );
     var resArr = this._resources[child.name];
     if ( !resArr )
@@ -177,59 +180,6 @@ export class Container {
     return true;
   }
 
-  // Add a resource of the given type as child
-  add( newRes: Resource ) : void {
-    var log = internals.log().child( { func: 'Container.add'} );
-    newRes['_version'] = site().version;
-    newRes['siteName'] = site().siteName;
-    var resourcePlayer : ResourcePlayer = new ResourcePlayer(newRes,this);
-
-    // Add the resource player to the child resource container for this container.
-    var indexName = _.str.slugify(newRes.name);
-    var childArray = this._resources[indexName];
-    if ( childArray === undefined )
-      this._resources[indexName] = [ resourcePlayer ];
-    else {
-      childArray.push(resourcePlayer);
-    }
-    log.info('+ %s',indexName);
-  }
-
-  // Find the first resource of the given type
-  getFirstMatching( typeName: string ) : ResourcePlayer {
-    var childArray = this._resources[typeName];
-    if ( childArray === undefined ) {
-      return null;
-    }
-    return childArray[0];
-  }
-
-  getChild( name: string, idx: number = 0 ) : ResourcePlayer {
-    if ( this._resources[name])
-      return this._resources[name][idx];
-    else
-      return undefined;
-  }
-
-  /*
-   * Return the number of children resources of the given type.
-  */
-  childTypeCount( typeName: string ) : number {
-    if ( this._resources[typeName] )
-      return this._resources[typeName].length;
-    else
-      return 0;
-  }
-
-  /*
-   * Return the total number of children resources for this node.
-  */
-  childrenCount() : number {
-    var counter : number = 0;
-    _.each< ResourcePlayer[]>( this._resources, ( arrayItem : ResourcePlayer[] ) => { counter += arrayItem.length; } );
-    return counter;
-  }
-
   /*
    * Inspect the cuurent path in the given route and create the direction
    * to pass a http request to a child resource.
@@ -237,8 +187,9 @@ export class Container {
    * and assign it to the direction.resource.
    * This function manages also the interpretaiton of an index in the path immediately
    * after the resource name.
+   * (this should be protected and accessible only to derived classses)
   */
-  getStepDirection( route : routing.Route ) : routing.Direction {
+  _getStepDirection( route : routing.Route ) : routing.Direction {
     var log = internals.log().child( { func: 'Container.getStepDirection'} );
     var direction: routing.Direction = new routing.Direction();
     log.info('Get the next step on %s', JSON.stringify(route.path) );
@@ -271,6 +222,66 @@ export class Container {
     return direction;
   }
 
+
+  // Add a resource of the given type as child
+  add( newRes: Resource ) : void {
+    var log = internals.log().child( { func: 'Container.add'} );
+    newRes['_version'] = site().version;
+    newRes['siteName'] = site().siteName;
+    var resourcePlayer : ResourcePlayer = new ResourcePlayer(newRes,this);
+
+    // Add the resource player to the child resource container for this container.
+    var indexName = _.str.slugify(newRes.name);
+    var childArray = this._resources[indexName];
+    if ( childArray === undefined )
+      this._resources[indexName] = [ resourcePlayer ];
+    else {
+      childArray.push(resourcePlayer);
+    }
+    log.info('+ %s',indexName);
+  }
+
+
+  // Find the first resource of the given type
+  getFirstMatching( typeName: string ) : ResourcePlayer {
+    var childArray = this._resources[typeName];
+    if ( childArray === undefined ) {
+      return null;
+    }
+    return childArray[0];
+  }
+
+
+  getChild( name: string, idx: number = 0 ) : ResourcePlayer {
+    if ( this._resources[name])
+      return this._resources[name][idx];
+    else
+      return undefined;
+  }
+
+
+  /*
+   * Return the number of children resources of the given type.
+  */
+  childTypeCount( typeName: string ) : number {
+    if ( this._resources[typeName] )
+      return this._resources[typeName].length;
+    else
+      return 0;
+  }
+
+
+  /*
+   * Return the total number of children resources for this node.
+  */
+  childrenCount() : number {
+    var counter : number = 0;
+    _.each< ResourcePlayer[]>( this._resources, ( arrayItem : ResourcePlayer[] ) => { counter += arrayItem.length; } );
+    return counter;
+  }
+
+
+
 }
 
 
@@ -301,6 +312,7 @@ export class Site extends Container implements HttpPlayer {
     }
   }
 
+
   public static $( name?:string ):Site {
     if(Site._instance === null || name ) {
       Site._instance = null;
@@ -309,15 +321,19 @@ export class Site extends Container implements HttpPlayer {
     return Site._instance;
   }
 
+
   get name(): string {
     return this._name;
   }
 
-  setName( newName:string ) : void { this._name = newName; }
+  setName( newName:string ) : void {
+    this._name = newName;
+  }
 
   get version() : string {
     return this._version;
   }
+
   get siteName() : string {
     return this._siteName;
   }
@@ -402,7 +418,7 @@ export class Site extends Container implements HttpPlayer {
     }
     else {
       log.info('%s Step into %s ', verb, route.pathname );
-      var direction = this.getStepDirection(route);
+      var direction = this._getStepDirection(route);
       if ( direction && direction.resource ) {
         direction.verb = verb;
         return direction;
@@ -423,7 +439,7 @@ export class Site extends Container implements HttpPlayer {
     var resource : ResourcePlayer = direction.resource;
     route.path = direction.route.path;
     while( route.path.length > 1 ) {
-      direction = resource.getStepDirection(route);
+      direction = resource._getStepDirection(route);
       if ( direction ) {
         resource = direction.resource;
         route.path = direction.route.path;
@@ -669,7 +685,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Dives in and navigates through the path to find the child resource that can answer this GET call
     if ( route.path.length > ( 1+paramCount ) ) {
-      var direction = self.getStepDirection( route );
+      var direction = self._getStepDirection( route );
       if ( direction.resource ) {
         log.info('GET on resource "%s"',direction.resource.name );
         return direction.resource.get( direction.route );
@@ -748,7 +764,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Dives in and navigates through the path to find the child resource that can answer this DELETE call
     if ( route.path.length > ( 1+paramCount ) ) {
-      var direction = this.getStepDirection( route );
+      var direction = this._getStepDirection( route );
       if ( direction.resource ) {
         log.info('DELETE on resource "%s"',direction.resource.name );
         return direction.resource.delete( direction.route );
@@ -786,7 +802,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // When onDelete() is NOT available we fallback on a default implementation
     // that is the removal of this resource
     log.info('Default Delete: Removing resource %s',self._name );
-    self.parent.remove(self);
+    self.parent._remove(self);
     self.parent = null;
     return internals.viewJson(self);
   }
@@ -802,7 +818,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
-      var direction = self.getStepDirection( route );
+      var direction = self._getStepDirection( route );
       if ( direction.resource ) {
         log.info('POST on resource "%s"',direction.resource.name );
         return direction.resource.post( direction.route, body );
@@ -859,7 +875,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
-      var direction = self.getStepDirection( route );
+      var direction = self._getStepDirection( route );
       if ( direction.resource ) {
         log.info('PATCH on resource "%s"',direction.resource.name );
         return direction.resource.patch( direction.route, body );
