@@ -1,4 +1,4 @@
-# Relax.js frameworks + samples
+# Relax.js the framework plus some samples
 
 Welcome to the Relax.js node project. This framework is still under development and it is not ready for any use in a production environment.
 
