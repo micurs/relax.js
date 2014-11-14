@@ -21,12 +21,12 @@ declare module "relaxjs" {
     }
 
     export class RxError implements IRxError {
-      httpCode: number;s
+      httpCode: number;
       extra: string;
       public name: string;
       public message: string;
       public stack: string;
-      constructor( message: string, name?: string, code?: number );
+      constructor( message: string, name?: string, co12de?: number );
       getHttpCode(): number;
       getExtra(): string;
       toString(): string;
@@ -108,11 +108,10 @@ declare module "relaxjs" {
   export class Container {
     public _resources:ResourceMap;
     public parent : Container ;
-    private _parent: Container;
-
     constructor( parent?: Container );
-
     add( newRes: Resource ) : void ;
+    remove( child: ResourcePlayer ) : boolean ;
+    getResource( pathname: string ) : Container ;
     getFirstMatching( typeName: string ) : ResourcePlayer;
     getChild( name: string, idx: number ) : ResourcePlayer ;
     childTypeCount( typeName: string ) : number ;
@@ -120,13 +119,6 @@ declare module "relaxjs" {
   }
 
   export class Site extends Container implements HttpPlayer {
-    private static _instance : Site ;
-    private _name: string;
-    private _version : string;
-    private _siteName : string;
-    private _home : string;
-    private _pathCache;
-
     constructor( siteName:string, parent?: Container );
     public static $( name:string ):Site;
     name(): string;
@@ -136,7 +128,7 @@ declare module "relaxjs" {
     setPathCache( path: string, shortcut: { resource: ResourcePlayer; path: string[] } ) : void;
     serve() : http.Server ;
     setHome( path: string ) : void;
-    getResource( pathname: string ) : Resource;
+    getResource( pathname: string ) : Container;
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
@@ -148,12 +140,6 @@ declare module "relaxjs" {
 
 
   export class ResourcePlayer extends Container implements HttpPlayer {
-    private _name: string;
-    private _template: string;
-    private _layout: string;
-    private _onGet : ( query: any ) => Q.Promise<any>;
-    private _onPost : ( query: any, body: string ) => Q.Promise<any>;
-
     constructor( res : Resource );
     name(): string;
     ok( response: DataCallback, data?: any ) : void;

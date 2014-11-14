@@ -102,7 +102,7 @@ export interface Resource {
  * Each arrray contain resource of the same type.
 */
 export interface ResourceMap {
-  [name: string]: ResourcePlayer [];
+  [name: string]: Container [];
 }
 
 /*
@@ -165,9 +165,8 @@ export class Container {
 
   /*
    * Remove a child resource from this container
-   * (this should be protected and accessible only to derived classses)
   */
-  _remove( child: ResourcePlayer ) : boolean {
+  remove( child: ResourcePlayer ) : boolean {
     var log = internals.log().child( { func: 'Container.remove'} );
     var resArr = this._resources[child.name];
     if ( !resArr )
@@ -187,9 +186,8 @@ export class Container {
    * and assign it to the direction.resource.
    * This function manages also the interpretaiton of an index in the path immediately
    * after the resource name.
-   * (this should be protected and accessible only to derived classses)
   */
-  _getStepDirection( route : routing.Route ) : routing.Direction {
+  protected _getStepDirection( route : routing.Route ) : routing.Direction {
     var log = internals.log().child( { func: 'Container.getStepDirection'} );
     var direction: routing.Direction = new routing.Direction();
     log.info('Get the next step on %s', JSON.stringify(route.path) );
@@ -222,6 +220,48 @@ export class Container {
     return direction;
   }
 
+  /*
+   * Returns the direction toward the resource in the given route.
+   * The Direction object returned may point directly to the resource requested or
+   * may point to a resource that will lead to the requested resource
+  */
+  protected _getDirection( route: routing.Route, verb : string = 'GET' ) : routing.Direction {
+    var log = internals.log().child( { func: 'Container._getDirection'} );
+
+    log.info('%s Step into %s ', verb, route.pathname );
+    var direction = this._getStepDirection(route);
+    if ( direction && direction.resource ) {
+      direction.verb = verb;
+      return direction;
+    }
+    log.info('No Direction found', verb, route.pathname );
+    return undefined;
+  }
+
+
+  /*
+   * Return the resource matching the given path.
+  */
+  getResource( pathname: string ) : Container {
+    var route = new routing.Route(pathname);
+    var direction = this._getDirection(route); // This one may return the resource directly if cached
+    if ( !direction )
+      return undefined;
+    var resource : Container = direction.resource;
+    route.path = direction.route.path;
+    while( route.path.length > 1 ) {
+      direction = resource._getStepDirection(route);
+      if ( direction ) {
+        resource = direction.resource;
+        route.path = direction.route.path;
+      }
+      else {
+        return undefined;
+      }
+    }
+    return resource;
+  }
+
 
   // Add a resource of the given type as child
   add( newRes: Resource ) : void {
@@ -243,7 +283,7 @@ export class Container {
 
 
   // Find the first resource of the given type
-  getFirstMatching( typeName: string ) : ResourcePlayer {
+  getFirstMatching( typeName: string ) : Container {
     var childArray = this._resources[typeName];
     if ( childArray === undefined ) {
       return null;
@@ -252,7 +292,7 @@ export class Container {
   }
 
 
-  getChild( name: string, idx: number = 0 ) : ResourcePlayer {
+  getChild( name: string, idx: number = 0 ) : Container {
     if ( this._resources[name])
       return this._resources[name][idx];
     else
@@ -276,7 +316,7 @@ export class Container {
   */
   childrenCount() : number {
     var counter : number = 0;
-    _.each< ResourcePlayer[]>( this._resources, ( arrayItem : ResourcePlayer[] ) => { counter += arrayItem.length; } );
+    _.each< Container[]>( this._resources, ( arrayItem : Container[] ) => { counter += arrayItem.length; } );
     return counter;
   }
 
@@ -319,6 +359,35 @@ export class Site extends Container implements HttpPlayer {
       Site._instance = new Site( name ? name : 'site' );
     }
     return Site._instance;
+  }
+
+  /*
+   * Returns the direction toward the resource in the given route.
+   * The Direction object returned may point directly to the resource requested or
+   * may point to a resource that will lead to the requested resource
+  */
+  protected _getDirection( route: routing.Route, verb : string = 'GET' ) : routing.Direction {
+    var log = internals.log().child( { func: 'Site._getDirection'} );
+    var cachedPath = this._pathCache[route.pathname];
+    if ( cachedPath ) {
+      var direction = new routing.Direction();
+      direction.resource = cachedPath.resource;
+      direction.route = route;
+      direction.route.path = cachedPath.path;
+      direction.verb = verb;
+      log.info('%s Path Cache found for "%s"',verb, route.pathname );
+      return direction;
+    }
+    else {
+      log.info('%s Step into %s ', verb, route.pathname );
+      var direction = this._getStepDirection(route);
+      if ( direction && direction.resource ) {
+        direction.verb = verb;
+        return direction;
+      }
+    }
+    log.info('No Direction found', verb, route.pathname );
+    return undefined;
   }
 
 
@@ -399,57 +468,8 @@ export class Site extends Container implements HttpPlayer {
     this._home = path;
   }
 
-  /*
-   * Returns the direction toward the resource in the given route.
-   * The Direction object returned may point directly to the resource requested or
-   * may point to a resource that will lead to the requested resource
-  */
-  private _getDirection( route: routing.Route, verb : string = 'GET' ) {
-    var log = internals.log().child( { func: 'Site._getDirection'} );
-    var cachedPath = this._pathCache[route.pathname];
-    if ( cachedPath ) {
-      var direction = new routing.Direction();
-      direction.resource = cachedPath.resource;
-      direction.route = route;
-      direction.route.path = cachedPath.path;
-      direction.verb = verb;
-      log.info('%s Path Cache found for "%s"',verb, direction.resource.name );
-      return direction;
-    }
-    else {
-      log.info('%s Step into %s ', verb, route.pathname );
-      var direction = this._getStepDirection(route);
-      if ( direction && direction.resource ) {
-        direction.verb = verb;
-        return direction;
-      }
-    }
-    log.info('No Direction found', verb, route.pathname );
-    return undefined;
-  }
 
-  /*
-   * Return the resource matching the given path.
-  */
-  getResource( pathname: string ) : Resource {
-    var route = new routing.Route(pathname);
-    var direction = this._getDirection(route); // This one may return the resource directly if cached
-    if ( !direction )
-      return undefined;
-    var resource : ResourcePlayer = direction.resource;
-    route.path = direction.route.path;
-    while( route.path.length > 1 ) {
-      direction = resource._getStepDirection(route);
-      if ( direction ) {
-        resource = direction.resource;
-        route.path = direction.route.path;
-      }
-      else {
-        return undefined;
-      }
-    }
-    return resource;
-  }
+
 
   // HTTP Verb functions --------------------
 
@@ -462,9 +482,9 @@ export class Site extends Container implements HttpPlayer {
       if ( !direction ) {
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
       }
-      log.info('HEAD resource "%s"',direction.resource.name );
       route.path = direction.route.path;
-      return direction.resource.head(route);
+      var res = <ResourcePlayer>(direction.resource);
+      return res.head(route);
     }
     if ( self._home === '/') {
       return internals.viewDynamic(self.name, this );
@@ -489,7 +509,8 @@ export class Site extends Container implements HttpPlayer {
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
       }
       route.path = direction.route.path;
-      return direction.resource.get(route);
+      var res = <ResourcePlayer>(direction.resource);
+      return res.get(route);
     }
     if ( route.path[0] === 'site' && self._home === '/') {
       return internals.viewDynamic(self.name, this );
@@ -510,9 +531,10 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'POST' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
-      log.info('POST on resource "%s"',direction.resource.name );
+      var res = <ResourcePlayer>(direction.resource);
+      log.info('POST on resource "%s"',res.name );
       route.path = direction.route.path;
-      return direction.resource.post( direction.route, body );
+      return res.post( direction.route, body );
     }
     return internals.promiseError( _.str.sprintf('[error] Invalid in request "%s"', route.pathname ), route.pathname );
   }
@@ -525,9 +547,10 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'PATCH' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
-      log.info('PATCH on resource "%s"',direction.resource.name );
+      var res = <ResourcePlayer>(direction.resource);
+      log.info('PATCH on resource "%s"',res.name );
       route.path = direction.route.path;
-      return direction.resource.patch( direction.route, body );
+      return res.patch( direction.route, body );
     }
     return internals.promiseError( _.str.sprintf('[error] Invalid in request "%s"', route.pathname ), route.pathname );
   }
@@ -540,9 +563,10 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'PUT' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
-      log.info('PATCH on resource "%s"',direction.resource.name );
+      var res = <ResourcePlayer>(direction.resource);
+      log.info('PATCH on resource "%s"',res.name );
       route.path = direction.route.path;
-      return direction.resource.put( direction.route, body );
+      return res.put( direction.route, body );
     }
     return internals.promiseError( _.str.sprintf('[error] Invalid PUT request "%s"', route.pathname ), route.pathname );
   }
@@ -559,9 +583,10 @@ export class Site extends Container implements HttpPlayer {
       var direction = self._getDirection( route, 'DELETE' );
       if ( !direction )
         return internals.promiseError( _.str.sprintf('%s [error] Resource not found or invalid in request "%s"',ctx, route.pathname ), route.pathname );
-      internals.log().info('%s "%s"',ctx,direction.resource.name );
+      var res = <ResourcePlayer>(direction.resource);
+      internals.log().info('%s "%s"',ctx,res.name );
       route.path = direction.route.path;
-      return direction.resource.delete( direction.route );
+      return res.delete( direction.route );
     }
     return internals.promiseError( _.str.sprintf('[error] Invalid DELETE request "%s"', route.pathname ), route.pathname );
   }
@@ -687,8 +712,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
       if ( direction.resource ) {
-        log.info('GET on resource "%s"',direction.resource.name );
-        return direction.resource.get( direction.route );
+        var res = <ResourcePlayer>(direction.resource);
+        log.info('GET on resource "%s"',res.name );
+        return res.get( direction.route );
       }
       else {
         if ( _.keys(self._resources).length === 0 )
@@ -766,8 +792,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = this._getStepDirection( route );
       if ( direction.resource ) {
-        log.info('DELETE on resource "%s"',direction.resource.name );
-        return direction.resource.delete( direction.route );
+        var res = <ResourcePlayer>(direction.resource);
+        log.info('DELETE on resource "%s"',res.name );
+        return res.delete( direction.route );
       }
       else {
         return internals.promiseError( _.str.sprintf('[error] Resource not found "%s"', route.pathname ), route.pathname );
@@ -802,7 +829,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // When onDelete() is NOT available we fallback on a default implementation
     // that is the removal of this resource
     log.info('Default Delete: Removing resource %s',self._name );
-    self.parent._remove(self);
+    self.parent.remove(self);
     self.parent = null;
     return internals.viewJson(self);
   }
@@ -820,8 +847,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
       if ( direction.resource ) {
-        log.info('POST on resource "%s"',direction.resource.name );
-        return direction.resource.post( direction.route, body );
+        var res = <ResourcePlayer>(direction.resource);
+        log.info('POST on resource "%s"',res.name );
+        return res.post( direction.route, body );
       }
       else {
         return internals.promiseError( _.str.sprintf('[error] Resource not found "%s"', route.pathname ), route.pathname );
@@ -877,8 +905,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
       if ( direction.resource ) {
-        log.info('PATCH on resource "%s"',direction.resource.name );
-        return direction.resource.patch( direction.route, body );
+        var res = <ResourcePlayer>(direction.resource);
+        log.info('PATCH on resource "%s"',res.name );
+        return res.patch( direction.route, body );
       }
       else {
         return internals.promiseError( _.str.sprintf('[error] Resource not found "%s"', route.pathname ), route.pathname );

@@ -26,7 +26,7 @@ declare module "relaxjs" {
       public name: string;
       public message: string;
       public stack: string;
-      constructor( message: string, name?: string, code?: number );
+      constructor( message: string, name?: string, co12de?: number );
       getHttpCode(): number;
       getExtra(): string;
       toString(): string;
@@ -110,6 +110,8 @@ declare module "relaxjs" {
     public parent : Container ;
     constructor( parent?: Container );
     add( newRes: Resource ) : void ;
+    remove( child: ResourcePlayer ) : boolean ;
+    getResource( pathname: string ) : Container ;
     getFirstMatching( typeName: string ) : ResourcePlayer;
     getChild( name: string, idx: number ) : ResourcePlayer ;
     childTypeCount( typeName: string ) : number ;
@@ -126,7 +128,7 @@ declare module "relaxjs" {
     setPathCache( path: string, shortcut: { resource: ResourcePlayer; path: string[] } ) : void;
     serve() : http.Server ;
     setHome( path: string ) : void;
-    getResource( pathname: string ) : Resource;
+    getResource( pathname: string ) : Container;
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
