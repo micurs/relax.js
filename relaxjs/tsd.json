@@ -14,12 +14,6 @@
     "mime/mime.d.ts": {
       "commit": "eef872b96a458fde22571def5a368a867de9901b"
     },
-    "underscore/underscore.d.ts": {
-      "commit": "fe50484fda542dcdb0b47ee0ef20d7676a9630f1"
-    },
-    "underscore.string/underscore.string.d.ts": {
-      "commit": "b2171552576bc574b97a9fd2ae5f037172049d7b"
-    },
     "bunyan/bunyan.d.ts": {
       "commit": "7be40b2a8aca2288fe7011cd24959718756a5664"
     },

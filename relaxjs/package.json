@@ -44,9 +44,7 @@
     "lodash": "^2.4.1",
     "mime": "^1.2.11",
     "q": "^1.0.1",
-    "typescript-require": "^0.2.6",
-    "underscore": "^1.7.0",
-    "underscore.string": "^2.3.3"
+    "typescript-require": "^0.2.6"
   },
   "devDependencies": {
     "better-console": "^0.2.3",

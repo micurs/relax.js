@@ -2,12 +2,12 @@
 
 ///<reference path='typings/node/node.d.ts' />
 ///<reference path='typings/q/q.d.ts' />
-///<reference path='typings/underscore/underscore.d.ts' />
+///<reference path='typings/lodash/lodash.d.ts' />
 
 ///<reference path='typings/redis/redis.d.ts' />
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 
-import _ = require("underscore");
+import _ = require('lodash');
 import relaxjs = require('relaxjs');
 import redis = require("redis");
 

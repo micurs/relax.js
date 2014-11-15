@@ -11,8 +11,8 @@
     "start": "node sample03.js --relaxjs-verbose | bunyan"
   },
   "dependencies": {
+    "lodash": "^2.4.1",
     "node-redis": "^0.1.7",
-    "redis": "^0.12.1",
-    "underscore": "^1.7.0"
+    "redis": "^0.12.1"
   }
 }
