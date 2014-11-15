@@ -23,32 +23,28 @@
 </head>
 <%
 function getResourceLI( m, res, index , resArray, father ) {
-  var indent = _.str.pad(' ', (_.str.count(father,'/')+1)*2 );
   var cc = res.childrenCount()
-  // console.log('['+index+'] '+res.name + ' with '+cc+' children' )
-  // var link = (father+_.str.slugify(res.name+'/'+index).replace(/\/0\//g,'/');
-  var link = father+_.str.slugify(res.name)+'/'+index;
+  var link = father+res.urlName+'/'+index;
   link = link.replace(/\/0(\/)*/g,'/');
   var name = res.name;
-  m += indent +'<li><i class="fa-li fa fa-file-o"></i><a href="'+link+'">'+name+'</a>'
+  m += '<li><i class="fa-li fa fa-file-o"></i><a href="'+link+'">'+name+'</a>'
   m += '</li>\n';
   return m;
 }
 
 function getResourcesUL( resources, root ) {
-  var indent = _.str.pad('',_.str.count(root,'/')*2);
-  var m = indent+'<ul class="fa-ul">\n';
-  _.each( resources , function( resArray ) {
-     m += _.reduce( _.values( resArray),
+  var m = '<ul class="fa-ul">\n';
+  _.each( resources , function( resArray ) {  // extract each resource array
+     m += _.reduce( _.values( resArray),      // collapse each array into a sequence of <li> item
                       function( m , childRes, index ) {
                         var rli = getResourceLI( m, childRes, index, resArray, root );
                         if ( childRes.childrenCount()>0 )
-                          rli += getResourcesUL(childRes._resources, root+_.str.slugify(childRes.name)+'/'+index+'/' );
+                          rli += getResourcesUL(childRes._resources, root+childRes.urlName+'/'+index+'/' );
                         return rli;
                       },
                       '');
    });
-  m += indent+'</ul>\n';
+  m += '</ul>\n';
   return m;
 }
 

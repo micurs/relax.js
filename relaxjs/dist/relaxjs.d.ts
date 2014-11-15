@@ -65,7 +65,9 @@ declare module "relaxjs" {
   }
 
   export interface HttpPlayer {
-    name(): string;
+    name: string;
+    urlName: string;
+    
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
@@ -119,12 +121,14 @@ declare module "relaxjs" {
   }
 
   export class Site extends Container implements HttpPlayer {
-    constructor( siteName:string, parent?: Container );
-    public static $( name:string ):Site;
-    name(): string;
-    setName( newName:string ) : void ;
+    name: string;
+    urlName: string;
     version: string;
     siteName: string;
+
+    constructor( siteName:string, parent?: Container );
+    public static $( name:string ):Site;
+    setName( newName:string ) : void ;
     setPathCache( path: string, shortcut: { resource: ResourcePlayer; path: string[] } ) : void;
     serve() : http.Server ;
     setHome( path: string ) : void;
@@ -140,8 +144,10 @@ declare module "relaxjs" {
 
 
   export class ResourcePlayer extends Container implements HttpPlayer {
+    name: string;
+    urlName: string;
+
     constructor( res : Resource );
-    name(): string;
     ok( response: DataCallback, data?: any ) : void;
     redirect( response: DataCallback, where: string, data?: any ) : void ;
     fail( response: DataCallback, data?: any ) : void;

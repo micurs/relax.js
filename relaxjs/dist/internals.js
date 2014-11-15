@@ -3,8 +3,7 @@ var mime = require('mime');
 var Q = require('q');
 var querystring = require('querystring');
 var bunyan = require('bunyan');
-var _ = require("underscore");
-_.str = require('underscore.string');
+var _ = require("lodash");
 var relaxjs = require('./relaxjs');
 var rxError = require('./rxerror');
 var _log;
@@ -27,6 +26,21 @@ function log() {
     return _log;
 }
 exports.log = log;
+function format(source) {
+    var args = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        args[_i - 1] = arguments[_i];
+    }
+    return this.replace(/{(\d+)}/g, function (match, n) {
+        return typeof args[n] != 'undefined' ? args[n] : match;
+    });
+}
+exports.format = format;
+function slugify(source) {
+    var res = source.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+    return res;
+}
+exports.slugify = slugify;
 function parseData(bodyData, contentType) {
     try {
         if (contentType.indexOf('application/json') > -1) {
@@ -43,15 +57,15 @@ function parseData(bodyData, contentType) {
 }
 exports.parseData = parseData;
 function emitCompileViewError(content, err, filename) {
-    var errTitle = _.str.sprintf('[error] Compiling View: %s', filename);
+    var errTitle = '[error] Compiling View: %s' + filename;
     var errMsg = err.message;
-    var code = _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>', _.escape(content));
+    var code = format('<h4>Content being compiled</h4><pre>{0}</pre>', _.escape(content));
     _log.error(errTitle);
     return new rxError.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
 function emitError(content, resname) {
-    var errTitle = _.str.sprintf('[error.500] Serving: %s', resname);
+    var errTitle = format('[error.500] Serving: {0}', resname);
     var errMsg = content;
     _log.error(errTitle);
     return new rxError.RxError(errMsg, errTitle, 500);
@@ -131,9 +145,9 @@ function viewDynamic(viewName, viewData, layoutName) {
     if (viewName === 'site') {
         templateFilename = __dirname + '/../views/' + viewName + '._';
     }
-    log.info('Reading template %s', templateFilename);
     if (layoutName) {
         var layoutFilename = './views/' + layoutName + '._';
+        log.info('Reading template %s in layout %s', templateFilename, layoutFilename);
         Q.all([readFile(templateFilename, { 'encoding': 'utf8' }), readFile(layoutFilename, { 'encoding': 'utf8' })]).spread(function (content, outerContent) {
             try {
                 log.info('Compile composite view %s in %s', templateFilename, layoutFilename);
@@ -141,24 +155,29 @@ function viewDynamic(viewName, viewData, layoutName) {
                 var fullContent = new Buffer(_.template(outerContent)({ page: innerContent, name: viewData.Name }), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment('text/html', fullContent));
             }
-            catch (e) {
-                laterAct.reject(emitCompileViewError(content, e, templateFilename + ' in ' + layoutFilename));
+            catch (err) {
+                log.error(err);
+                laterAct.reject(emitCompileViewError(content, err, templateFilename + ' in ' + layoutFilename));
             }
         }).catch(function (err) {
+            log.error(err);
             laterAct.reject(emitCompileViewError('N/A', err, templateFilename + ' in ' + layoutFilename));
         });
     }
     else {
+        log.info('Reading template %s', templateFilename);
         readFile(templateFilename, { 'encoding': 'utf8' }).then(function (content) {
             try {
-                log.info(_.str.sprintf('Compiling view %s', templateFilename));
+                log.info('Compiling view %s', templateFilename);
                 var fullContent = new Buffer(_.template(content)(viewData), 'utf-8');
                 laterAct.resolve(new relaxjs.Embodiment('text/html', fullContent));
             }
-            catch (e) {
-                laterAct.reject(emitCompileViewError(content, e, templateFilename));
+            catch (err) {
+                log.error(err);
+                laterAct.reject(emitCompileViewError(content, err, templateFilename));
             }
         }).catch(function (err) {
+            log.error(err);
             laterAct.reject(emitCompileViewError('N/A', err, templateFilename));
         });
     }

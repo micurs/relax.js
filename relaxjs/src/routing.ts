@@ -1,6 +1,5 @@
 ///<reference path='../typings/node/node.d.ts' />
-///<reference path='../typings/underscore/underscore.d.ts' />
-///<reference path='../typings/underscore.string/underscore.string.d.ts' />
+///<reference path='../typings/lodash/lodash.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 
@@ -12,8 +11,8 @@ import url = require('url');
 import path = require('path');
 import Q = require('q');
 import mime = require('mime');
-import _ = require("underscore");
-_.str = require('underscore.string');
+import _ = require("lodash");
+// _.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
 
@@ -33,7 +32,7 @@ export class Route {
       if ( parsedUrl.pathname.charAt(0) == '/' ) {
         resources.unshift('site');
       }
-      resources = _(resources).map( (item) => decodeURI(item) );
+      resources = _.map(resources, (item) => decodeURI(item) );
 
       this.pathname = parsedUrl.pathname;
       this.query = parsedUrl.query;
@@ -47,7 +46,7 @@ export class Route {
   stepThrough( stpes: number ) : Route {
     var newRoute : Route = new Route();
     newRoute.verb = this.verb;
-    newRoute.path = _.map(this.path, _.clone);
+    newRoute.path = _.map(this.path, (v) => _.clone(v) );
     newRoute.static = this.static;
     newRoute.pathname = this.pathname;
     newRoute.query = this.query;

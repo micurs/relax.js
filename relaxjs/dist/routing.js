@@ -1,7 +1,6 @@
 var url = require('url');
 var path = require('path');
-var _ = require("underscore");
-_.str = require('underscore.string');
+var _ = require("lodash");
 var Route = (function () {
     function Route(uri) {
         this.static = true;
@@ -12,7 +11,7 @@ var Route = (function () {
             if (parsedUrl.pathname.charAt(0) == '/') {
                 resources.unshift('site');
             }
-            resources = _(resources).map(function (item) { return decodeURI(item); });
+            resources = _.map(resources, function (item) { return decodeURI(item); });
             this.pathname = parsedUrl.pathname;
             this.query = parsedUrl.query;
             this.path = _.filter(resources, function (res) { return res.length > 0; });
@@ -22,7 +21,7 @@ var Route = (function () {
     Route.prototype.stepThrough = function (stpes) {
         var newRoute = new Route();
         newRoute.verb = this.verb;
-        newRoute.path = _.map(this.path, _.clone);
+        newRoute.path = _.map(this.path, function (v) { return _.clone(v); });
         newRoute.static = this.static;
         newRoute.pathname = this.pathname;
         newRoute.query = this.query;

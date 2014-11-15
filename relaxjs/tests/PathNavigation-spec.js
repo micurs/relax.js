@@ -4,6 +4,7 @@ var relaxjs = require('../dist/relaxjs.js');
 var routing = require('../dist/routing.js');
 var rxerror = require('../dist/rxerror.js');
 
+/**/
 describe('Test GetResource() function', function() {
 
 
@@ -64,3 +65,4 @@ describe('Test GetResource() function', function() {
 
 
 });
+/**/

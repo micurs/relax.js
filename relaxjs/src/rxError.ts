@@ -1,11 +1,10 @@
 ///<reference path='../typings/node/node.d.ts' />
-///<reference path='../typings/underscore/underscore.d.ts' />
-///<reference path='../typings/underscore.string/underscore.string.d.ts' />
+///<reference path='../typings/lodash/lodash.d.ts' />
 ///<reference path='./relaxjs.ts' />
 
-import _ = require("underscore");
-_.str = require('underscore.string');
+import _ = require("lodash");
 
+import internals = require('./internals');
 import relaxjs = require('./relaxjs');
 
 /*
@@ -54,6 +53,6 @@ export class RxError implements IRxError {
   }
 
   toString(): string {
-    return _.str.sprintf('RxError %d: %s\n%s\nStack:\n%s',this.httpCode,this.name,this.message,this.stack);
+    return internals.format('RxError {0}: {1}\n{2}\nStack:\n{3}',this.httpCode,this.name,this.message,this.stack);
   }
 }

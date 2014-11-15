@@ -1,6 +1,5 @@
 ///<reference path='../typings/node/node.d.ts' />
-///<reference path='../typings/underscore/underscore.d.ts' />
-///<reference path='../typings/underscore.string/underscore.string.d.ts' />
+///<reference path='../typings/lodash/lodash.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 ///<reference path='../typings/bunyan/bunyan.d.ts' />
@@ -12,23 +11,30 @@ import mime = require('mime');
 import Q = require('q');
 import querystring = require('querystring');
 import bunyan = require('bunyan');
-import _ = require("underscore");
-_.str = require('underscore.string');
+import _ = require("lodash");
+// _.str = require('underscore.string');
 
 import relaxjs = require('./relaxjs');
 import rxError = require('./rxerror');
 
+
 var _log : bunyan.Logger;
 var _appName : string;
+
+/*
+ * Bunyan log utilities
+*/
 
 export function setLogVerbose( flag : boolean ) {
   _log.level(bunyan.INFO);
 }
+
 export function initLog( appName : string ) {
   _appName = appName;
   _log = bunyan.createLogger( { name: appName} );
   _log.level(bunyan.WARN);
 }
+
 export function log(): bunyan.Logger {
   if ( !_log ) {
     _log = bunyan.createLogger( { name: 'no app'} );
@@ -36,6 +42,30 @@ export function log(): bunyan.Logger {
   }
   return _log;
 }
+
+
+export function format( source: string , ...args: any[]): string {
+ return this.replace(/{(\d+)}/g, function( match: any , n: number) {
+    return typeof args[n] != 'undefined'
+      ? args[n]
+      : match
+    ;
+  });
+}
+
+export function slugify ( source: string ): string
+{
+  var res = source.toLowerCase()
+                  .replace(/\s+/g, '-')           // Replace spaces with -
+                  .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+                  .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+                  .replace(/^-+/, '')             // Trim - from start of text
+                  .replace(/-+$/, '');
+  return res;
+}
+
+
+
 
 /*
  * Parse the body of a request according the given mime-type
@@ -57,9 +87,9 @@ export function parseData( bodyData: string,  contentType: string ) {
 
 // Internal functions to emit error/warning messages
 export function emitCompileViewError( content: string, err: TypeError, filename: string ) : rxError.RxError {
-  var errTitle = _.str.sprintf('[error] Compiling View: %s', filename );
+  var errTitle = '[error] Compiling View: %s'+ filename ;
   var errMsg = err.message;
-  var code =  _.str.sprintf('<h4>Content being compiled</h4><pre>%s</pre>',_.escape(content));
+  var code =  format('<h4>Content being compiled</h4><pre>{0}</pre>', _.escape(content));
   _log.error(errTitle);
   return new rxError.RxError(errMsg, errTitle, 500, code );
 }
@@ -68,7 +98,7 @@ export function emitCompileViewError( content: string, err: TypeError, filename:
  * Creates a RxError object with the given message and resource name
  */
 export function emitError( content: string, resname: string ) : rxError.RxError {
-  var errTitle = _.str.sprintf('[error.500] Serving: %s', resname );
+  var errTitle = format('[error.500] Serving: {0}', resname);
   var errMsg = content;
   _log.error(errTitle);
   return new rxError.RxError(errMsg, errTitle, 500 );
@@ -179,9 +209,9 @@ export function viewDynamic(
   if ( viewName === 'site') {
     templateFilename = __dirname+'/../views/'+viewName+'._';
   }
-  log.info('Reading template %s',templateFilename);
   if ( layoutName ) {
     var layoutFilename = './views/'+layoutName+'._';
+    log.info('Reading template %s in layout %s',templateFilename, layoutFilename );
     Q.all( [ readFile( templateFilename,  { 'encoding':'utf8'} ),
              readFile( layoutFilename,    { 'encoding':'utf8'} ) ])
     .spread( (content: string, outerContent : string) => {
@@ -191,27 +221,32 @@ export function viewDynamic(
         var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
         laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
       }
-      catch( e ) {
-        laterAct.reject( emitCompileViewError(content,e, templateFilename +' in '+ layoutFilename) );
+      catch( err ) {
+        log.error( err );
+        laterAct.reject( emitCompileViewError(content,err, templateFilename +' in '+ layoutFilename) );
       }
     })
     .catch( (err : Error ) => {
+      log.error( err );
       laterAct.reject( emitCompileViewError('N/A',err, templateFilename +' in '+ layoutFilename ) );
     });
   }
   else {
+    log.info('Reading template %s',templateFilename);
     readFile( templateFilename,  { 'encoding':'utf8'} )
     .then( ( content:string ) => {
       try {
-        log.info(_.str.sprintf('Compiling view %s', templateFilename ));
+        log.info( 'Compiling view %s', templateFilename );
         var fullContent = new Buffer( _.template(content)(viewData) , 'utf-8') ;
         laterAct.resolve( new relaxjs.Embodiment( 'text/html', fullContent ));
       }
-      catch( e ) {
-        laterAct.reject( emitCompileViewError(content,e, templateFilename ) );
+      catch( err ) {
+        log.error( err );
+        laterAct.reject( emitCompileViewError(content,err, templateFilename ) );
       }
     })
     .catch( ( err : Error ) => {
+      log.error( err );
       laterAct.reject( emitCompileViewError('N/A',err, templateFilename ) );
     });
   }

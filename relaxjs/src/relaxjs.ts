@@ -4,19 +4,16 @@
 */
 
 ///<reference path='../typings/node/node.d.ts' />
-///<reference path='../typings/underscore/underscore.d.ts' />
-///<reference path='../typings/underscore.string/underscore.string.d.ts' />
+///<reference path='../typings/lodash/lodash.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 
-//var pjson = require('./package.json');
 import http = require("http");
 import fs = require("fs");
 import url = require('url');
 import path = require('path');
 import Q = require('q');
-import _ = require("underscore");
-_.str = require('underscore.string');
+import _ = require("lodash");
 
 import internals = require('./internals');
 import routing = require('./routing');
@@ -24,7 +21,7 @@ import rxError = require('./rxerror');
 
 exports.routing = routing;
 
-export var version = "0.1.0";
+export var version = "0.1.2";
 
 export function relax() : void {
   console.log('relax.js !');
@@ -37,6 +34,8 @@ export function relax() : void {
 */
 export interface HttpPlayer {
   name : string;
+  urlName: string;
+
 
   // Asks for the response identical to the one that would correspond to a GET request, but without the response body.
   head( route : routing.Route) : Q.Promise<Embodiment> ;
@@ -134,9 +133,9 @@ export class Embodiment {
     response.end();
 
     if ( this.data.length>1024 )
-      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb', _.str.numberFormat(this.data.length/1024,1) ) ;
+      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb', Math.round(this.data.length/1024) ) ;
     else
-      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes', _.str.numberFormat(this.data.length) );
+      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes', this.data.length );
   }
 
   dataAsString() : string {
@@ -193,12 +192,12 @@ export class Container {
     log.info('Get the next step on %s', JSON.stringify(route.path) );
     direction.route = route.stepThrough(1);
     var childResName = direction.route.getNextStep();
+
     if ( childResName in this._resources ) {
       var idx:number = 0;
       if ( this._resources[childResName].length > 1 ) {
-
         // Since there are more than just ONE resource maching the name
-        // Here we check if the next element in the path may be the index needed to
+        // we check the next element in the path for the index needed to
         // locate the right resource in the array.
         if ( direction.route.path[1] !== undefined ) {
           idx = parseInt(direction.route.path[1]) ;
@@ -211,13 +210,15 @@ export class Container {
         }
 
       }
-      //console.log( _.str.sprintf('%s [%s] matching "%s" ',ctx, idx, childResName ) );
       log.info('Access Resource "%s"[%d] ', childResName, idx );
       direction.resource = this.getChild(childResName, idx);
+      if ( !direction.resource )
+        return undefined;
+      return direction;
     }
-    if ( !direction.resource )
+    else {
       return undefined;
-    return direction;
+    }
   }
 
   /*
@@ -271,7 +272,7 @@ export class Container {
     var resourcePlayer : ResourcePlayer = new ResourcePlayer(newRes,this);
 
     // Add the resource player to the child resource container for this container.
-    var indexName = _.str.slugify(newRes.name);
+    var indexName = internals.slugify(newRes.name);
     var childArray = this._resources[indexName];
     if ( childArray === undefined )
       this._resources[indexName] = [ resourcePlayer ];
@@ -395,6 +396,10 @@ export class Site extends Container implements HttpPlayer {
     return this._name;
   }
 
+  get urlName() : string {
+    return internals.slugify(this.name);
+  }
+
   setName( newName:string ) : void {
     this._name = newName;
   }
@@ -480,7 +485,7 @@ export class Site extends Container implements HttpPlayer {
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'HEAD' );
       if ( !direction ) {
-        return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found or invalid in request "{0}"',route.pathname) , route.pathname );
       }
       route.path = direction.route.path;
       var res = <ResourcePlayer>(direction.resource);
@@ -506,7 +511,7 @@ export class Site extends Container implements HttpPlayer {
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'GET' );
       if ( direction === undefined ) {
-        return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        return internals.promiseError(  internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname );
       }
       route.path = direction.route.path;
       var res = <ResourcePlayer>(direction.resource);
@@ -520,7 +525,7 @@ export class Site extends Container implements HttpPlayer {
       return internals.redirect( self._home );
     }
 
-    return internals.promiseError( _.str.sprintf('[error] Root Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+    return internals.promiseError( internals.format('[error] Root Resource not found or invalid in request "{0}"', route.pathname ), route.pathname );
   }
 
 
@@ -530,13 +535,13 @@ export class Site extends Container implements HttpPlayer {
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'POST' );
       if ( !direction )
-        return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname ), route.pathname );
       var res = <ResourcePlayer>(direction.resource);
       log.info('POST on resource "%s"',res.name );
       route.path = direction.route.path;
       return res.post( direction.route, body );
     }
-    return internals.promiseError( _.str.sprintf('[error] Invalid in request "%s"', route.pathname ), route.pathname );
+    return internals.promiseError(  internals.format('[error] Invalid in request "{0}"', route.pathname ), route.pathname );
   }
 
 
@@ -546,13 +551,13 @@ export class Site extends Container implements HttpPlayer {
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'PATCH' );
       if ( !direction )
-        return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname ), route.pathname );
       var res = <ResourcePlayer>(direction.resource);
       log.info('PATCH on resource "%s"',res.name );
       route.path = direction.route.path;
       return res.patch( direction.route, body );
     }
-    return internals.promiseError( _.str.sprintf('[error] Invalid in request "%s"', route.pathname ), route.pathname );
+    return internals.promiseError(  internals.format('[error] Invalid in request "{0}"', route.pathname ), route.pathname );
   }
 
 
@@ -562,13 +567,13 @@ export class Site extends Container implements HttpPlayer {
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'PUT' );
       if ( !direction )
-        return internals.promiseError( _.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname ), route.pathname );
       var res = <ResourcePlayer>(direction.resource);
       log.info('PATCH on resource "%s"',res.name );
       route.path = direction.route.path;
       return res.put( direction.route, body );
     }
-    return internals.promiseError( _.str.sprintf('[error] Invalid PUT request "%s"', route.pathname ), route.pathname );
+    return internals.promiseError( internals.format('[error] Invalid PUT request "{0}"', route.pathname ), route.pathname );
   }
 
 
@@ -582,13 +587,13 @@ export class Site extends Container implements HttpPlayer {
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'DELETE' );
       if ( !direction )
-        return internals.promiseError( _.str.sprintf('%s [error] Resource not found or invalid in request "%s"',ctx, route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('{0} [error] Resource not found or invalid in request "{1}"', ctx, route.pathname ), route.pathname );
       var res = <ResourcePlayer>(direction.resource);
       internals.log().info('%s "%s"',ctx,res.name );
       route.path = direction.route.path;
       return res.delete( direction.route );
     }
-    return internals.promiseError( _.str.sprintf('[error] Invalid DELETE request "%s"', route.pathname ), route.pathname );
+    return internals.promiseError( internals.format('[error] Invalid DELETE request "{0}"', route.pathname ), route.pathname );
   }
 
 }
@@ -637,6 +642,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   get name(): string {
     return this._name;
+  }
+
+  get urlName() : string {
+    return internals.slugify(this.name);
   }
 
   ok( response: DataCallback, data?: any ) : void {
@@ -691,8 +700,6 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   // Get the response as for a GET request, but without the response body.
   head( route : routing.Route) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    // var ctx = _.str.sprintf( _.str.sprintf('[%s.head]',self._name) );
-
     var later = Q.defer< Embodiment >();
     _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });
     return later.promise;
@@ -718,9 +725,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
       else {
         if ( _.keys(self._resources).length === 0 )
-          return internals.promiseError( _.str.sprintf('[error: no child] This resource "%s" does not have any child resource to navigate to. Path= "%s"', self.name, JSON.stringify(route.path) ), route.pathname );
+          return internals.promiseError( internals.format('[error: no child] This resource "{0}" does not have any child resource to navigate to. Path= "{1}"', self.name, JSON.stringify(route.path) ), route.pathname );
         else
-          return internals.promiseError( _.str.sprintf('[error: no such child] ResourcePlayer GET could not find a Resource for "%s"', JSON.stringify(route.path) ), route.pathname );
+          return internals.promiseError( internals.format('[error: no such child] ResourcePlayer GET could not find a Resource for "{0}"',  JSON.stringify(route.path) ), route.pathname );
       }
     }
 
@@ -765,14 +772,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // When onGet() is NOT available use the static data member to respond to this request.
-    // console.log( _.str.sprintf('%s getting resource from the data ',ctx) );
     log.info('Returning static data from %s', self._name);
     if ( this._template ) {
-      // console.log( _.str.sprintf('%s View "%s" as HTML using %s',ctx, self._name, self._template));
       return internals.viewDynamic(self._template, self, self._layout );
     }
     else {
-      // console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
       return internals.viewJson(self.data);
     }
   }
@@ -790,14 +794,14 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Dives in and navigates through the path to find the child resource that can answer this DELETE call
     if ( route.path.length > ( 1+paramCount ) ) {
-      var direction = this._getStepDirection( route );
-      if ( direction.resource ) {
+      var direction = self._getStepDirection( route );
+      if ( direction ) {
         var res = <ResourcePlayer>(direction.resource);
         log.info('DELETE on resource "%s"',res.name );
         return res.delete( direction.route );
       }
       else {
-        return internals.promiseError( _.str.sprintf('[error] Resource not found "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found "{0}"', route.pathname ), route.pathname );
       }
     }
 
@@ -846,13 +850,13 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
-      if ( direction.resource ) {
+      if ( direction ) {
         var res = <ResourcePlayer>(direction.resource);
         log.info('POST on resource "%s"',res.name );
         return res.post( direction.route, body );
       }
       else {
-        return internals.promiseError( _.str.sprintf('[error] Resource not found "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found "{0}"', route.pathname ), route.pathname );
       }
     }
 
@@ -904,13 +908,13 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
-      if ( direction.resource ) {
+      if ( direction ) {
         var res = <ResourcePlayer>(direction.resource);
         log.info('PATCH on resource "%s"',res.name );
         return res.patch( direction.route, body );
       }
       else {
-        return internals.promiseError( _.str.sprintf('[error] Resource not found "%s"', route.pathname ), route.pathname );
+        return internals.promiseError( internals.format('[error] Resource not found "{0}"', route.pathname ), route.pathname );
       }
     }
 
@@ -922,13 +926,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       log.info('calling onPatch() for %s',self._name );
       self._onPatch( route.query, body )
         .then( ( response: any ) => {
-          // console.log( _.str.sprintf('%s View "%s" as JSON.',ctx, self._name ));
           self._updateData(response.data);
           internals.viewJson(self)
             .then( function(emb: Embodiment ) {
               emb.httpCode = response.httpCode ? response.httpCode : 200 ;
               emb.location = response.location ? response.location : '';
-              // console.log( _.str.sprintf('%s Embodiment Ready to Resolve %s', ctx, emb.dataAsString() ) );
               later.resolve(emb);
             })
             .fail( function(err) { later.reject(err); } );

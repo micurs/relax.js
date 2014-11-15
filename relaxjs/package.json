@@ -6,13 +6,19 @@
     "email": "michele@micurs.com",
     "url": "http://github.com/micurs"
   },
-  "repository" : { "type" : "git", "url" : "https://github.com/micurs/relax.js" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/micurs/relax.js"
+  },
   "version": "0.1.2",
   "license": "MIT",
   "main": "dist/relaxjs.js",
   "bugs": "https://github.com/micurs/relax.js/issues",
   "keywords": [
-    "REST","RESTful","webservices","typescript"
+    "REST",
+    "RESTful",
+    "webservices",
+    "typescript"
   ],
   "typescript": {
     "definition": "dist/relaxjs.d.ts"
@@ -35,6 +41,7 @@
   "preferGlobal": "false",
   "dependencies": {
     "bunyan": "^1.2.1",
+    "lodash": "^2.4.1",
     "mime": "^1.2.11",
     "q": "^1.0.1",
     "typescript-require": "^0.2.6",

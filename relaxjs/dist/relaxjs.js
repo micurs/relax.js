@@ -6,13 +6,12 @@ var __extends = this.__extends || function (d, b) {
 };
 var http = require("http");
 var Q = require('q');
-var _ = require("underscore");
-_.str = require('underscore.string');
+var _ = require("lodash");
 var internals = require('./internals');
 var routing = require('./routing');
 var rxError = require('./rxerror');
 exports.routing = routing;
-exports.version = "0.1.0";
+exports.version = "0.1.2";
 function relax() {
     console.log('relax.js !');
 }
@@ -34,9 +33,9 @@ var Embodiment = (function () {
             response.write(this.data);
         response.end();
         if (this.data.length > 1024)
-            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb', _.str.numberFormat(this.data.length / 1024, 1));
+            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb', Math.round(this.data.length / 1024));
         else
-            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes', _.str.numberFormat(this.data.length));
+            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes', this.data.length);
     };
     Embodiment.prototype.dataAsString = function () {
         return this.data.toString('utf-8');
@@ -92,10 +91,13 @@ var Container = (function () {
             }
             log.info('Access Resource "%s"[%d] ', childResName, idx);
             direction.resource = this.getChild(childResName, idx);
+            if (!direction.resource)
+                return undefined;
+            return direction;
         }
-        if (!direction.resource)
+        else {
             return undefined;
-        return direction;
+        }
     };
     Container.prototype._getDirection = function (route, verb) {
         if (verb === void 0) { verb = 'GET'; }
@@ -133,7 +135,7 @@ var Container = (function () {
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
         var resourcePlayer = new ResourcePlayer(newRes, this);
-        var indexName = _.str.slugify(newRes.name);
+        var indexName = internals.slugify(newRes.name);
         var childArray = this._resources[indexName];
         if (childArray === undefined)
             this._resources[indexName] = [resourcePlayer];
@@ -229,6 +231,13 @@ var Site = (function (_super) {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(Site.prototype, "urlName", {
+        get: function () {
+            return internals.slugify(this.name);
+        },
+        enumerable: true,
+        configurable: true
+    });
     Site.prototype.setName = function (newName) {
         this._name = newName;
     };
@@ -299,7 +308,7 @@ var Site = (function (_super) {
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'HEAD');
             if (!direction) {
-                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
             }
             route.path = direction.route.path;
             var res = (direction.resource);
@@ -323,7 +332,7 @@ var Site = (function (_super) {
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'GET');
             if (direction === undefined) {
-                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
             }
             route.path = direction.route.path;
             var res = (direction.resource);
@@ -336,7 +345,7 @@ var Site = (function (_super) {
             log.info('GET is redirecting to "%s"', self._home);
             return internals.redirect(self._home);
         }
-        return internals.promiseError(_.str.sprintf('[error] Root Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(internals.format('[error] Root Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
     };
     Site.prototype.post = function (route, body) {
         var self = this;
@@ -344,13 +353,13 @@ var Site = (function (_super) {
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'POST');
             if (!direction)
-                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
             var res = (direction.resource);
             log.info('POST on resource "%s"', res.name);
             route.path = direction.route.path;
             return res.post(direction.route, body);
         }
-        return internals.promiseError(_.str.sprintf('[error] Invalid in request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(internals.format('[error] Invalid in request "{0}"', route.pathname), route.pathname);
     };
     Site.prototype.patch = function (route, body) {
         var self = this;
@@ -358,13 +367,13 @@ var Site = (function (_super) {
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'PATCH');
             if (!direction)
-                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
             var res = (direction.resource);
             log.info('PATCH on resource "%s"', res.name);
             route.path = direction.route.path;
             return res.patch(direction.route, body);
         }
-        return internals.promiseError(_.str.sprintf('[error] Invalid in request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(internals.format('[error] Invalid in request "{0}"', route.pathname), route.pathname);
     };
     Site.prototype.put = function (route, body) {
         var log = internals.log().child({ func: 'Site.put' });
@@ -372,13 +381,13 @@ var Site = (function (_super) {
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'PUT');
             if (!direction)
-                return internals.promiseError(_.str.sprintf('[error] Resource not found or invalid in request "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
             var res = (direction.resource);
             log.info('PATCH on resource "%s"', res.name);
             route.path = direction.route.path;
             return res.put(direction.route, body);
         }
-        return internals.promiseError(_.str.sprintf('[error] Invalid PUT request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(internals.format('[error] Invalid PUT request "{0}"', route.pathname), route.pathname);
     };
     Site.prototype.delete = function (route, body) {
         var self = this;
@@ -389,13 +398,13 @@ var Site = (function (_super) {
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'DELETE');
             if (!direction)
-                return internals.promiseError(_.str.sprintf('%s [error] Resource not found or invalid in request "%s"', ctx, route.pathname), route.pathname);
+                return internals.promiseError(internals.format('{0} [error] Resource not found or invalid in request "{1}"', ctx, route.pathname), route.pathname);
             var res = (direction.resource);
             internals.log().info('%s "%s"', ctx, res.name);
             route.path = direction.route.path;
             return res.delete(direction.route);
         }
-        return internals.promiseError(_.str.sprintf('[error] Invalid DELETE request "%s"', route.pathname), route.pathname);
+        return internals.promiseError(internals.format('[error] Invalid DELETE request "{0}"', route.pathname), route.pathname);
     };
     Site._instance = null;
     return Site;
@@ -429,6 +438,13 @@ var ResourcePlayer = (function (_super) {
     Object.defineProperty(ResourcePlayer.prototype, "name", {
         get: function () {
             return this._name;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(ResourcePlayer.prototype, "urlName", {
+        get: function () {
+            return internals.slugify(this.name);
         },
         enumerable: true,
         configurable: true
@@ -492,9 +508,9 @@ var ResourcePlayer = (function (_super) {
             }
             else {
                 if (_.keys(self._resources).length === 0)
-                    return internals.promiseError(_.str.sprintf('[error: no child] This resource "%s" does not have any child resource to navigate to. Path= "%s"', self.name, JSON.stringify(route.path)), route.pathname);
+                    return internals.promiseError(internals.format('[error: no child] This resource "{0}" does not have any child resource to navigate to. Path= "{1}"', self.name, JSON.stringify(route.path)), route.pathname);
                 else
-                    return internals.promiseError(_.str.sprintf('[error: no such child] ResourcePlayer GET could not find a Resource for "%s"', JSON.stringify(route.path)), route.pathname);
+                    return internals.promiseError(internals.format('[error: no such child] ResourcePlayer GET could not find a Resource for "{0}"', JSON.stringify(route.path)), route.pathname);
             }
         }
         log.info('GET Target Found : %s', self._name);
@@ -541,14 +557,14 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: self._name + '.delete' });
         var paramCount = self._paramterNames.length;
         if (route.path.length > (1 + paramCount)) {
-            var direction = this._getStepDirection(route);
-            if (direction.resource) {
+            var direction = self._getStepDirection(route);
+            if (direction) {
                 var res = (direction.resource);
                 log.info('DELETE on resource "%s"', res.name);
                 return res.delete(direction.route);
             }
             else {
-                return internals.promiseError(_.str.sprintf('[error] Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
         if (paramCount > 0)
@@ -582,13 +598,13 @@ var ResourcePlayer = (function (_super) {
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
-            if (direction.resource) {
+            if (direction) {
                 var res = (direction.resource);
                 log.info('POST on resource "%s"', res.name);
                 return res.post(direction.route, body);
             }
             else {
-                return internals.promiseError(_.str.sprintf('[error] Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
         if (paramCount > 0)
@@ -624,13 +640,13 @@ var ResourcePlayer = (function (_super) {
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
-            if (direction.resource) {
+            if (direction) {
                 var res = (direction.resource);
                 log.info('PATCH on resource "%s"', res.name);
                 return res.patch(direction.route, body);
             }
             else {
-                return internals.promiseError(_.str.sprintf('[error] Resource not found "%s"', route.pathname), route.pathname);
+                return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
         if (paramCount > 0)

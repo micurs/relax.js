@@ -3,35 +3,6 @@
 var relaxjs = require('../dist/relaxjs.js');
 var routing = require('../dist/routing.js');
 var rxerror = require('../dist/rxerror.js');
-//var jasmine = require('../node_modules/jasmine-node/lib/jasmine-node/index.js');
-
-/*
-var customMatcher = {
-  // Check if an actual has the fields specified in expected.
-  toHave: function(util, customEqualityTesters) {
-    console.log('calling toHave!');
-    return {
-      compare: function(actual, expected) {
-        console.log( '  Actual: '+ JSON.stringify(actual) );
-        console.log( 'Expected: '+ JSON.stringify(expected) );
-        for( var key in expected  ) {
-          console.log('['+key+'] '+actual[key] +' =?= '+ expected[key]);
-          if ( !actual[key] )
-            return { pass: false, message : 'Expected '+key+' not found in actual.' };
-          if ( actual[key] !== expected[key] )
-            return { pass: false, message : 'Expected '+key+' value: '+expected[key]+' does not match on actual: '+actual[key] };
-        }
-        return { pass: true };
-      }
-    };
-  }
-};
-
-beforeEach(function() {
-  this.addMatchers(customMatcher);
-  // console.log(this);
-});
-*/
 
 /*
  * GET Tests
@@ -359,7 +330,6 @@ describe('Test POST responses: ', function() {
 /**/
 describe('Test DELETE responses', function() {
 
-
   describe('3.1 DELETE a static child Resource', function() {
     it('should remove the resource from its parent', function() {
       var result;
@@ -415,7 +385,6 @@ describe('Test DELETE responses', function() {
   });
 
 
-
   describe('3.3 DELETE part of data using url parameters', function() {
     it('should remove the item "second-item" from its data using URL paramter 1', function() {
       var result;
@@ -447,10 +416,9 @@ describe('Test DELETE responses', function() {
     });
   });
 
-
   // ---
 
-    describe('3.4 DELETE a static child Resource through a site', function() {
+  describe('3.4 DELETE a static child Resource through a site', function() {
     it('should remove the resource from its parent', function() {
       var result;
       var site = relaxjs.site('test');
@@ -507,7 +475,6 @@ describe('Test DELETE responses', function() {
   });
 
 
-
   describe('3.6 DELETE part of data using url parameters through a site', function() {
     it('should remove the item "second-item" from its data using URL paramter 1', function() {
       var result;
@@ -539,8 +506,6 @@ describe('Test DELETE responses', function() {
 
     });
   });
-
-
 
 });
 /**/
