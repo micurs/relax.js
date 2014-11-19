@@ -1,0 +1,19 @@
+{
+  "name": "todomvc_react_relaxjs",
+  "version": "0.1.2",
+  "description": "backend for the famous todomvc example built with node.js and relaxjs",
+  "main": "todo.js",
+  "author": "Michele Ursino",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -m commonjs -t ES5 --sourceMap todo.ts",
+    "typings": "tsd reinstall --save --overwrite",
+    "start": "node todo.js --relaxjs-verbose | bunyan",
+    "debug": "node-debug todo.js"
+  },
+  "dependencies": {
+    "node-redis": "^0.1.7",
+    "redis": "^0.12.1",
+    "lodash": "^2.4.1"
+  }
+}
