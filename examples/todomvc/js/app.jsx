@@ -165,7 +165,6 @@ var app = app || {};
 		}
 	});
 
-	var model = new app.TodoModel('react-todos');
 
 	function render() {
 		React.render(
@@ -174,6 +173,10 @@ var app = app || {};
 		);
 	}
 
-	model.subscribe(render);
-	render();
+	var model = new app.TodoModel('react-todos', function() {
+		model.subscribe(render);
+		render();
+	});
+
+
 })();

@@ -13,10 +13,16 @@ var app = app || {};
 	// may not even be worth separating this logic
 	// out, but we do this to demonstrate one way to
 	// separate out parts of your application.
-	app.TodoModel = function (key) {
-		this.key = key;
-		this.todos = Utils.store(key);
-		this.onChanges = [];
+	app.TodoModel = function ( key, cb ) {
+		// We read all todos here : GET /todos
+		var self = this;
+		self.onChanges = [];
+		self.key = key;
+		self.readAll()
+		.done( function(todos) {
+			self.todos = todos.all; // Utils.store(key);
+			cb();
+		});
 	};
 
 	app.TodoModel.prototype.subscribe = function (onChange) {
@@ -24,18 +30,41 @@ var app = app || {};
 	};
 
 	app.TodoModel.prototype.inform = function () {
+		// here we are saving all todos in local storage - not needed since they are saved in the back-end
 		Utils.store(this.key, this.todos);
 		this.onChanges.forEach(function (cb) { cb(); });
 	};
 
+	app.TodoModel.prototype.readAll = function () {
+		// GET /todos
+		return $.ajax({
+			url: '/todos',
+			mimeType: 'application/json',
+			type: 'GET'
+		});
+	}
+
 	app.TodoModel.prototype.addTodo = function (title) {
-		this.todos = this.todos.concat({
+		// Post a single new todo here:
+		// POST /todos/todo body:< { id: Utils.uuid(), title: title, completed: false }
+		var self = this;
+		$.ajax({
+			url: '/todos/todo',
+			mimeType: 'application/json',
+			type: 'POST',
+			data: { completed: false, title : title }
+		})
+		.done( function( data ) {
+			alert( JSON.stringify(data) );
+			self.todos = self.todos.concat( data.todo );
+			self.inform();
+		});
+			/*
 			id: Utils.uuid(),
 			title: title,
 			completed: false
 		});
-
-		this.inform();
+		*/
 	};
 
 	app.TodoModel.prototype.toggleAll = function (checked) {
@@ -43,6 +72,10 @@ var app = app || {};
 		// easier to reason about and React works very well with them. That's why
 		// we use map() and filter() everywhere instead of mutating the array or
 		// todo items themselves.
+
+		// This toggle all the todos. Saving is done by the inform() function.
+		// In our implementation we need a single PUT to the server to perform the same operation:
+		// PUT /todos body: { completed: checked }
 		this.todos = this.todos.map(function (todo) {
 			return Utils.extend({}, todo, {completed: checked});
 		});
@@ -51,6 +84,8 @@ var app = app || {};
 	};
 
 	app.TodoModel.prototype.toggle = function (todoToToggle) {
+		// Here we modify a single todo (change che done toggle):
+		// PUT /todos/todo/<todoToToggle.id> body: { completed: !todo.completed }
 		this.todos = this.todos.map(function (todo) {
 			return todo !== todoToToggle ?
 				todo :
@@ -61,6 +96,8 @@ var app = app || {};
 	};
 
 	app.TodoModel.prototype.destroy = function (todo) {
+		// Here we remove a specific todo :
+		// DELETE /todos/todo/<todo.id>
 		this.todos = this.todos.filter(function (candidate) {
 			return candidate !== todo;
 		});
@@ -77,6 +114,8 @@ var app = app || {};
 	};
 
 	app.TodoModel.prototype.clearCompleted = function () {
+		// modifiy the complete flag for an existing todo
+		// PUT /todos/todo/<todo.id>  body: { completed: false }
 		this.todos = this.todos.filter(function (todo) {
 			return !todo.completed;
 		});
