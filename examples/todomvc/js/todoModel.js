@@ -18,11 +18,16 @@ var app = app || {};
 		var self = this;
 		self.onChanges = [];
 		self.key = key;
-		self.readAll()
-		.done( function(todos) {
-			self.todos = todos.all; // Utils.store(key);
-			cb();
-		});
+		$.ajax({
+				url: '/todos',
+				mimeType: 'application/json',
+				type: 'GET'
+			})
+			.done( function(todos) {
+				//alert( JSON.stringify(todos));
+				self.todos = todos.all; // Utils.store(key);
+				cb();
+			});
 	};
 
 	app.TodoModel.prototype.subscribe = function (onChange) {
@@ -35,15 +40,6 @@ var app = app || {};
 		this.onChanges.forEach(function (cb) { cb(); });
 	};
 
-	app.TodoModel.prototype.readAll = function () {
-		// GET /todos
-		return $.ajax({
-			url: '/todos',
-			mimeType: 'application/json',
-			type: 'GET'
-		});
-	}
-
 	app.TodoModel.prototype.addTodo = function (title) {
 		// Post a single new todo here:
 		// POST /todos/todo body:< { id: Utils.uuid(), title: title, completed: false }
@@ -55,8 +51,8 @@ var app = app || {};
 			data: { completed: false, title : title }
 		})
 		.done( function( data ) {
-			alert( JSON.stringify(data) );
-			self.todos = self.todos.concat( data.todo );
+			// alert( JSON.stringify(data) );
+			self.todos = [ data.todo ].concat( self.todos );
 			self.inform();
 		});
 			/*
@@ -86,13 +82,21 @@ var app = app || {};
 	app.TodoModel.prototype.toggle = function (todoToToggle) {
 		// Here we modify a single todo (change che done toggle):
 		// PUT /todos/todo/<todoToToggle.id> body: { completed: !todo.completed }
-		this.todos = this.todos.map(function (todo) {
-			return todo !== todoToToggle ?
-				todo :
-				Utils.extend({}, todo, {completed: !todo.completed});
+		var self = this;
+		var newComplete = !(todoToToggle.completed);
+		$.ajax({
+			url: '/todos/todo/'+todoToToggle.id,
+			mimeType: 'application/json',
+			type: 'PATCH',
+			data: { completed: newComplete, title : todoToToggle.title }
+		})
+		.done( function( res ) {
+			self.todos = self.todos.map(function (todo) {
+				return todo.id !== todoToToggle.id ? todo : res.data.todo ;
+			});
+			console.log(self.todos);
+			self.inform();
 		});
-
-		this.inform();
 	};
 
 	app.TodoModel.prototype.destroy = function (todo) {

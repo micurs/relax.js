@@ -43,6 +43,7 @@ todosite.add( {
     var self = this;
 
     store.hgetall( 'todos', ( err: Error, items: any ) => {
+      console.log(items);
       if ( !err ) {
         var todos = _.map( _.values(items), (item) =>  JSON.parse(item)  );
         self.ok(respond, { all: todos }  );
@@ -63,21 +64,37 @@ todosite.add( {
     urlParameters: [ 'id' ],
 
     // Add a new todo into the store
-    onPost: function( query, todo: Todo, respond: r.DataCallback  ) {
-      console.log('Saving TODO');
+    onPost: function( query, todo: any, respond: r.DataCallback  ) {
       var self = this;
       var newId = genGuid();
       todo.id = newId;
-      console.log(todo);
+      todo.completed = ( todo.completed == 'true') ? true : false;
       store.hset('todos', newId, JSON.stringify(todo) );
       store.save();
       self.ok(respond,{ todo: todo });
     },
 
     // Modify an existing todo into the store
-    onPut: function( query, todo: any, respond: r.DataCallback  ) {
+    onPatch: function( query, todo: any, respond: r.DataCallback  ) {
       var self = this;
-      self.fail(respond, { message : 'not yet implemented'});
+      var idToChange = self._parameters['id'];
+      store.hget('todos',idToChange, function( err: Error, item: any ){
+        if ( err ) {
+          self.fail(respond, { redis_error : err } );
+        }
+        else {
+          var currTodo = JSON.parse(item);
+
+          currTodo.id = idToChange;
+          currTodo.completed = todo.completed == 'true' ? true : false;
+          currTodo.title = todo.title;
+          store.hset('todos', currTodo.id, JSON.stringify(currTodo) );
+          store.save();
+
+          self.ok(respond, { todo: currTodo } );
+          console.log('END PUT ==============================');
+        }
+      });
     },
 
     // Retrieve a specific todo from the store
