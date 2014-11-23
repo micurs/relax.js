@@ -265,6 +265,7 @@ var Site = (function (_super) {
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
             log.info('NEW REQUEST %s', msg.method);
+            log.info('    PATH %s', msg.url);
             var body = '';
             msg.on('data', function (data) {
                 body += data;
@@ -383,7 +384,7 @@ var Site = (function (_super) {
             if (!direction)
                 return internals.promiseError(internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
             var res = (direction.resource);
-            log.info('PATCH on resource "%s"', res.name);
+            log.info('PUT on resource "%s"', res.name);
             route.path = direction.route.path;
             return res.put(direction.route, body);
         }

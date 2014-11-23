@@ -424,6 +424,7 @@ export class Site extends Container implements HttpPlayer {
       var log = internals.log().child( { func: 'Site.serve'} );
 
       log.info('NEW REQUEST %s', msg.method);
+      log.info('    PATH %s', msg.url);
 
       // Read the message body (if available)
       var body : string = '';
@@ -569,7 +570,7 @@ export class Site extends Container implements HttpPlayer {
       if ( !direction )
         return internals.promiseError( internals.format('[error] Resource not found or invalid in request "{0}"', route.pathname ), route.pathname );
       var res = <ResourcePlayer>(direction.resource);
-      log.info('PATCH on resource "%s"',res.name );
+      log.info('PUT on resource "%s"',res.name );
       route.path = direction.route.path;
       return res.put( direction.route, body );
     }

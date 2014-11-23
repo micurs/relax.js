@@ -8,11 +8,7 @@ var app = app || {};
 	'use strict';
 
 	var Utils = app.Utils;
-	// Generic "model" object. You can use whatever
-	// framework you want. For this application it
-	// may not even be worth separating this logic
-	// out, but we do this to demonstrate one way to
-	// separate out parts of your application.
+
 	app.TodoModel = function ( key, cb ) {
 		// We read all todos here : GET /todos
 		var self = this;
@@ -35,10 +31,30 @@ var app = app || {};
 	};
 
 	app.TodoModel.prototype.inform = function () {
-		// here we are saving all todos in local storage - not needed since they are saved in the back-end
 		Utils.store(this.key, this.todos);
 		this.onChanges.forEach(function (cb) { cb(); });
 	};
+
+	app.TodoModel.prototype.toggleAll = function (checked) {
+		// This toggle all the todos.
+		// In our implementation we use a single PATCH call to the server to
+		// perform a global update.
+		// PATCH /todos body: { completed: checked }
+		var self = this;
+		var newComplete = checked;
+		$.ajax({
+			url: '/todos',
+			mimeType: 'application/json',
+			type: 'PATCH',
+			data: { completed: newComplete }
+		})
+		.done( function( todos ) {
+			console.log(todos.data.all);
+			self.todos = todos.data.all;
+			self.inform();
+		});
+	};
+
 
 	app.TodoModel.prototype.addTodo = function (title) {
 		// Post a single new todo here:
@@ -55,28 +71,6 @@ var app = app || {};
 			self.todos = [ data.todo ].concat( self.todos );
 			self.inform();
 		});
-			/*
-			id: Utils.uuid(),
-			title: title,
-			completed: false
-		});
-		*/
-	};
-
-	app.TodoModel.prototype.toggleAll = function (checked) {
-		// Note: it's usually better to use immutable data structures since they're
-		// easier to reason about and React works very well with them. That's why
-		// we use map() and filter() everywhere instead of mutating the array or
-		// todo items themselves.
-
-		// This toggle all the todos. Saving is done by the inform() function.
-		// In our implementation we need a single PUT to the server to perform the same operation:
-		// PUT /todos body: { completed: checked }
-		this.todos = this.todos.map(function (todo) {
-			return Utils.extend({}, todo, {completed: checked});
-		});
-
-		this.inform();
 	};
 
 	app.TodoModel.prototype.toggle = function (todoToToggle) {
@@ -84,29 +78,38 @@ var app = app || {};
 		// PUT /todos/todo/<todoToToggle.id> body: { completed: !todo.completed }
 		var self = this;
 		var newComplete = !(todoToToggle.completed);
+		var urlCall = '/todos/todo/'+todoToToggle.id;
+		console.log('PATCH to '+urlCall);
 		$.ajax({
-			url: '/todos/todo/'+todoToToggle.id,
+			url: urlCall,
 			mimeType: 'application/json',
 			type: 'PATCH',
 			data: { completed: newComplete, title : todoToToggle.title }
 		})
 		.done( function( res ) {
+			//alert( JSON.stringify(res,null,' '));
 			self.todos = self.todos.map(function (todo) {
 				return todo.id !== todoToToggle.id ? todo : res.data.todo ;
 			});
-			console.log(self.todos);
 			self.inform();
 		});
 	};
 
-	app.TodoModel.prototype.destroy = function (todo) {
+	app.TodoModel.prototype.destroy = function (todoToDelete) {
 		// Here we remove a specific todo :
 		// DELETE /todos/todo/<todo.id>
-		this.todos = this.todos.filter(function (candidate) {
-			return candidate !== todo;
+		var self = this;
+		$.ajax({
+			url: '/todos/todo/'+todoToDelete.id,
+			mimeType: 'application/json',
+			type: 'DELETE'
+		})
+		.done( function( res ) {
+			self.todos = self.todos.filter(function (todo) {
+				return todo.id !== todoToDelete.id;
+			});
+			self.inform();
 		});
-
-		this.inform();
 	};
 
 	app.TodoModel.prototype.save = function (todoToSave, text) {
