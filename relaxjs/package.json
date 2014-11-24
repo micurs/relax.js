@@ -18,7 +18,11 @@
     "REST",
     "RESTful",
     "webservices",
-    "typescript"
+    "typescript",
+    "no routing",
+    "no routes",
+    "resource",
+    "framework"
   ],
   "typescript": {
     "definition": "dist/relaxjs.d.ts"
