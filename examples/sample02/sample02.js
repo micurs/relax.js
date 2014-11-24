@@ -9,7 +9,7 @@ var usersResource = {
         this.ok(respond, { data: { title: 'Users Collection Example', count: this.childrenCount() } });
     },
     resources: [
-        { name: 'tracy-stewart', onGet: function (query, respond) {
+        { name: 'mary-stewart', onGet: function (query, respond) {
             var now = new Date();
             this.ok(respond, { firstName: 'Mary', lastName: 'Stewart', date: now });
         }, resources: [
@@ -29,7 +29,7 @@ var usersResource = {
                 { name: 'address', data: { address: '33 Pearl St. Los Angeles CA.' } }
             ]
         },
-        { name: 'user', data: { firstName: 'Joe', lastName: 'Doe' } },
+        { name: 'user', data: { firstName: 'Dan', lastName: 'Marker' } },
         { name: 'user', data: { firstName: 'Jane', lastName: 'Linn' } }
     ]
 };

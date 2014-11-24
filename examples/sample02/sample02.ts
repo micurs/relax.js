@@ -14,7 +14,7 @@ var usersResource : relaxjs.Resource = {
     this.ok(respond, { data: { title: 'Users Collection Example', count: this.childrenCount() } } );
   },
   resources : [
-    { name: 'tracy-stewart',
+    { name: 'mary-stewart',
       onGet: function( query: any, respond: relaxjs.DataCallback ) {
         var now = new Date();
         this.ok(respond, { firstName: 'Mary', lastName: 'Stewart', date: now } );
@@ -36,7 +36,7 @@ var usersResource : relaxjs.Resource = {
         { name: 'address', data: { address: '33 Pearl St. Los Angeles CA.' } }
       ]
     },
-    { name: 'user', data: { firstName: 'Joe', lastName: 'Doe' } },
+    { name: 'user', data: { firstName: 'Dan', lastName: 'Marker' } },
     { name: 'user', data: { firstName: 'Jane', lastName: 'Linn' } }
     ]
 };

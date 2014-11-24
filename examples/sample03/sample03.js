@@ -29,21 +29,23 @@ var usersResource = {
         name: 'user',
         view: 'user',
         onGet: function (query, respond) {
-            var _this = this;
+            var self = this;
             var userid = query['id'];
-            if (userid) {
-                store.hget('user', userid, function (err, userdata) {
-                    if (userdata) {
-                        _this.ok(respond, JSON.parse(userdata));
-                    }
-                    else {
-                        var errMsg = 'Could not find User with id: ' + userid;
-                        var respError = new relaxjs.rxError.RxError(errMsg, 'User not found', 404);
-                        _this.fail(respond, respError);
-                    }
-                });
+            if (!userid) {
+                self.fail(respond, new relaxjs.rxError.RxError('Need a id paramter to find a user', 'User not found', 404));
             }
             else {
+                store.hget('user', userid, function (err, userdata) {
+                    if (err || !userdata) {
+                        var message = err ? err.message : "Could not find the reuqested key in the hash";
+                        console.log('>> ' + message);
+                        var respError = new relaxjs.rxError.RxError(message, 'User not found', 404);
+                        self.fail(respond, respError);
+                    }
+                    else {
+                        self.ok(respond, JSON.parse(userdata));
+                    }
+                });
             }
         }
     }]

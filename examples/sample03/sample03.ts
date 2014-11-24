@@ -37,22 +37,24 @@ var usersResource : relaxjs.Resource = {
       name: 'user',
       view: 'user',
       onGet: function( query: any, respond: relaxjs.DataCallback  ) {
+        var self = this;
         var userid = query['id'];
-        if ( userid ) {
-          store.hget( 'user',userid,
-            ( err: Error, userdata: string ) => {
-              if ( userdata ) {
-                this.ok(respond, JSON.parse(userdata) );
-              }
-              else {
-                var errMsg = 'Could not find User with id: '+userid;
-                var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
-                this.fail(respond, respError );
-              }
-          });
+        if ( !userid ) {
+          self.fail(respond, new relaxjs.rxError.RxError('Need the id paramter to find a user','User not found',404) );
         }
         else {
-
+          store.hget( 'user',userid,
+            ( err: Error, userdata: string ) => {
+              if ( err || !userdata ) {
+                var message = err ? err.message : "Could not find the reuqested key in the hash";
+                console.log('>> '+ message );
+                var respError = new relaxjs.rxError.RxError(message,'User not found',404);
+                self.fail(respond, respError );
+              }
+              else {
+                self.ok(respond, JSON.parse(userdata) );
+              }
+          });
         }
       }
     }
