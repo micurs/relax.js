@@ -20,6 +20,7 @@ import routing = require('./routing');
 import rxError = require('./rxerror');
 
 exports.routing = routing;
+exports.rxError = rxError;
 
 export var version = "0.1.2";
 
@@ -212,13 +213,9 @@ export class Container {
       }
       log.info('Access Resource "%s"[%d] ', childResName, idx );
       direction.resource = this.getChild(childResName, idx);
-      if ( !direction.resource )
-        return undefined;
-      return direction;
     }
-    else {
-      return undefined;
-    }
+
+    return direction;
   }
 
   /*
@@ -294,7 +291,7 @@ export class Container {
 
 
   getChild( name: string, idx: number = 0 ) : Container {
-    if ( this._resources[name])
+    if ( this._resources[name] && this._resources[name].length > idx )
       return this._resources[name][idx];
     else
       return undefined;
@@ -614,6 +611,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   private _onPost : ( query: any, body: any ) => Q.Promise<any>;
   private _onPatch : ( query: any, body: any ) => Q.Promise<any>;
   private _onDelete : ( query: any ) => Q.Promise<any>;
+  private _onPut : ( query: any, body: any ) => Q.Promise<any>;
   private _parameters = {};
 
   public data = {};
@@ -630,6 +628,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     self._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
     self._onPatch = res.onPatch ? Q.nbind(res.onPatch,this) : undefined ;
     self._onDelete = res.onDelete ? Q.nbind(res.onDelete,this) : undefined ;
+    self._onPut = res.onPut ? Q.nbind(res.onPut,this) : undefined ;
 
     // Add children resources if available
     if ( res.resources ) {
@@ -649,25 +648,29 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     return internals.slugify(this.name);
   }
 
+  // Helper function to call the response callback with a succesful code 'ok'
   ok( response: DataCallback, data?: any ) : void {
     var respObj = { result: 'ok'};
     if ( data )
       respObj['data'] = data;
-    //console.log('RESPONDING:'+JSON.stringify(respObj,null,' '));
     response( null, respObj );
   }
+
+  // Helper function to call the response callback with a redirect code 303
   redirect( response: DataCallback, where: string, data?: any ) : void {
     var respObj = { result: 'ok', httpCode: 303, location: where };
     if ( data )
       respObj['data'] = data;
-    // console.log(respObj);
     response( null, respObj );
   }
-  fail( response: DataCallback, data?: any ) : void {
-    var respObj = { result: 'fail'};
-    if ( data )
-      respObj['data'] = data;
-    response( null, respObj );
+
+  // Helper function to call the response callback with a fail error
+  fail( response: DataCallback, err: rxError.RxError ) : void {
+    var self = this; // use to consistently access this object.
+    var log = internals.log().child( { func: self._name+'.fail'} );
+    log.info('Call failed: %s', err.message );
+    response( err, null );
+
   }
 
   // Read the parameters from a route
@@ -675,10 +678,14 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var log = internals.log().child( { func: this._name+'._readParameters'} );
     var counter = 0;
     _.each(this._paramterNames, ( parameterName, idx, list) => {
+      if ( !path[idx+1] ) {
+        log.error('Could not read all the required paramters from URI. Read %d, needed %d',counter,this._paramterNames.length);
+        return false; // breaks out of the each loop.
+      }
       this._parameters[parameterName] = path[idx+1];
       counter++;
     });
-    log.info(this._parameters);
+    log.info('Read %d parameters from request URL: %s', counter, JSON.stringify(this._parameters) );
     return counter;
   }
 
@@ -715,6 +722,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: self._name+'.get'} );
     var paramCount = self._paramterNames.length;
+    var later = Q.defer< Embodiment >();
 
     // Dives in and navigates through the path to find the child resource that can answer this GET call
     if ( route.path.length > ( 1+paramCount ) ) {
@@ -732,11 +740,14 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
     }
 
-    log.info('GET Target Found : %s', self._name );
-
     // Read the parameters from the route
-    if ( paramCount>0 )
-      self._readParameters(route.path);
+    log.info('GET Target Found : %s (requires %d parameters)', self._name, paramCount );
+    if ( paramCount>0 ) {
+      if ( self._readParameters(route.path)<paramCount ) {
+        later.reject( new rxError.RxError('Not enough paramters available in the URI ','GET '+self.name, 404));
+        return later.promise;
+      }
+    }
 
     // Set the cach to invoke this resource for this path directly next time
     site().setPathCache(route.pathname, { resource: this, path: route.path } );
@@ -746,9 +757,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
-      var later = Q.defer< Embodiment >();
       log.info('Invoking onGet()! on %s', self._name );
-
       self._onGet( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
@@ -790,6 +799,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: self._name+'.delete'} );
     var paramCount = self._paramterNames.length;
+    var later = Q.defer< Embodiment >();
 
     // console.log(ctx+paramCount)
 
@@ -807,13 +817,17 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // Read the parameters from the route
-    if ( paramCount>0 )
-      self._readParameters(route.path);
+    log.info('DELETE Target Found : %s (requires %d parameters)', self._name, paramCount );
+    if ( paramCount>0 ) {
+      if ( self._readParameters(route.path)<paramCount ) {
+        later.reject( new rxError.RxError('Not enough paramters available in the URI ','DELETE '+self.name, 404));
+        return later.promise;
+      }
+    }
 
     // If the onDelete() is defined use it to invoke a user define delete.
     if ( self._onDelete ) {
       log.info('call onDelete() for %s',self._name );
-      var later = Q.defer< Embodiment >();
       this._onDelete( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
@@ -862,8 +876,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // Read the parameters from the route
-    if ( paramCount>0 )
+    log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount );
+    if ( paramCount>0 ) {
+      // In a POST not finding all the paramters expeceted should not fail the call.
       self._readParameters(route.path);
+    }
 
     // Call the onPost() for this resource (user code)
     if ( self._onPost ) {
@@ -920,8 +937,13 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // Read the parameters from the route
-    if ( paramCount>0 )
-      self._readParameters(route.path);
+    log.info('PATCH Target Found : %s (requires %d parameters)', self._name, paramCount );
+    if ( paramCount>0 ) {
+      if ( self._readParameters(route.path)<paramCount ) {
+        later.reject( new rxError.RxError('Not enough paramters available in the URI ','PATCH '+self.name, 404));
+        return later.promise;
+      }
+    }
 
     if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self._name );

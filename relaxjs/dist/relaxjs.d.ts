@@ -13,6 +13,7 @@ declare module "relaxjs" {
   export function relax(): void;
 
   export module rxError {
+
     export interface IRxError extends Error {
       httpCode: number;
       extra: string;
@@ -67,7 +68,7 @@ declare module "relaxjs" {
   export interface HttpPlayer {
     name: string;
     urlName: string;
-    
+
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;

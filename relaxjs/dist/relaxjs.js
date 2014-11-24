@@ -11,6 +11,7 @@ var internals = require('./internals');
 var routing = require('./routing');
 var rxError = require('./rxerror');
 exports.routing = routing;
+exports.rxError = rxError;
 exports.version = "0.1.2";
 function relax() {
     console.log('relax.js !');
@@ -91,13 +92,8 @@ var Container = (function () {
             }
             log.info('Access Resource "%s"[%d] ', childResName, idx);
             direction.resource = this.getChild(childResName, idx);
-            if (!direction.resource)
-                return undefined;
-            return direction;
         }
-        else {
-            return undefined;
-        }
+        return direction;
     };
     Container.prototype._getDirection = function (route, verb) {
         if (verb === void 0) { verb = 'GET'; }
@@ -153,7 +149,7 @@ var Container = (function () {
     };
     Container.prototype.getChild = function (name, idx) {
         if (idx === void 0) { idx = 0; }
-        if (this._resources[name])
+        if (this._resources[name] && this._resources[name].length > idx)
             return this._resources[name][idx];
         else
             return undefined;
@@ -429,6 +425,7 @@ var ResourcePlayer = (function (_super) {
         self._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
         self._onPatch = res.onPatch ? Q.nbind(res.onPatch, this) : undefined;
         self._onDelete = res.onDelete ? Q.nbind(res.onDelete, this) : undefined;
+        self._onPut = res.onPut ? Q.nbind(res.onPut, this) : undefined;
         if (res.resources) {
             _.each(res.resources, function (child, index) {
                 self.add(child);
@@ -462,21 +459,25 @@ var ResourcePlayer = (function (_super) {
             respObj['data'] = data;
         response(null, respObj);
     };
-    ResourcePlayer.prototype.fail = function (response, data) {
-        var respObj = { result: 'fail' };
-        if (data)
-            respObj['data'] = data;
-        response(null, respObj);
+    ResourcePlayer.prototype.fail = function (response, err) {
+        var self = this;
+        var log = internals.log().child({ func: self._name + '.fail' });
+        log.info('Call failed: %s', err.message);
+        response(err, null);
     };
     ResourcePlayer.prototype._readParameters = function (path) {
         var _this = this;
         var log = internals.log().child({ func: this._name + '._readParameters' });
         var counter = 0;
         _.each(this._paramterNames, function (parameterName, idx, list) {
+            if (!path[idx + 1]) {
+                log.error('Could not read all the required paramters from URI. Read %d, needed %d', counter, _this._paramterNames.length);
+                return false;
+            }
             _this._parameters[parameterName] = path[idx + 1];
             counter++;
         });
-        log.info(this._parameters);
+        log.info('Read %d parameters from request URL: %s', counter, JSON.stringify(this._parameters));
         return counter;
     };
     ResourcePlayer.prototype._updateData = function (newData) {
@@ -500,6 +501,7 @@ var ResourcePlayer = (function (_super) {
         var self = this;
         var log = internals.log().child({ func: self._name + '.get' });
         var paramCount = self._paramterNames.length;
+        var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
             if (direction.resource) {
@@ -514,13 +516,16 @@ var ResourcePlayer = (function (_super) {
                     return internals.promiseError(internals.format('[error: no such child] ResourcePlayer GET could not find a Resource for "{0}"', JSON.stringify(route.path)), route.pathname);
             }
         }
-        log.info('GET Target Found : %s', self._name);
-        if (paramCount > 0)
-            self._readParameters(route.path);
+        log.info('GET Target Found : %s (requires %d parameters)', self._name, paramCount);
+        if (paramCount > 0) {
+            if (self._readParameters(route.path) < paramCount) {
+                later.reject(new rxError.RxError('Not enough paramters available in the URI ', 'GET ' + self.name, 404));
+                return later.promise;
+            }
+        }
         site().setPathCache(route.pathname, { resource: this, path: route.path });
         var dyndata = {};
         if (self._onGet) {
-            var later = Q.defer();
             log.info('Invoking onGet()! on %s', self._name);
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
@@ -557,6 +562,7 @@ var ResourcePlayer = (function (_super) {
         var self = this;
         var log = internals.log().child({ func: self._name + '.delete' });
         var paramCount = self._paramterNames.length;
+        var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
             if (direction) {
@@ -568,11 +574,15 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
-        if (paramCount > 0)
-            self._readParameters(route.path);
+        log.info('DELETE Target Found : %s (requires %d parameters)', self._name, paramCount);
+        if (paramCount > 0) {
+            if (self._readParameters(route.path) < paramCount) {
+                later.reject(new rxError.RxError('Not enough paramters available in the URI ', 'DELETE ' + self.name, 404));
+                return later.promise;
+            }
+        }
         if (self._onDelete) {
             log.info('call onDelete() for %s', self._name);
-            var later = Q.defer();
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
                 internals.viewJson(self).then(function (emb) {
@@ -608,8 +618,10 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
-        if (paramCount > 0)
+        log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount);
+        if (paramCount > 0) {
             self._readParameters(route.path);
+        }
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
@@ -650,8 +662,13 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
-        if (paramCount > 0)
-            self._readParameters(route.path);
+        log.info('PATCH Target Found : %s (requires %d parameters)', self._name, paramCount);
+        if (paramCount > 0) {
+            if (self._readParameters(route.path) < paramCount) {
+                later.reject(new rxError.RxError('Not enough paramters available in the URI ', 'PATCH ' + self.name, 404));
+                return later.promise;
+            }
+        }
         if (self._onPatch) {
             log.info('calling onPatch() for %s', self._name);
             self._onPatch(route.query, body).then(function (response) {

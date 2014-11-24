@@ -41,7 +41,7 @@ export class RxError implements IRxError {
     var tmp = new Error();
     this.message = message;
     this.name = name;
-    this.httpCode = code;
+    this.httpCode = code ? code : 404;
     this.stack = tmp.stack;
     this.extra = extra;
   }
