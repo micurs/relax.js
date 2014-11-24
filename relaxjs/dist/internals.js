@@ -31,7 +31,7 @@ function format(source) {
     for (var _i = 1; _i < arguments.length; _i++) {
         args[_i - 1] = arguments[_i];
     }
-    return this.replace(/{(\d+)}/g, function (match, n) {
+    return source.replace(/{(\d+)}/g, function (match, n) {
         return typeof args[n] != 'undefined' ? args[n] : match;
     });
 }

@@ -45,13 +45,14 @@ export function log(): bunyan.Logger {
 
 
 export function format( source: string , ...args: any[]): string {
- return this.replace(/{(\d+)}/g, function( match: any , n: number) {
+ return source.replace(/{(\d+)}/g, function( match: any , n: number) {
     return typeof args[n] != 'undefined'
       ? args[n]
       : match
     ;
   });
 }
+
 
 export function slugify ( source: string ): string
 {
