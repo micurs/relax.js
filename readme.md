@@ -19,15 +19,26 @@ npm install relaxjs
 ```
 
 Will install the latest release version from npm.
-A simple node application using the library is just a few line of code:
+A simple node application using the library is just a few line of code (save this as demo.js):
 
 ```
 var r = require('relaxjs');
 var site = r.site('test');
+
 // Let's add one resource to the site
-site.add( { name: 'test', data: 'this is a test'} );
+site.add( {
+  name: 'test',
+  data: { message: 'this is a test' }  
+});
+
 // Serve the site on port 3000
 site.serve().listen(3000);
+```
+
+Run the demo using node:
+
+```
+node demo.js
 ```
 
 If everything is installed correctly pointing your browser to `localhost:3000` will show you the relaxjs entry page.
