@@ -12,24 +12,36 @@ Windows without any changes.
 - For more information on how to compile and change Relax.js check this [readme](relaxjs/readme.md).
 - Also check the [wiki](https://github.com/micurs/relax.js/wiki) to understand how it works.
 
-# Install from npm
+# Install and basic usage
 
 ```
 npm install relaxjs
 ```
 
-Will download the latest version from npm.
-You can use relax.js from javascript in full. If you want to use it using Typescript the project contains
-a type definition file ``relaxjs.d.ts``.
+Will install the latest release version from npm.
+A simple node application using the library is just a few line of code:
 
-you can use it from your typescript source files:
+```
+var r = require('relaxjs');
+var site = r.site('test');
+// Let's add one resource to the site
+site.add( { name: 'test', data: 'this is a test'} );
+// Serve the site on port 3000
+site.serve().listen(3000);
+```
+
+If everything is installed correctly pointing your browser to `localhost:3000` will show you the relaxjs entry page.
+
+If you want to use it using Typescript the project contains the type definition file ``relaxjs.d.ts``.
+You can use it from your typescript source files:
 
 ```
 ///<reference path='node_modules/relaxjs/dist/relaxjs.d.ts' />
 ```
 
+To get a full tutorial on how to use the library check the [wiki](https://github.com/micurs/relax.js/wiki).
 
-# Running on Vagrant
+# Develop and Running the examples using Vagrant
 
 First clone the repo on your machine the instal VirtualBox and Vagrant
 
