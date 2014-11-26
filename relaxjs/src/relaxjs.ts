@@ -318,8 +318,6 @@ export class Container {
     return counter;
   }
 
-
-
 }
 
 
@@ -420,8 +418,8 @@ export class Site extends Container implements HttpPlayer {
       var site : Site = this;
       var log = internals.log().child( { func: 'Site.serve'} );
 
-      log.info('NEW REQUEST %s', msg.method);
-      log.info('    PATH %s', msg.url);
+      log.info('REQUEST: %s', msg.method);
+      log.info('   PATH: %s', msg.url);
 
       // Read the message body (if available)
       var body : string = '';
@@ -434,7 +432,7 @@ export class Site extends Container implements HttpPlayer {
 
         // Parse the data received with this request
         if ( body.length>0 )
-          bodyData = internals.parseData(body,msg.headers['content-type']);
+          bodyData = internals.parseData(body,route.format);
 
         if ( site[msg.method.toLowerCase()] === undefined ) {
           log.error('%s request is not supported ');

@@ -23,6 +23,7 @@ export class Route {
   pathname : string;
   path : string[];
   query: any;
+  format: string;
 
   constructor( uri?: string ) {
     if ( uri ) {
@@ -77,5 +78,7 @@ export class Direction {
 export function fromUrl( request: http.ServerRequest ) : Route {
   if ( !request.url )
     request.url = '/';
-  return new Route( request.url );
+  var route = new Route( request.url );
+  route.format = request.headers['content-type'];
+  return route;
 }

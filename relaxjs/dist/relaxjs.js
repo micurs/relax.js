@@ -260,8 +260,8 @@ var Site = (function (_super) {
             var route = routing.fromUrl(msg);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
-            log.info('NEW REQUEST %s', msg.method);
-            log.info('    PATH %s', msg.url);
+            log.info('REQUEST: %s', msg.method);
+            log.info('   PATH: %s', msg.url);
             var body = '';
             msg.on('data', function (data) {
                 body += data;
@@ -270,7 +270,7 @@ var Site = (function (_super) {
                 var promise;
                 var bodyData = {};
                 if (body.length > 0)
-                    bodyData = internals.parseData(body, msg.headers['content-type']);
+                    bodyData = internals.parseData(body, route.format);
                 if (site[msg.method.toLowerCase()] === undefined) {
                     log.error('%s request is not supported ');
                     return;

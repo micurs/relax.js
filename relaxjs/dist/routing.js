@@ -43,7 +43,9 @@ exports.Direction = Direction;
 function fromUrl(request) {
     if (!request.url)
         request.url = '/';
-    return new Route(request.url);
+    var route = new Route(request.url);
+    route.format = request.headers['content-type'];
+    return route;
 }
 exports.fromUrl = fromUrl;
 //# sourceMappingURL=routing.js.map
