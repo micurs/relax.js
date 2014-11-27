@@ -7,6 +7,7 @@ var __extends = this.__extends || function (d, b) {
 var http = require("http");
 var Q = require('q');
 var _ = require("lodash");
+var xml2js = require('xml2js');
 var internals = require('./internals');
 var routing = require('./routing');
 var rxError = require('./rxerror');
@@ -34,9 +35,9 @@ var Embodiment = (function () {
             response.write(this.data);
         response.end();
         if (this.data.length > 1024)
-            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb', Math.round(this.data.length / 1024));
+            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb (as %s)', Math.round(this.data.length / 1024), this.mimeType);
         else
-            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes', this.data.length);
+            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes (as %s)', this.data.length, this.mimeType);
     };
     Embodiment.prototype.dataAsString = function () {
         return this.data.toString('utf-8');
@@ -254,14 +255,48 @@ var Site = (function (_super) {
     Site.prototype.setPathCache = function (path, shortcut) {
         this._pathCache[path] = shortcut;
     };
+    Site.prototype._outputError = function (response, error, format) {
+        var mimeType = format.split(/[\s,]+/)[0];
+        var errCode = error.getHttpCode();
+        response.writeHead(errCode, { 'content-type': mimeType });
+        var errObj = {
+            version: exports.version,
+            result: 'error',
+            error: {
+                name: error.name,
+                message: error.message,
+                stack: error.stack.split('\n')
+            }
+        };
+        switch (mimeType) {
+            case 'text/html':
+                response.write('<h1>relax.js: We Got Errors</h1>');
+                response.write('<h2>' + error.name + '</h2>');
+                response.write('<h3 style="color:red;">' + _.escape(error.message) + '</h3><hr/>');
+                response.write('<pre>' + _.escape(error.stack) + '</pre>');
+                break;
+            case 'application/xml':
+            case 'text/xml':
+                var builder = new xml2js.Builder({ rootName: 'relaxjs' });
+                response.write(builder.buildObject(errObj));
+                break;
+            case 'application/json':
+            default:
+                response.write(JSON.stringify(errObj));
+                break;
+        }
+        response.end();
+    };
     Site.prototype.serve = function () {
         var _this = this;
+        var self = this;
         return http.createServer(function (msg, response) {
             var route = routing.fromUrl(msg);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
-            log.info('REQUEST: %s', msg.method);
-            log.info('   PATH: %s', msg.url);
+            log.info('REQUEST: %s', route.verb);
+            log.info('   PATH: %s %s', route.pathname, route.query);
+            log.info(' FORMAT: %s', route.format);
             var body = '';
             msg.on('data', function (data) {
                 body += data;
@@ -278,19 +313,7 @@ var Site = (function (_super) {
                 site[msg.method.toLowerCase()](route, bodyData).then(function (rep) {
                     rep.serve(response);
                 }).fail(function (error) {
-                    var rxErr = error;
-                    if (error.getHttpCode) {
-                        response.writeHead(rxErr.getHttpCode(), { "content-type": "text/html" });
-                        response.write('<h1>relax.js: we got an error</h1>');
-                    }
-                    else {
-                        response.writeHead(500, { "content-type": "text/html" });
-                        response.write('<h1>Error</h1>');
-                    }
-                    response.write('<h2>' + error.name + '</h2>');
-                    response.write('<h3 style="color:red;">' + _.escape(error.message) + '</h3><hr/>');
-                    response.write('<pre>' + error.stack + '</pre>');
-                    response.end();
+                    self._outputError(response, error, route.format);
                 }).done();
             });
         });
@@ -323,6 +346,7 @@ var Site = (function (_super) {
         var self = this;
         var log = internals.log().child({ func: 'Site.get' });
         log.info('route: %s', route.pathname);
+        log.info(' FORMAT: %s', route.format);
         if (route.static) {
             return internals.viewStatic(route.pathname);
         }
@@ -481,13 +505,42 @@ var ResourcePlayer = (function (_super) {
         return counter;
     };
     ResourcePlayer.prototype._updateData = function (newData) {
-        var _this = this;
-        this.data = {};
+        var self = this;
+        self.data = {};
         _.each(newData, function (value, attrname) {
             if (attrname != 'resources') {
-                _this.data[attrname] = value;
+                self.data[attrname] = value;
             }
         });
+    };
+    ResourcePlayer.prototype._deliverResponse = function (later, data, format) {
+        var self = this;
+        var mimeType = format ? format.split(/[\s,]+/)[0] : 'application/json';
+        if (self._template && mimeType == 'text/html') {
+            internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
+                later.resolve(emb);
+            }).fail(function (err) {
+                later.reject(err);
+            });
+        }
+        else {
+            switch (mimeType) {
+                case 'application/xml':
+                case 'text/xml':
+                    later.reject(new rxError.RxError('XML format is not available for this resource', 'Unsupported Media Type', 415));
+                    break;
+                case 'text/html':
+                    later.reject(new rxError.RxError('HTML format is not available for this resource', 'Unsupported Media Type', 415));
+                    break;
+                case 'application/json':
+                    internals.viewJson(data).then(function (emb) {
+                        later.resolve(emb);
+                    }).fail(function (err) {
+                        later.reject(err);
+                    });
+                    break;
+            }
+        }
     };
     ResourcePlayer.prototype.head = function (route) {
         var self = this;
@@ -526,23 +579,10 @@ var ResourcePlayer = (function (_super) {
         site().setPathCache(route.pathname, { resource: this, path: route.path });
         var dyndata = {};
         if (self._onGet) {
-            log.info('Invoking onGet()! on %s', self._name);
+            log.info('Invoking onGet()! on %s  (%s)', self._name, route.format);
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
-                if (self._template) {
-                    internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
-                        later.resolve(emb);
-                    }).fail(function (err) {
-                        later.reject(err);
-                    });
-                }
-                else {
-                    internals.viewJson(self.data).then(function (emb) {
-                        later.resolve(emb);
-                    }).fail(function (err) {
-                        later.reject(err);
-                    });
-                }
+                self._deliverResponse(later, self.data, route.format);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             }).catch(function (error) {
@@ -585,13 +625,7 @@ var ResourcePlayer = (function (_super) {
             log.info('call onDelete() for %s', self._name);
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
-                internals.viewJson(self).then(function (emb) {
-                    emb.httpCode = response.httpCode ? response.httpCode : 200;
-                    emb.location = response.location ? response.location : '';
-                    later.resolve(emb);
-                }).fail(function (err) {
-                    later.reject(err);
-                });
+                self._deliverResponse(later, response.data, route.format);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -625,13 +659,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
-                internals.viewJson(response.data).then(function (emb) {
-                    emb.httpCode = response.httpCode ? response.httpCode : 200;
-                    emb.location = response.location ? response.location : '';
-                    later.resolve(emb);
-                }).fail(function (err) {
-                    later.reject(err);
-                });
+                self._deliverResponse(later, response.data, route.format);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -673,13 +701,7 @@ var ResourcePlayer = (function (_super) {
             log.info('calling onPatch() for %s', self._name);
             self._onPatch(route.query, body).then(function (response) {
                 self._updateData(response.data);
-                internals.viewJson(self).then(function (emb) {
-                    emb.httpCode = response.httpCode ? response.httpCode : 200;
-                    emb.location = response.location ? response.location : '';
-                    later.resolve(emb);
-                }).fail(function (err) {
-                    later.reject(err);
-                });
+                self._deliverResponse(later, self.data, route.format);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });

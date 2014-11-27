@@ -48,7 +48,8 @@
     "lodash": "^2.4.1",
     "mime": "^1.2.11",
     "q": "^1.0.1",
-    "typescript-require": "^0.2.6"
+    "typescript-require": "^0.2.6",
+    "xml2js": "^0.4.4"
   },
   "devDependencies": {
     "better-console": "^0.2.3",

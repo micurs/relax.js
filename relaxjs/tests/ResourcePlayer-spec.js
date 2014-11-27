@@ -378,8 +378,8 @@ describe('Test DELETE responses', function() {
       runs( function() {
         //var res = JSON.parse(result);
         expect( result ).toBeDefined();
-        expect( result.data.testArray ).toBeDefined();
-        expect( result.data.testArray ).not.toContain( 'second-item' );
+        expect( result.testArray ).toBeDefined();
+        expect( result.testArray ).not.toContain( 'second-item' );
       });
     });
   });
@@ -409,8 +409,8 @@ describe('Test DELETE responses', function() {
       runs( function() {
         console.log(result);
         expect( result ).toBeDefined();
-        expect( result.data.testArray ).toBeDefined();
-        expect( result.data.testArray ).not.toContain( 'second-item' );
+        expect( result.testArray ).toBeDefined();
+        expect( result.testArray ).not.toContain( 'second-item' );
       });
 
     });
@@ -438,7 +438,7 @@ describe('Test DELETE responses', function() {
       runs( function() {
         expect( result ).toBeDefined();
         expect( site.getResource('/parent/child') ).toBeUndefined();
-        expect( result.data ).toEqual( { message: 'this resource will be deleted'} );
+        expect( result ).toEqual( { name : 'child', data : { message : 'this resource will be deleted' } } );
       });
     });
   });
@@ -468,8 +468,8 @@ describe('Test DELETE responses', function() {
       runs( function() {
         //var res = JSON.parse(result);
         expect( result ).toBeDefined();
-        expect( result.data.testArray ).toBeDefined();
-        expect( result.data.testArray ).not.toContain( 'second-item' );
+        expect( result.testArray ).toBeDefined();
+        expect( result.testArray ).not.toContain( 'second-item' );
       });
     });
   });
@@ -500,8 +500,8 @@ describe('Test DELETE responses', function() {
       runs( function() {
         console.log(result);
         expect( result ).toBeDefined();
-        expect( result.data.testArray ).toBeDefined();
-        expect( result.data.testArray ).not.toContain( 'second-item' );
+        expect( result.testArray ).toBeDefined();
+        expect( result.testArray ).not.toContain( 'second-item' );
       });
 
     });

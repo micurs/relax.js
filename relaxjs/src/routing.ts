@@ -51,6 +51,7 @@ export class Route {
     newRoute.static = this.static;
     newRoute.pathname = this.pathname;
     newRoute.query = this.query;
+    newRoute.format = this.format;
     newRoute.path.splice(0,stpes);
     return newRoute;
   }
@@ -79,6 +80,13 @@ export function fromUrl( request: http.ServerRequest ) : Route {
   if ( !request.url )
     request.url = '/';
   var route = new Route( request.url );
-  route.format = request.headers['content-type'];
+  if ( request.headers['content-type'] )
+    route.format = request.headers['content-type'];
+  else if ( request.headers['accept'] ) {
+    route.format = request.headers['accept'];
+  }
+  else
+    route.format = 'application/json';
+  route.verb = request.method;
   return route;
 }

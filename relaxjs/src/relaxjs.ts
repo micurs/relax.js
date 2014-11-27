@@ -7,6 +7,7 @@
 ///<reference path='../typings/lodash/lodash.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
+///<reference path='../typings/xml2js/xml2js.d.ts' />
 
 import http = require("http");
 import fs = require("fs");
@@ -14,6 +15,7 @@ import url = require('url');
 import path = require('path');
 import Q = require('q');
 import _ = require("lodash");
+import xml2js = require('xml2js');
 
 import internals = require('./internals');
 import routing = require('./routing');
@@ -134,9 +136,9 @@ export class Embodiment {
     response.end();
 
     if ( this.data.length>1024 )
-      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb', Math.round(this.data.length/1024) ) ;
+      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb (as %s)', Math.round(this.data.length/1024), this.mimeType ) ;
     else
-      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes', this.data.length );
+      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes (as %s)', this.data.length,this.mimeType );
   }
 
   dataAsString() : string {
@@ -411,15 +413,55 @@ export class Site extends Container implements HttpPlayer {
     this._pathCache[path] = shortcut;
   }
 
+  // Output to response the given error following the mime type in format.
+  private _outputError( response : http.ServerResponse, error:rxError.RxError, format: string ) {
+    var mimeType = format.split(/[\s,]+/)[0];
+    var errCode = error.getHttpCode();
+    response.writeHead( errCode, { 'content-type': mimeType } );
+    var errObj = {
+      version: version ,
+      result: 'error',
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack.split('\n')
+      }
+    };
+
+    switch( mimeType ) {
+      case 'text/html':
+        response.write('<h1>relax.js: We Got Errors</h1>');
+        response.write('<h2>'+error.name+'</h2>');
+        response.write('<h3 style="color:red;">'+_.escape(error.message)+'</h3><hr/>');
+        response.write('<pre>'+_.escape(error.stack)+'</pre>');
+      break;
+      case 'application/xml':
+      case 'text/xml':
+        var builder = new xml2js.Builder({ rootName: 'relaxjs' });
+        response.write( builder.buildObject(errObj) );
+      break;
+      case 'application/json':
+      default:
+        response.write( JSON.stringify(errObj) );
+      break;
+    }
+    response.end();
+  }
+
+  /*
+   * Create a Server for the site and manage all the requests by routing them to the appropriate resource
+  */
   serve() : http.Server {
+    var self = this;
     return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromUrl(msg);
       var site : Site = this;
       var log = internals.log().child( { func: 'Site.serve'} );
 
-      log.info('REQUEST: %s', msg.method);
-      log.info('   PATH: %s', msg.url);
+      log.info('REQUEST: %s', route.verb );
+      log.info('   PATH: %s %s', route.pathname, route.query);
+      log.info(' FORMAT: %s', route.format);
 
       // Read the message body (if available)
       var body : string = '';
@@ -444,21 +486,7 @@ export class Site extends Container implements HttpPlayer {
             rep.serve(response);
           })
           .fail( function (error) {
-            // console.log(error);
-            var rxErr: rxError.RxError = <rxError.RxError>error;
-            // console.log(rxErr.toString());
-            if ( (<any>error).getHttpCode ) {
-              response.writeHead( rxErr.getHttpCode(), {"content-type": "text/html"} );
-              response.write('<h1>relax.js: we got an error</h1>');
-            }
-            else {
-              response.writeHead( 500, {"content-type": "text/html"} );
-              response.write('<h1>Error</h1>');
-            }
-            response.write('<h2>'+error.name+'</h2>');
-            response.write('<h3 style="color:red;">'+_.escape(error.message)+'</h3><hr/>');
-            response.write('<pre>'+error.stack+'</pre>');
-            response.end();
+            self._outputError(response,error,route.format);
           })
           .done();
       }); // End msg.on()
@@ -501,6 +529,8 @@ export class Site extends Container implements HttpPlayer {
     var self = this;
     var log = internals.log().child( { func: 'Site.get'} );
     log.info('route: %s',route.pathname);
+    log.info(' FORMAT: %s', route.format);
+
     if ( route.static ) {
       return internals.viewStatic( route.pathname );
     }
@@ -690,15 +720,42 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   // Reset the data property for this object and copy all the
   // elements from the given parameter into it.
   private _updateData( newData: any ) : void {
-    this.data = {};
+    var self = this;
+    self.data = {};
     _.each(newData, ( value: any, attrname: string ) => {
       if ( attrname != 'resources') {
-        this.data[attrname] = value;
+        self.data[attrname] = value;
       }
     } );
   }
 
-
+  // Deliver a response through the given deferred function according to
+  // the format requested by the original call and the presence of templates
+  private _deliverResponse(later: Q.Deferred<Embodiment>, data: any, format: string ) : void {
+    var self = this;
+    var mimeType = format ? format.split(/[\s,]+/)[0] : 'application/json';
+    if ( self._template && mimeType=='text/html') {
+      internals.viewDynamic(self._template, self, self._layout )
+        .then( (emb: Embodiment ) => { later.resolve(emb); })
+        .fail( (err) => { later.reject(err) } );
+    }
+    else {
+      switch( mimeType ) {
+        case 'application/xml':
+        case 'text/xml':
+          later.reject(new rxError.RxError('XML format is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+          break;
+        case 'text/html':
+          later.reject(new rxError.RxError('HTML format is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+          break;
+        case 'application/json':
+          internals.viewJson(data)
+            .then( (emb: Embodiment ) => { later.resolve(emb); })
+            .fail( (err) => { later.reject(err) } );
+          break;
+      }
+    }
+  }
 
   // -------------------- HTTP VERB FUNCIONS -------------------------------------
 
@@ -755,20 +812,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
-      log.info('Invoking onGet()! on %s', self._name );
+      log.info('Invoking onGet()! on %s  (%s)', self._name, route.format );
       self._onGet( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
-          if ( self._template ) {
-            internals.viewDynamic(self._template, self, self._layout )
-              .then( (emb: Embodiment ) => { later.resolve(emb); })
-              .fail( (err) => { later.reject(err) } );
-          }
-          else {
-            internals.viewJson(self.data)
-              .then( (emb: Embodiment ) => { later.resolve(emb); })
-              .fail( (err) => { later.reject(err) } );
-          }
+          self._deliverResponse(later, self.data, route.format );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -829,13 +877,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       this._onDelete( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
-          internals.viewJson(self)
-            .then( (emb: Embodiment ) => {
-              emb.httpCode = response.httpCode ? response.httpCode : 200 ;
-              emb.location = response.location ? response.location : '';
-              later.resolve(emb);
-            })
-            .fail( (err) => { later.reject(err)});
+          self._deliverResponse(later, response.data, route.format );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -886,15 +928,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       self._onPost( route.query, body )
         .then( ( response: any ) => {
           // self._updateData(response.data);
-          internals.viewJson(response.data)
-            .then( function(emb: Embodiment ) {
-              emb.httpCode = response.httpCode ? response.httpCode : 200 ;
-              emb.location = response.location ? response.location : '';
-              later.resolve(emb);
-            })
-            .fail( function(err) {
-              later.reject(err);
-            });
+          self._deliverResponse(later, response.data, route.format );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -948,13 +982,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       self._onPatch( route.query, body )
         .then( ( response: any ) => {
           self._updateData(response.data);
-          internals.viewJson(self)
-            .then( function(emb: Embodiment ) {
-              emb.httpCode = response.httpCode ? response.httpCode : 200 ;
-              emb.location = response.location ? response.location : '';
-              later.resolve(emb);
-            })
-            .fail( function(err) { later.reject(err); } );
+          self._deliverResponse(later, self.data, route.format );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
