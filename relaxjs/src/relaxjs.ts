@@ -1,5 +1,5 @@
 /*
- * Relax.js version 0.1.0
+ * Relax.js version 0.1.2
  * by Michele Ursino Nov - 2014
 */
 
@@ -131,14 +131,14 @@ export class Embodiment {
       headers['Location'] = this.location;
 
     response.writeHead( this.httpCode, headers );
-    if ( this.data )
+    if ( this.data ) {
       response.write(this.data);
+      if ( this.data.length>1024 )
+        internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb (as %s)', Math.round(this.data.length/1024), this.mimeType ) ;
+      else
+        internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes (as %s)', this.data.length,this.mimeType );
+    }
     response.end();
-
-    if ( this.data.length>1024 )
-      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb (as %s)', Math.round(this.data.length/1024), this.mimeType ) ;
-    else
-      internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes (as %s)', this.data.length,this.mimeType );
   }
 
   dataAsString() : string {
@@ -416,7 +416,7 @@ export class Site extends Container implements HttpPlayer {
   // Output to response the given error following the mime type in format.
   private _outputError( response : http.ServerResponse, error:rxError.RxError, format: string ) {
     var mimeType = format.split(/[\s,]+/)[0];
-    var errCode = error.getHttpCode();
+    var errCode = error.getHttpCode ? error.getHttpCode() : 500;
     response.writeHead( errCode, { 'content-type': mimeType } );
     var errObj = {
       version: version ,
@@ -470,25 +470,30 @@ export class Site extends Container implements HttpPlayer {
         });
       msg.on('end', function () {
         var promise: Q.Promise<Embodiment>;
-        var bodyData = {};
-
-        // Parse the data received with this request
-        if ( body.length>0 )
-          bodyData = internals.parseData(body,route.format);
-
         if ( site[msg.method.toLowerCase()] === undefined ) {
           log.error('%s request is not supported ');
           return;
         }
-        // Execute the HTTP request
-        site[msg.method.toLowerCase()]( route, bodyData )
-          .then( ( rep : Embodiment ) => {
-            rep.serve(response);
+
+        // Parse the data received with this request
+        internals.parseData(body,route.format)
+          .then( (bodyData: any ) => {
+          // Execute the HTTP request
+            site[msg.method.toLowerCase()]( route, bodyData )
+              .then( ( rep : Embodiment ) => {
+                log.info('HTTP %s request fulfilled',msg.method  );
+                rep.serve(response);
+              })
+              .fail( (error) => {
+                log.error('HTTP %s request failed: %s:',msg.method,error.message);
+                self._outputError(response,error,route.format);
+              })
+              .done();
           })
-          .fail( function (error) {
+          .fail( (error) => {
+            log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
             self._outputError(response,error,route.format);
-          })
-          .done();
+          });
       }); // End msg.on()
     }); // End http.createServer()
   }
@@ -529,7 +534,7 @@ export class Site extends Container implements HttpPlayer {
     var self = this;
     var log = internals.log().child( { func: 'Site.get'} );
     log.info('route: %s',route.pathname);
-    log.info(' FORMAT: %s', route.format);
+    //log.info(' FORMAT: %s', route.format);
 
     if ( route.static ) {
       return internals.viewStatic( route.pathname );
@@ -630,6 +635,7 @@ export class Site extends Container implements HttpPlayer {
  * response function for each verb.
 */
 export class ResourcePlayer extends Container implements HttpPlayer {
+
   private _name: string = '';
   private _site: Site;
   private _template: string = '';
@@ -702,13 +708,15 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   }
 
   // Read the parameters from a route
-  private _readParameters( path: string[]) : number {
+  private _readParameters( path: string[], generateError: boolean = true ) : number {
     var log = internals.log().child( { func: this._name+'._readParameters'} );
     var counter = 0;
     _.each(this._paramterNames, ( parameterName, idx, list) => {
       if ( !path[idx+1] ) {
-        log.error('Could not read all the required paramters from URI. Read %d, needed %d',counter,this._paramterNames.length);
-        return false; // breaks out of the each loop.
+        if ( generateError ) {
+          log.error('Could not read all the required paramters from URI. Read %d, needed %d',counter,this._paramterNames.length);
+        }
+        return counter; // breaks out of the each loop.
       }
       this._parameters[parameterName] = path[idx+1];
       counter++;
@@ -734,25 +742,19 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   private _deliverResponse(later: Q.Deferred<Embodiment>, data: any, format: string ) : void {
     var self = this;
     var mimeType = format ? format.split(/[\s,]+/)[0] : 'application/json';
-    if ( self._template && mimeType=='text/html') {
+    if ( self._template && mimeType=='text/html' ) {
       internals.viewDynamic(self._template, self, self._layout )
         .then( (emb: Embodiment ) => { later.resolve(emb); })
         .fail( (err) => { later.reject(err) } );
     }
     else {
-      switch( mimeType ) {
-        case 'application/xml':
-        case 'text/xml':
-          later.reject(new rxError.RxError('XML format is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
-          break;
-        case 'text/html':
-          later.reject(new rxError.RxError('HTML format is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
-          break;
-        case 'application/json':
-          internals.viewJson(data)
-            .then( (emb: Embodiment ) => { later.resolve(emb); })
-            .fail( (err) => { later.reject(err) } );
-          break;
+      if ( mimeType=='text/html' ) {
+        later.reject(new rxError.RxError('HTML format is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+      }
+      else {
+        internals.createEmbodiment(data,mimeType)
+          .then( (emb: Embodiment ) => { later.resolve(emb); })
+          .fail( (err) => { later.reject(err) } );
       }
     }
   }
@@ -775,7 +777,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   get( route: routing.Route ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: self._name+'.get'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').get'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -812,7 +814,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
-      log.info('Invoking onGet()! on %s  (%s)', self._name, route.format );
+      log.info('Invoking onGet()! on %s (%s)', self._name, route.format );
       self._onGet( route.query )
         .then( function( response: any ) {
           self._updateData(response.data);
@@ -833,7 +835,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       return internals.viewDynamic(self._template, self, self._layout );
     }
     else {
-      return internals.viewJson(self.data);
+      return internals.createEmbodiment(self.data,route.format);
     }
   }
 
@@ -843,7 +845,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   delete( route : routing.Route ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: self._name+'.delete'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').delete'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -890,7 +892,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     log.info('Default Delete: Removing resource %s',self._name );
     self.parent.remove(self);
     self.parent = null;
-    return internals.viewJson(self);
+    return internals.createEmbodiment(self,route.format);
   }
 
   // HttpPlayer POST
@@ -898,7 +900,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   // The body sent to a post must contain the resource name to be created.
   post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: self._name+'.post'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').post'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -919,7 +921,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount );
     if ( paramCount>0 ) {
       // In a POST not finding all the paramters expeceted should not fail the call.
-      self._readParameters(route.path);
+      self._readParameters(route.path,false);
     }
 
     // Call the onPost() for this resource (user code)
@@ -939,11 +941,14 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Set the data directly
     log.info('Adding data for %s',self._name );
     self._updateData(body);
+    return internals.createEmbodiment(self.data,route.format);
+
+  /*
     internals.viewJson(self.data)
       .then( (emb: Embodiment ) => { later.resolve(emb); })
       .fail( (err) => { later.reject(err); } );
-
     return later.promise;
+    */
   }
 
 
@@ -951,7 +956,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   // Applies partial modifications to a resource (as identified in the URI).
   patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: self._name+'.patch'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').patch'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -993,10 +998,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Set the data directly
     log.info('Updating data for %s',self._name );
     self._updateData(body);
-    internals.viewJson(self.data)
+    return internals.createEmbodiment(self.data,route.format);
+/*    internals.viewJson(self.data)
       .then( (emb: Embodiment ) => { later.resolve(emb); })
       .fail( (err) => { later.reject(err); } );
-    return later.promise;
+    return later.promise;*/
   }
 
 
@@ -1005,7 +1011,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   // The body sent to a post does not contain the resource name to be stored since that name is the URI.
   put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: self._name+'.patch'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').put'} );
 
     var later = Q.defer< Embodiment >();
     _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });

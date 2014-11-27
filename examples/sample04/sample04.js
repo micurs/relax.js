@@ -25,7 +25,6 @@ var usersResource = {
     layout: 'layout',
     onGet: function (query, respond) {
         var self = this;
-        console.log("Resource: ", self._name);
         store.hgetall('user', function (err, items) {
             var userList = _.object(_.keys(items), _.map(_.values(items), function (item) { return JSON.parse(item); }));
             self.ok(respond, { users: userList });

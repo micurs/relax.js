@@ -4,6 +4,7 @@ var Q = require('q');
 var querystring = require('querystring');
 var bunyan = require('bunyan');
 var _ = require("lodash");
+var xml2js = require('xml2js');
 var relaxjs = require('./relaxjs');
 var rxError = require('./rxerror');
 var _log;
@@ -42,18 +43,44 @@ function slugify(source) {
 }
 exports.slugify = slugify;
 function parseData(bodyData, contentType) {
+    var log = _log.child({ func: 'internals.parseData' });
+    var later = Q.defer();
+    if (!bodyData || bodyData.length == 0) {
+        later.resolve({});
+        return later.promise;
+    }
+    var mimeType = contentType.split(/[\s,]+/)[0];
+    log.info('Parsing "%s" as (%s)', bodyData, mimeType);
     try {
-        if (contentType.indexOf('application/json') > -1) {
-            return JSON.parse(bodyData);
+        switch (mimeType) {
+            case 'application/xml':
+            case 'text/xml':
+                xml2js.parseString(bodyData, { explicitRoot: false, explicitArray: false }, function (err, res) {
+                    if (err) {
+                        _log.error('Error parsing XML data with ');
+                        _log.error(err);
+                        later.reject(err);
+                    }
+                    else {
+                        log.info('Parsed XML as: %s', JSON.stringify(res));
+                        later.resolve(res);
+                    }
+                });
+                break;
+            case 'application/x-www-form-urlencoded':
+                later.resolve(querystring.parse(bodyData));
+                break;
+            case 'application/json':
+            default:
+                later.resolve(JSON.parse(bodyData));
         }
-        else
-            return querystring.parse(bodyData);
     }
     catch (err) {
         _log.error('Error parsing incoming data with %s', contentType);
         _log.error(err);
-        return {};
+        later.reject(err);
     }
+    return later.promise;
 }
 exports.parseData = parseData;
 function emitCompileViewError(content, err, filename) {
@@ -111,22 +138,36 @@ function viewStatic(filename) {
     return laterAction.promise;
 }
 exports.viewStatic = viewStatic;
-function viewJson(viewData) {
+function createEmbodiment(viewData, mimeType) {
     var log = _log.child({ func: 'internals.viewJson' });
     var later = Q.defer();
+    var resourceName = 'resource';
     _.defer(function () {
         try {
             var destObj = {};
             _.each(_.keys(viewData), function (key) {
-                if (key === '_name')
+                if (key === '_name') {
                     destObj['name'] = viewData[key];
+                    resourceName = viewData[key];
+                }
                 else if (key.indexOf('_') === 0)
                     return;
                 else {
                     destObj[key] = viewData[key];
                 }
             });
-            var e = new relaxjs.Embodiment('application/json', new Buffer(JSON.stringify(destObj), 'utf-8'));
+            var dataString = '';
+            switch (mimeType) {
+                case 'application/xml':
+                case 'text/xml':
+                    var builder = new xml2js.Builder({ rootName: resourceName });
+                    dataString = builder.buildObject(destObj);
+                    break;
+                case 'application/json':
+                    defaul: dataString = JSON.stringify(destObj);
+                    break;
+            }
+            var e = new relaxjs.Embodiment(mimeType, new Buffer(dataString, 'utf-8'));
             later.resolve(e);
         }
         catch (err) {
@@ -136,7 +177,7 @@ function viewJson(viewData) {
     });
     return later.promise;
 }
-exports.viewJson = viewJson;
+exports.createEmbodiment = createEmbodiment;
 function viewDynamic(viewName, viewData, layoutName) {
     var log = _log.child({ func: 'internals.viewDynamic' });
     var laterAct = Q.defer();

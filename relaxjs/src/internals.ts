@@ -1,8 +1,14 @@
+/*
+ * Relax.js version 0.1.2
+ * by Michele Ursino Nov - 2014
+*/
+
 ///<reference path='../typings/node/node.d.ts' />
 ///<reference path='../typings/lodash/lodash.d.ts' />
 ///<reference path='../typings/q/Q.d.ts' />
 ///<reference path='../typings/mime/mime.d.ts' />
 ///<reference path='../typings/bunyan/bunyan.d.ts' />
+///<reference path='../typings/xml2js/xml2js.d.ts' />
 
 ///<reference path='./relaxjs.ts' />
 
@@ -12,7 +18,8 @@ import Q = require('q');
 import querystring = require('querystring');
 import bunyan = require('bunyan');
 import _ = require("lodash");
-// _.str = require('underscore.string');
+import xml2js = require('xml2js');
+
 
 import relaxjs = require('./relaxjs');
 import rxError = require('./rxerror');
@@ -71,19 +78,46 @@ export function slugify ( source: string ): string
 /*
  * Parse the body of a request according the given mime-type
 */
-export function parseData( bodyData: string,  contentType: string ) {
+export function parseData( bodyData: string,  contentType: string ) : Q.Promise<any> {
+  var log = _log.child( { func: 'internals.parseData'} );
+  var later = Q.defer< any >();
+  if ( !bodyData || bodyData.length==0 ) {
+    later.resolve({});
+    return later.promise;
+  }
+  var mimeType = contentType.split(/[\s,]+/)[0];
+  log.info('Parsing "%s" as (%s)',bodyData,mimeType);
   try {
-    if ( contentType.indexOf('application/json') > -1 ) {
-      return JSON.parse(bodyData);
+    switch(mimeType) {
+      case 'application/xml':
+      case 'text/xml':
+        xml2js.parseString( bodyData, { explicitRoot: false, explicitArray: false },
+          function( err: Error, res:any ) {
+            if (err) {
+              _log.error('Error parsing XML data with ' );
+              _log.error( err );
+              later.reject(err);
+            }
+            else {
+              log.info('Parsed XML as: %s', JSON.stringify(res));
+              later.resolve(res);
+            }
+          });
+          break;
+      case 'application/x-www-form-urlencoded':
+        later.resolve( querystring.parse(bodyData) );
+        break;
+      case 'application/json':
+      default:
+        later.resolve( JSON.parse(bodyData) );
     }
-    else
-      return querystring.parse(bodyData);
   }
   catch( err ) {
     _log.error('Error parsing incoming data with %s',contentType );
     _log.error( err );
-    return {};
+    later.reject(err);
   }
+  return later.promise;
 }
 
 // Internal functions to emit error/warning messages
@@ -157,21 +191,24 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
 }
 
 /*
- * Return a promise for a JSON Embodiment for the given data.
+ * Return a promise for a JSON or XML Embodiment for the given viewData.
  * Note that this function strips automatically all the data item starting with '_'
  * (undercore) since - as a convention in relax.js - these are private member variables.
 */
-export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
+export function createEmbodiment( viewData: any, mimeType: string ) : Q.Promise< relaxjs.Embodiment > {
   var log = _log.child( { func: 'internals.viewJson'} );
   var later = Q.defer< relaxjs.Embodiment >();
+  var resourceName = 'resource';
   _.defer( () => {
     try {
       // 1 Copy the public properties and _name to a destination object for serialization.
       var destObj = {};
       _.each( _.keys( viewData) , function(key: string) {
         //
-        if ( key === '_name' )
+        if ( key === '_name' ) {
           destObj['name'] = viewData[key];
+          resourceName = viewData[key];
+        }
         else if ( key.indexOf('_') === 0 )
           return;
         else {
@@ -179,11 +216,20 @@ export function viewJson( viewData: any ) : Q.Promise< relaxjs.Embodiment > {
           destObj[key] = viewData[key];
         }
       });
-      // console.log(destObj);
-      var e = new relaxjs.Embodiment(
-        'application/json',
-        new Buffer( JSON.stringify( destObj ),
-        'utf-8' ) );
+      // 2 - build the embodiment serializing the data as a Buffer
+      var dataString = '';
+      switch(mimeType) {
+        case 'application/xml':
+        case 'text/xml':
+          var builder = new xml2js.Builder({ rootName: resourceName });
+          dataString = builder.buildObject( destObj );
+          break;
+        case 'application/json':
+        defaul:
+          dataString = JSON.stringify( destObj );
+          break;
+      }
+      var e = new relaxjs.Embodiment( mimeType, new Buffer( dataString,'utf-8' ) );
       later.resolve( e );
     }
     catch( err ) {

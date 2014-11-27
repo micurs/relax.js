@@ -31,13 +31,14 @@ var Embodiment = (function () {
         if (this.location)
             headers['Location'] = this.location;
         response.writeHead(this.httpCode, headers);
-        if (this.data)
+        if (this.data) {
             response.write(this.data);
+            if (this.data.length > 1024)
+                internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb (as %s)', Math.round(this.data.length / 1024), this.mimeType);
+            else
+                internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes (as %s)', this.data.length, this.mimeType);
+        }
         response.end();
-        if (this.data.length > 1024)
-            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb (as %s)', Math.round(this.data.length / 1024), this.mimeType);
-        else
-            internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes (as %s)', this.data.length, this.mimeType);
     };
     Embodiment.prototype.dataAsString = function () {
         return this.data.toString('utf-8');
@@ -257,7 +258,7 @@ var Site = (function (_super) {
     };
     Site.prototype._outputError = function (response, error, format) {
         var mimeType = format.split(/[\s,]+/)[0];
-        var errCode = error.getHttpCode();
+        var errCode = error.getHttpCode ? error.getHttpCode() : 500;
         response.writeHead(errCode, { 'content-type': mimeType });
         var errObj = {
             version: exports.version,
@@ -303,18 +304,22 @@ var Site = (function (_super) {
             });
             msg.on('end', function () {
                 var promise;
-                var bodyData = {};
-                if (body.length > 0)
-                    bodyData = internals.parseData(body, route.format);
                 if (site[msg.method.toLowerCase()] === undefined) {
                     log.error('%s request is not supported ');
                     return;
                 }
-                site[msg.method.toLowerCase()](route, bodyData).then(function (rep) {
-                    rep.serve(response);
+                internals.parseData(body, route.format).then(function (bodyData) {
+                    site[msg.method.toLowerCase()](route, bodyData).then(function (rep) {
+                        log.info('HTTP %s request fulfilled', msg.method);
+                        rep.serve(response);
+                    }).fail(function (error) {
+                        log.error('HTTP %s request failed: %s:', msg.method, error.message);
+                        self._outputError(response, error, route.format);
+                    }).done();
                 }).fail(function (error) {
+                    log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
                     self._outputError(response, error, route.format);
-                }).done();
+                });
             });
         });
     };
@@ -346,7 +351,6 @@ var Site = (function (_super) {
         var self = this;
         var log = internals.log().child({ func: 'Site.get' });
         log.info('route: %s', route.pathname);
-        log.info(' FORMAT: %s', route.format);
         if (route.static) {
             return internals.viewStatic(route.pathname);
         }
@@ -489,14 +493,17 @@ var ResourcePlayer = (function (_super) {
         log.info('Call failed: %s', err.message);
         response(err, null);
     };
-    ResourcePlayer.prototype._readParameters = function (path) {
+    ResourcePlayer.prototype._readParameters = function (path, generateError) {
         var _this = this;
+        if (generateError === void 0) { generateError = true; }
         var log = internals.log().child({ func: this._name + '._readParameters' });
         var counter = 0;
         _.each(this._paramterNames, function (parameterName, idx, list) {
             if (!path[idx + 1]) {
-                log.error('Could not read all the required paramters from URI. Read %d, needed %d', counter, _this._paramterNames.length);
-                return false;
+                if (generateError) {
+                    log.error('Could not read all the required paramters from URI. Read %d, needed %d', counter, _this._paramterNames.length);
+                }
+                return counter;
             }
             _this._parameters[parameterName] = path[idx + 1];
             counter++;
@@ -524,21 +531,15 @@ var ResourcePlayer = (function (_super) {
             });
         }
         else {
-            switch (mimeType) {
-                case 'application/xml':
-                case 'text/xml':
-                    later.reject(new rxError.RxError('XML format is not available for this resource', 'Unsupported Media Type', 415));
-                    break;
-                case 'text/html':
-                    later.reject(new rxError.RxError('HTML format is not available for this resource', 'Unsupported Media Type', 415));
-                    break;
-                case 'application/json':
-                    internals.viewJson(data).then(function (emb) {
-                        later.resolve(emb);
-                    }).fail(function (err) {
-                        later.reject(err);
-                    });
-                    break;
+            if (mimeType == 'text/html') {
+                later.reject(new rxError.RxError('HTML format is not available for this resource', 'Unsupported Media Type', 415));
+            }
+            else {
+                internals.createEmbodiment(data, mimeType).then(function (emb) {
+                    later.resolve(emb);
+                }).fail(function (err) {
+                    later.reject(err);
+                });
             }
         }
     };
@@ -552,7 +553,7 @@ var ResourcePlayer = (function (_super) {
     };
     ResourcePlayer.prototype.get = function (route) {
         var self = this;
-        var log = internals.log().child({ func: self._name + '.get' });
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').get' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
@@ -579,7 +580,7 @@ var ResourcePlayer = (function (_super) {
         site().setPathCache(route.pathname, { resource: this, path: route.path });
         var dyndata = {};
         if (self._onGet) {
-            log.info('Invoking onGet()! on %s  (%s)', self._name, route.format);
+            log.info('Invoking onGet()! on %s (%s)', self._name, route.format);
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
                 self._deliverResponse(later, self.data, route.format);
@@ -595,12 +596,12 @@ var ResourcePlayer = (function (_super) {
             return internals.viewDynamic(self._template, self, self._layout);
         }
         else {
-            return internals.viewJson(self.data);
+            return internals.createEmbodiment(self.data, route.format);
         }
     };
     ResourcePlayer.prototype.delete = function (route) {
         var self = this;
-        var log = internals.log().child({ func: self._name + '.delete' });
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').delete' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
@@ -634,11 +635,11 @@ var ResourcePlayer = (function (_super) {
         log.info('Default Delete: Removing resource %s', self._name);
         self.parent.remove(self);
         self.parent = null;
-        return internals.viewJson(self);
+        return internals.createEmbodiment(self, route.format);
     };
     ResourcePlayer.prototype.post = function (route, body) {
         var self = this;
-        var log = internals.log().child({ func: self._name + '.post' });
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').post' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
@@ -654,7 +655,7 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount);
         if (paramCount > 0) {
-            self._readParameters(route.path);
+            self._readParameters(route.path, false);
         }
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
@@ -667,16 +668,11 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Adding data for %s', self._name);
         self._updateData(body);
-        internals.viewJson(self.data).then(function (emb) {
-            later.resolve(emb);
-        }).fail(function (err) {
-            later.reject(err);
-        });
-        return later.promise;
+        return internals.createEmbodiment(self.data, route.format);
     };
     ResourcePlayer.prototype.patch = function (route, body) {
         var self = this;
-        var log = internals.log().child({ func: self._name + '.patch' });
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').patch' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
         if (route.path.length > (1 + paramCount)) {
@@ -709,16 +705,11 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Updating data for %s', self._name);
         self._updateData(body);
-        internals.viewJson(self.data).then(function (emb) {
-            later.resolve(emb);
-        }).fail(function (err) {
-            later.reject(err);
-        });
-        return later.promise;
+        return internals.createEmbodiment(self.data, route.format);
     };
     ResourcePlayer.prototype.put = function (route, body) {
         var self = this;
-        var log = internals.log().child({ func: self._name + '.patch' });
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').put' });
         var later = Q.defer();
         _.defer(function () {
             later.reject(new rxError.RxError('Not Implemented'));

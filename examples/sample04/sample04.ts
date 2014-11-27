@@ -32,7 +32,6 @@ var usersResource : relaxjs.Resource = {
   layout: 'layout',
   onGet: function( query: any, respond: relaxjs.DataCallback  ) {
     var self = this;
-    console.log("Resource: ",self._name);
     store.hgetall( 'user', ( err: Error, items: any ) => {
       var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
       self.ok(respond, { users: userList }  );
