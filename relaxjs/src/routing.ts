@@ -39,7 +39,8 @@ export class Route {
       this.query = parsedUrl.query;
       this.path = _.filter( resources, (res) => res.length>0 );
       // console.log(_.str.sprintf('Route Path:"%s" Extension:"%s"', JSON.stringify(this.path), extension ) );
-      this.static = ( extension.length>0 ) ;
+      this.static = ( extension.length>0 );
+      this.format = 'application/json';
     }
   }
 

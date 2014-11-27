@@ -16,6 +16,7 @@ var Route = (function () {
             this.query = parsedUrl.query;
             this.path = _.filter(resources, function (res) { return res.length > 0; });
             this.static = (extension.length > 0);
+            this.format = 'application/json';
         }
     }
     Route.prototype.stepThrough = function (stpes) {
