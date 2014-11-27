@@ -522,8 +522,10 @@ var ResourcePlayer = (function (_super) {
     };
     ResourcePlayer.prototype._deliverResponse = function (later, data, format) {
         var self = this;
-        var mimeType = format ? format.split(/[\s,]+/)[0] : 'application/json';
-        if (self._template && mimeType == 'text/html') {
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ')._deliverResponse' });
+        var mimeTypes = format ? format.split(/[\s,;]+/) : ['application/json'];
+        log.info('Formats: %s', JSON.stringify(mimeTypes));
+        if (self._template && mimeTypes.indexOf('text/html') != -1) {
             internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
                 later.resolve(emb);
             }).fail(function (err) {
@@ -531,15 +533,28 @@ var ResourcePlayer = (function (_super) {
             });
         }
         else {
-            if (mimeType == 'text/html') {
-                later.reject(new rxError.RxError('HTML format is not available for this resource', 'Unsupported Media Type', 415));
+            var mimeType = undefined;
+            if (mimeTypes.indexOf('application/json') != -1) {
+                mimeType = 'application/json';
             }
-            else {
+            if (mimeTypes.indexOf('application/xml') != -1) {
+                mimeType = 'application/xml';
+            }
+            if (mimeTypes.indexOf('text/xml') != -1) {
+                mimeType = 'text/xml';
+            }
+            if (mimeTypes.indexOf('application/xhtml+xml') != -1) {
+                mimeType = 'application/xml';
+            }
+            if (mimeType) {
                 internals.createEmbodiment(data, mimeType).then(function (emb) {
                     later.resolve(emb);
                 }).fail(function (err) {
                     later.reject(err);
                 });
+            }
+            else {
+                later.reject(new rxError.RxError('output as (' + format + ') is not available for this resource', 'Unsupported Media Type', 415));
             }
         }
     };
@@ -592,12 +607,8 @@ var ResourcePlayer = (function (_super) {
             return later.promise;
         }
         log.info('Returning static data from %s', self._name);
-        if (this._template) {
-            return internals.viewDynamic(self._template, self, self._layout);
-        }
-        else {
-            return internals.createEmbodiment(self.data, route.format);
-        }
+        self._deliverResponse(later, self.data, route.format);
+        return later.promise;
     };
     ResourcePlayer.prototype.delete = function (route) {
         var self = this;
@@ -635,7 +646,8 @@ var ResourcePlayer = (function (_super) {
         log.info('Default Delete: Removing resource %s', self._name);
         self.parent.remove(self);
         self.parent = null;
-        return internals.createEmbodiment(self, route.format);
+        self._deliverResponse(later, self, route.format);
+        return later.promise;
     };
     ResourcePlayer.prototype.post = function (route, body) {
         var self = this;
@@ -668,7 +680,8 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Adding data for %s', self._name);
         self._updateData(body);
-        return internals.createEmbodiment(self.data, route.format);
+        self._deliverResponse(later, self.data, route.format);
+        return later.promise;
     };
     ResourcePlayer.prototype.patch = function (route, body) {
         var self = this;
@@ -705,7 +718,8 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Updating data for %s', self._name);
         self._updateData(body);
-        return internals.createEmbodiment(self.data, route.format);
+        self._deliverResponse(later, self.data, route.format);
+        return later.promise;
     };
     ResourcePlayer.prototype.put = function (route, body) {
         var self = this;

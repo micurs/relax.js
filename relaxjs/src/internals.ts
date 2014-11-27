@@ -199,6 +199,7 @@ export function createEmbodiment( viewData: any, mimeType: string ) : Q.Promise<
   var log = _log.child( { func: 'internals.viewJson'} );
   var later = Q.defer< relaxjs.Embodiment >();
   var resourceName = 'resource';
+  log.info('Creating Embodiment as %s',mimeType);
   _.defer( () => {
     try {
       // 1 Copy the public properties and _name to a destination object for serialization.
@@ -217,6 +218,7 @@ export function createEmbodiment( viewData: any, mimeType: string ) : Q.Promise<
         }
       });
       // 2 - build the embodiment serializing the data as a Buffer
+      // log.info('Serializing "%s"',JSON.stringify(destObj));
       var dataString = '';
       switch(mimeType) {
         case 'application/xml':
@@ -225,10 +227,11 @@ export function createEmbodiment( viewData: any, mimeType: string ) : Q.Promise<
           dataString = builder.buildObject( destObj );
           break;
         case 'application/json':
-        defaul:
+        default:
           dataString = JSON.stringify( destObj );
           break;
       }
+      // log.info('Delivering: "%s"',dataString);
       var e = new relaxjs.Embodiment( mimeType, new Buffer( dataString,'utf-8' ) );
       later.resolve( e );
     }

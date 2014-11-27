@@ -142,6 +142,7 @@ function createEmbodiment(viewData, mimeType) {
     var log = _log.child({ func: 'internals.viewJson' });
     var later = Q.defer();
     var resourceName = 'resource';
+    log.info('Creating Embodiment as %s', mimeType);
     _.defer(function () {
         try {
             var destObj = {};
@@ -164,7 +165,8 @@ function createEmbodiment(viewData, mimeType) {
                     dataString = builder.buildObject(destObj);
                     break;
                 case 'application/json':
-                    defaul: dataString = JSON.stringify(destObj);
+                default:
+                    dataString = JSON.stringify(destObj);
                     break;
             }
             var e = new relaxjs.Embodiment(mimeType, new Buffer(dataString, 'utf-8'));

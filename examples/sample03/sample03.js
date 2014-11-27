@@ -32,7 +32,7 @@ var usersResource = {
             var self = this;
             var userid = query['id'];
             if (!userid) {
-                self.fail(respond, new relaxjs.rxError.RxError('Need a id paramter to find a user', 'User not found', 404));
+                self.fail(respond, new relaxjs.rxError.RxError('Need the id paramter to find a user', 'User not found', 404));
             }
             else {
                 store.hget('user', userid, function (err, userdata) {

@@ -6,7 +6,7 @@ var relaxjs = require('relaxjs');
 var usersResource = {
     name: 'users',
     onGet: function (query, respond) {
-        this.ok(respond, { data: { title: 'Users Collection Example', count: this.childrenCount() } });
+        this.ok(respond, { title: 'Users Collection Example', count: this.childrenCount() });
     },
     resources: [
         { name: 'mary-stewart', onGet: function (query, respond) {
