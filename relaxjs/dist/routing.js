@@ -16,7 +16,6 @@ var Route = (function () {
             this.query = parsedUrl.query;
             this.path = _.filter(resources, function (res) { return res.length > 0; });
             this.static = (extension.length > 0);
-            this.format = 'application/json';
         }
     }
     Route.prototype.stepThrough = function (stpes) {
@@ -26,7 +25,8 @@ var Route = (function () {
         newRoute.static = this.static;
         newRoute.pathname = this.pathname;
         newRoute.query = this.query;
-        newRoute.format = this.format;
+        newRoute.outFormat = this.outFormat;
+        newRoute.inFormat = this.inFormat;
         newRoute.path.splice(0, stpes);
         return newRoute;
     };
@@ -46,13 +46,22 @@ function fromUrl(request) {
     if (!request.url)
         request.url = '/';
     var route = new Route(request.url);
-    if (request.headers['content-type'])
-        route.format = request.headers['content-type'];
-    else if (request.headers['accept']) {
-        route.format = request.headers['accept'];
+    if (request.headers['accept']) {
+        route.outFormat = request.headers['accept'];
     }
-    else
-        route.format = 'application/json';
+    if (request.headers['content-type']) {
+        route.inFormat = request.headers['content-type'];
+    }
+    if (!request.headers['accept'] && request.headers['content-type']) {
+        route.outFormat = request.headers['content-type'];
+    }
+    if (request.headers['accept'] && !request.headers['content-type']) {
+        route.inFormat = request.headers['accept'];
+    }
+    if (!request.headers['accept'] && !request.headers['content-type']) {
+        route.inFormat = 'application/json';
+        route.outFormat = 'application/json';
+    }
     route.verb = request.method;
     return route;
 }

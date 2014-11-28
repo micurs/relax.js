@@ -114,38 +114,39 @@ export class Embodiment {
 
   public httpCode : number;
   public location : string;
-  public data : Buffer;
   public mimeType : string;
+  public body : Buffer;
 
-  constructor(  mimeType: string, data?: Buffer ) {
-    this.httpCode = 200;
-    this.data = data;
+  constructor(  mimeType: string, code: number = 200, body?: Buffer ) {
+    this.httpCode = code;
+    this.body = body;
     this.mimeType = mimeType;
   }
 
   serve(response: http.ServerResponse) : void {
+    var log = internals.log().child( { func: 'Embodiment.serve'} );
     var headers = { 'content-type' : this.mimeType };
-    if ( this.data )
-      headers['content-length'] = this.data.length;
+    if ( this.body )
+      headers['content-length'] = this.body.length;
     if ( this.location )
       headers['Location'] = this.location;
 
     response.writeHead( this.httpCode, headers );
-    if ( this.data ) {
-      response.write(this.data);
-      if ( this.data.length>1024 )
-        internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s Kb (as %s)', Math.round(this.data.length/1024), this.mimeType ) ;
+    if ( this.body ) {
+      response.write(this.body);
+      if ( this.body.length>1024 )
+        log.info( 'Sending %s Kb (as %s)', Math.round(this.body.length/1024), this.mimeType ) ;
       else
-        internals.log().info({ func: 'serve', class: 'Embodiment'}, 'Sending %s bytes (as %s)', this.data.length,this.mimeType );
+        log.info( 'Sending %s bytes (as %s)', this.body.length,this.mimeType );
     }
     response.end();
   }
 
-  dataAsString() : string {
-    return this.data.toString('utf-8');
+  bodyAsString() : string {
+    return this.body.toString('utf-8');
   }
-  dataAsJason() : any {
-    return JSON.parse(this.dataAsString());
+  bodyAsJason() : any {
+    return JSON.parse(this.bodyAsString());
   }
 }
 
@@ -459,9 +460,10 @@ export class Site extends Container implements HttpPlayer {
       var site : Site = this;
       var log = internals.log().child( { func: 'Site.serve'} );
 
-      log.info('REQUEST: %s', route.verb );
-      log.info('   PATH: %s %s', route.pathname, route.query);
-      log.info(' FORMAT: %s', route.format);
+      log.info('   REQUEST: %s', route.verb );
+      log.info('      PATH: %s %s', route.pathname, route.query);
+      log.info('Out FORMAT: %s', route.outFormat);
+      log.info(' In FORMAT: %s', route.inFormat);
 
       // Read the message body (if available)
       var body : string = '';
@@ -476,23 +478,23 @@ export class Site extends Container implements HttpPlayer {
         }
 
         // Parse the data received with this request
-        internals.parseData(body,route.format)
+        internals.parseData(body,route.inFormat)
           .then( (bodyData: any ) => {
           // Execute the HTTP request
             site[msg.method.toLowerCase()]( route, bodyData )
-              .then( ( rep : Embodiment ) => {
+              .then( ( reply : Embodiment ) => {
                 log.info('HTTP %s request fulfilled',msg.method  );
-                rep.serve(response);
+                reply.serve(response);
               })
               .fail( (error) => {
                 log.error('HTTP %s request failed: %s:',msg.method,error.message);
-                self._outputError(response,error,route.format);
+                self._outputError(response,error,route.outFormat);
               })
               .done();
           })
           .fail( (error) => {
             log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
-            self._outputError(response,error,route.format);
+            self._outputError(response,error,route.outFormat);
           });
       }); // End msg.on()
     }); // End http.createServer()
@@ -534,7 +536,7 @@ export class Site extends Container implements HttpPlayer {
     var self = this;
     var log = internals.log().child( { func: 'Site.get'} );
     log.info('route: %s',route.pathname);
-    //log.info(' FORMAT: %s', route.format);
+    //log.info(' FORMAT: %s', route.outFormat);
 
     if ( route.static ) {
       return internals.viewStatic( route.pathname );
@@ -684,7 +686,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   // Helper function to call the response callback with a succesful code 'ok'
   ok( response: DataCallback, data?: any ) : void {
-    var respObj = { result: 'ok'};
+    var respObj : ResourceResponse = { result: 'ok'};
     if ( data )
       respObj['data'] = data;
     response( null, respObj );
@@ -692,7 +694,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   // Helper function to call the response callback with a redirect code 303
   redirect( response: DataCallback, where: string, data?: any ) : void {
-    var respObj = { result: 'ok', httpCode: 303, location: where };
+    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where };
     if ( data )
       respObj['data'] = data;
     response( null, respObj );
@@ -738,31 +740,53 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   }
 
   // Deliver a response through the given deferred function according to
-  // the format requested by the original call and the presence of templates
-  private _deliverResponse(later: Q.Deferred<Embodiment>, data: any, format: string ) : void {
+  // the given outFormat
+  private _deliverReply( later: Q.Deferred<Embodiment>,
+                         resResponse: ResourceResponse,
+                         outFormat: string ) : void {
     var self = this;
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+')._deliverResponse'} );
-    var mimeTypes = format ? format.split(/[\s,;]+/) : ['application/json'];
+    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+')._deliverReply'} );
+    var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
     log.info('Formats: %s', JSON.stringify(mimeTypes));
-    //var mimeType = format ? format.split(/[\s,]+/)[0] : 'application/json';
-    if ( self._template && mimeTypes.indexOf('text/html')!=-1 ) {
+
+    // Use the template for GET html requests
+    if ( self._template &&
+        ( mimeTypes.indexOf('text/html')!=-1 || mimeTypes.indexOf('*/*')!=-1 ) ) {
+      // Here we copy the data into the resource itself and process it through the viewing engine.
+      // This allow the code in the view to act in the context of the resourcePlayer.
+      self.data = resResponse.data;
       internals.viewDynamic(self._template, self, self._layout )
-        .then( (emb: Embodiment ) => { later.resolve(emb); })
-        .fail( (err) => { later.reject(err) } );
+        .then( ( reply: Embodiment ) => {
+          reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
+          reply.location = resResponse.location;
+          later.resolve(reply);
+        })
+        .fail( (err) => {
+          later.reject(err)
+        });
     }
     else {
       var mimeType = undefined;
+      // This should be improved
+      if ( mimeTypes.indexOf('*/*')!=-1 ) { mimeType = 'application/json'; }
       if ( mimeTypes.indexOf('application/json')!=-1 ) { mimeType = 'application/json'; }
       if ( mimeTypes.indexOf('application/xml')!=-1 ) { mimeType = 'application/xml'; }
       if ( mimeTypes.indexOf('text/xml')!=-1 ) { mimeType = 'text/xml'; }
       if ( mimeTypes.indexOf('application/xhtml+xml')!=-1) { mimeType= 'application/xml'; }
+      if ( mimeTypes.indexOf('application/x-www-form-urlencoded')!=-1) { mimeType= 'text/xml'; }
       if ( mimeType ) {
-        internals.createEmbodiment(data,mimeType)
-          .then( (emb: Embodiment ) => { later.resolve(emb); })
-          .fail( (err) => { later.reject(err) } );
+        internals.createEmbodiment(resResponse.data, mimeType )
+          .then( ( reply: Embodiment ) => {
+            reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
+            reply.location = resResponse.location;
+            later.resolve(reply);
+          })
+          .fail( (err) => {
+            later.reject(err)
+          });
       }
       else {
-        later.reject(new rxError.RxError( 'output as ('+format+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+        later.reject(new rxError.RxError( 'output as ('+outFormat+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
       }
     }
   }
@@ -822,11 +846,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
-      log.info('Invoking onGet()! on %s (%s)', self._name, route.format );
+      log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat );
       self._onGet( route.query )
-        .then( function( response: any ) {
+        .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
-          self._deliverResponse(later, self.data, route.format );
+          self._deliverReply(later, response, route.outFormat );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -839,7 +863,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // When onGet() is NOT available use the static data member to respond to this request.
     log.info('Returning static data from %s', self._name);
-    self._deliverResponse(later, self.data, route.format );
+    var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
+    self._deliverReply(later, responseObj, route.outFormat );
     return later.promise;
   }
 
@@ -881,9 +906,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( self._onDelete ) {
       log.info('call onDelete() for %s',self._name );
       this._onDelete( route.query )
-        .then( function( response: any ) {
+        .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
-          self._deliverResponse(later, response.data, route.format );
+          self._deliverReply(later, response, route.outFormat );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -896,8 +921,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     log.info('Default Delete: Removing resource %s',self._name );
     self.parent.remove(self);
     self.parent = null;
-
-    self._deliverResponse(later, self, route.format );
+    var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
+    self._deliverReply(later, responseObj, route.outFormat );
     return later.promise;
   }
 
@@ -934,9 +959,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( self._onPost ) {
       log.info('calling onPost() for %s', self._name );
       self._onPost( route.query, body )
-        .then( ( response: any ) => {
-          // self._updateData(response.data);
-          self._deliverResponse(later, response.data, route.format );
+        .then( ( response: ResourceResponse ) => {
+          self._deliverReply(later, response, route.outFormat );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -947,7 +971,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Set the data directly
     log.info('Adding data for %s',self._name );
     self._updateData(body);
-    self._deliverResponse(later, self.data, route.format );
+    var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
+    self._deliverReply(later, responseObj, route.outFormat );
     return later.promise;
   }
 
@@ -985,9 +1010,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self._name );
       self._onPatch( route.query, body )
-        .then( ( response: any ) => {
+        .then( ( response: ResourceResponse ) => {
           self._updateData(response.data);
-          self._deliverResponse(later, self.data, route.format );
+          self._deliverReply(later, response, route.outFormat );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -998,7 +1023,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Set the data directly
     log.info('Updating data for %s',self._name );
     self._updateData(body);
-    self._deliverResponse(later, self.data, route.format );
+    var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
+    self._deliverReply(later, responseObj, route.outFormat );
     return later.promise;
   }
 

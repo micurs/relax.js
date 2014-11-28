@@ -156,4 +156,5 @@ todosite.add( {
   ]
 });
 
+todosite.setHome('/todo');
 todosite.serve().listen(3000);

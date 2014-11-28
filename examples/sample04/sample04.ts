@@ -43,7 +43,8 @@ var usersResource : relaxjs.Resource = {
       view: 'user',
       layout: 'layout',
       urlParameters: [ 'idx' ],
-      // POST method: save a user
+
+      // POST: save a user
       onPost: function( query: any, userData: any, respond: relaxjs.DataCallback ) {
         var self = this;
         var newKey = genGuid();
@@ -53,7 +54,7 @@ var usersResource : relaxjs.Resource = {
         self.redirect(respond,'/users',userData);
       },
 
-      // GET method: retrieve a user
+      // GET: retrieve a user
       onGet: function( query: any, respond: relaxjs.DataCallback  ) {
         var self = this;
         var userid = self._parameters.idx; // query['id'];
@@ -69,7 +70,7 @@ var usersResource : relaxjs.Resource = {
         });
       },
 
-      // DELETE : remove a given user
+      // DELETE: remove a given user
       onDelete: function( query: any, respond: relaxjs.DataCallback  ) {
         var self = this;
         var userid = self._parameters.idx; // query['id'];

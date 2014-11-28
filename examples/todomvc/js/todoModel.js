@@ -49,8 +49,8 @@ var app = app || {};
 			data: { completed: newComplete }
 		})
 		.done( function( todos ) {
-			console.log(todos.data.all);
-			self.todos = todos.data.all;
+			console.log(todos.all);
+			self.todos = todos.all;
 			self.inform();
 		});
 	};
@@ -89,7 +89,7 @@ var app = app || {};
 		.done( function( res ) {
 			//alert( JSON.stringify(res,null,' '));
 			self.todos = self.todos.map(function (todo) {
-				return todo.id !== todoToToggle.id ? todo : res.data.todo ;
+				return todo.id !== todoToToggle.id ? todo : res.todo ;
 			});
 			self.inform();
 		});

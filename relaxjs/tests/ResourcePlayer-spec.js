@@ -15,7 +15,7 @@ describe('Test GET responses: ', function() {
       var result;
       var rp = new relaxjs.ResourcePlayer( { name: 'hello', data: { message: "Hello World!" } });
       rp.get( new routing.Route('hello') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error);  } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -37,7 +37,7 @@ describe('Test GET responses: ', function() {
         },
         data: { message: "This is now Hello World!" } });
       rp.get( new routing.Route('test') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error);  } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -60,7 +60,7 @@ describe('Test GET responses: ', function() {
         }]
       });
       rp.get( new routing.Route('hello/world') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error);  } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -88,7 +88,7 @@ describe('Test GET responses: ', function() {
         }]
       });
       rp.get( new routing.Route('parent/child/1') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error);  } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -107,7 +107,7 @@ describe('Test GET responses: ', function() {
       var site = relaxjs.site('test');
       site.add({ name: 'hello', data: { message: "Hello World!" } } );
       site.get( new routing.Route('/hello') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error);  } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -131,7 +131,7 @@ describe('Test GET responses: ', function() {
         data: { message: "This is now Hello World!" }
       });
       site.get( new routing.Route('/hello') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error); } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -155,7 +155,7 @@ describe('Test GET responses: ', function() {
         }]
       });
       site.get( new routing.Route('/hello/world') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error); } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -184,7 +184,7 @@ describe('Test GET responses: ', function() {
         }]
       });
       site.get( new routing.Route('/parent/child/1') )
-        .then( function(emb) { result = emb.dataAsString(); })
+        .then( function(emb) { result = emb.bodyAsString(); })
         .fail( function (error) { result = JSON.stringify(error); } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
@@ -240,9 +240,9 @@ describe('Test POST responses: ', function() {
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the POST call to be completed.', 1000 );
       runs( function() {
-        console.log(result.dataAsJason());
+        console.log(result.bodyAsJason());
         expect( result ).toBeDefined();
-        expect( result.dataAsJason() ).toEqual(  { message: 'data has been posted' } );
+        expect( result.bodyAsJason() ).toEqual(  { message: 'data has been posted' } );
         expect( rp.data ).toEqual( { posted:"Hello World!"} );
       });
 
@@ -317,7 +317,7 @@ describe('Test POST responses: ', function() {
         // console.log('==== Result');
         expect( result ).toBeDefined();
         expect( site._resources['test'][0].data ).toEqual( { message:"Hello World!"} );
-        expect( result.dataAsJason().data, { message: "data has been posted" } );
+        expect( result.bodyAsJason().data, { message: "data has been posted" } );
       });
 
     });
@@ -341,7 +341,7 @@ describe('Test DELETE responses', function() {
         }]
       });
       rp.delete(new routing.Route('parent/child') )
-        .then( function(emb){ result = emb.dataAsJason(); } )
+        .then( function(emb){ result = emb.bodyAsJason(); } )
         .fail( function (error) { result = error } );
 
 
@@ -349,7 +349,7 @@ describe('Test DELETE responses', function() {
       runs( function() {
         expect( result ).toBeDefined();
         expect( rp.getChild('child') ).toBeUndefined();
-        expect( result.data ).toEqual( { message: 'this resource will be deleted'} );
+        expect( result ).toEqual( { message: 'this resource will be deleted'} );
       });
     });
   });
@@ -371,7 +371,7 @@ describe('Test DELETE responses', function() {
         }]
       });
       rp.delete(new routing.Route('parent/child?idx=1') )
-        .then( function(emb){ result = emb.dataAsJason(); } )
+        .then( function(emb){ result = emb.bodyAsJason(); } )
         .fail( function (error) { result = error } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
@@ -402,7 +402,7 @@ describe('Test DELETE responses', function() {
         }]
       });
       rp.delete(new routing.Route('container/data-res/1') )
-        .then( function(emb){ result = emb.dataAsJason(); } )
+        .then( function(emb){ result = emb.bodyAsJason(); } )
         .fail( function (error) { result = error } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
@@ -430,7 +430,7 @@ describe('Test DELETE responses', function() {
         }]
       });
       site.delete( new routing.Route('/parent/child') )
-        .then( function(emb){ result = emb.dataAsJason(); } )
+        .then( function(emb){ result = emb.bodyAsJason(); } )
         .fail( function (error) { result = error } );
 
 
@@ -438,7 +438,7 @@ describe('Test DELETE responses', function() {
       runs( function() {
         expect( result ).toBeDefined();
         expect( site.getResource('/parent/child') ).toBeUndefined();
-        expect( result ).toEqual( { name : 'child', data : { message : 'this resource will be deleted' } } );
+        expect( result ).toEqual( { message : 'this resource will be deleted' } );
       });
     });
   });
@@ -461,7 +461,7 @@ describe('Test DELETE responses', function() {
         }]
       });
       site.delete(new routing.Route('/parent/child?idx=1') )
-        .then( function(emb){ result = emb.dataAsJason(); } )
+        .then( function(emb){ result = emb.bodyAsJason(); } )
         .fail( function (error) { result = error } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );
@@ -493,7 +493,7 @@ describe('Test DELETE responses', function() {
         }]
       });
       site.delete(new routing.Route('/container/data-res/1') )
-        .then( function(emb){ result = emb.dataAsJason(); } )
+        .then( function(emb){ result = emb.bodyAsJason(); } )
         .fail( function (error) { result = error } );
 
       waitsFor( function() { return result!=undefined } , 'Waited to long for the DELETE call to be completed.', 1000 );

@@ -19,32 +19,34 @@ function relax() {
 }
 exports.relax = relax;
 var Embodiment = (function () {
-    function Embodiment(mimeType, data) {
-        this.httpCode = 200;
-        this.data = data;
+    function Embodiment(mimeType, code, body) {
+        if (code === void 0) { code = 200; }
+        this.httpCode = code;
+        this.body = body;
         this.mimeType = mimeType;
     }
     Embodiment.prototype.serve = function (response) {
+        var log = internals.log().child({ func: 'Embodiment.serve' });
         var headers = { 'content-type': this.mimeType };
-        if (this.data)
-            headers['content-length'] = this.data.length;
+        if (this.body)
+            headers['content-length'] = this.body.length;
         if (this.location)
             headers['Location'] = this.location;
         response.writeHead(this.httpCode, headers);
-        if (this.data) {
-            response.write(this.data);
-            if (this.data.length > 1024)
-                internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s Kb (as %s)', Math.round(this.data.length / 1024), this.mimeType);
+        if (this.body) {
+            response.write(this.body);
+            if (this.body.length > 1024)
+                log.info('Sending %s Kb (as %s)', Math.round(this.body.length / 1024), this.mimeType);
             else
-                internals.log().info({ func: 'serve', class: 'Embodiment' }, 'Sending %s bytes (as %s)', this.data.length, this.mimeType);
+                log.info('Sending %s bytes (as %s)', this.body.length, this.mimeType);
         }
         response.end();
     };
-    Embodiment.prototype.dataAsString = function () {
-        return this.data.toString('utf-8');
+    Embodiment.prototype.bodyAsString = function () {
+        return this.body.toString('utf-8');
     };
-    Embodiment.prototype.dataAsJason = function () {
-        return JSON.parse(this.dataAsString());
+    Embodiment.prototype.bodyAsJason = function () {
+        return JSON.parse(this.bodyAsString());
     };
     return Embodiment;
 })();
@@ -295,9 +297,10 @@ var Site = (function (_super) {
             var route = routing.fromUrl(msg);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
-            log.info('REQUEST: %s', route.verb);
-            log.info('   PATH: %s %s', route.pathname, route.query);
-            log.info(' FORMAT: %s', route.format);
+            log.info('   REQUEST: %s', route.verb);
+            log.info('      PATH: %s %s', route.pathname, route.query);
+            log.info('Out FORMAT: %s', route.outFormat);
+            log.info(' In FORMAT: %s', route.inFormat);
             var body = '';
             msg.on('data', function (data) {
                 body += data;
@@ -308,17 +311,17 @@ var Site = (function (_super) {
                     log.error('%s request is not supported ');
                     return;
                 }
-                internals.parseData(body, route.format).then(function (bodyData) {
-                    site[msg.method.toLowerCase()](route, bodyData).then(function (rep) {
+                internals.parseData(body, route.inFormat).then(function (bodyData) {
+                    site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
                         log.info('HTTP %s request fulfilled', msg.method);
-                        rep.serve(response);
+                        reply.serve(response);
                     }).fail(function (error) {
                         log.error('HTTP %s request failed: %s:', msg.method, error.message);
-                        self._outputError(response, error, route.format);
+                        self._outputError(response, error, route.outFormat);
                     }).done();
                 }).fail(function (error) {
                     log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
-                    self._outputError(response, error, route.format);
+                    self._outputError(response, error, route.outFormat);
                 });
             });
         });
@@ -520,20 +523,26 @@ var ResourcePlayer = (function (_super) {
             }
         });
     };
-    ResourcePlayer.prototype._deliverResponse = function (later, data, format) {
+    ResourcePlayer.prototype._deliverReply = function (later, resResponse, outFormat) {
         var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ')._deliverResponse' });
-        var mimeTypes = format ? format.split(/[\s,;]+/) : ['application/json'];
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ')._deliverReply' });
+        var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
         log.info('Formats: %s', JSON.stringify(mimeTypes));
-        if (self._template && mimeTypes.indexOf('text/html') != -1) {
-            internals.viewDynamic(self._template, self, self._layout).then(function (emb) {
-                later.resolve(emb);
+        if (self._template && (mimeTypes.indexOf('text/html') != -1 || mimeTypes.indexOf('*/*') != -1)) {
+            self.data = resResponse.data;
+            internals.viewDynamic(self._template, self, self._layout).then(function (reply) {
+                reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
+                reply.location = resResponse.location;
+                later.resolve(reply);
             }).fail(function (err) {
                 later.reject(err);
             });
         }
         else {
             var mimeType = undefined;
+            if (mimeTypes.indexOf('*/*') != -1) {
+                mimeType = 'application/json';
+            }
             if (mimeTypes.indexOf('application/json') != -1) {
                 mimeType = 'application/json';
             }
@@ -546,15 +555,20 @@ var ResourcePlayer = (function (_super) {
             if (mimeTypes.indexOf('application/xhtml+xml') != -1) {
                 mimeType = 'application/xml';
             }
+            if (mimeTypes.indexOf('application/x-www-form-urlencoded') != -1) {
+                mimeType = 'text/xml';
+            }
             if (mimeType) {
-                internals.createEmbodiment(data, mimeType).then(function (emb) {
-                    later.resolve(emb);
+                internals.createEmbodiment(resResponse.data, mimeType).then(function (reply) {
+                    reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
+                    reply.location = resResponse.location;
+                    later.resolve(reply);
                 }).fail(function (err) {
                     later.reject(err);
                 });
             }
             else {
-                later.reject(new rxError.RxError('output as (' + format + ') is not available for this resource', 'Unsupported Media Type', 415));
+                later.reject(new rxError.RxError('output as (' + outFormat + ') is not available for this resource', 'Unsupported Media Type', 415));
             }
         }
     };
@@ -595,10 +609,10 @@ var ResourcePlayer = (function (_super) {
         site().setPathCache(route.pathname, { resource: this, path: route.path });
         var dyndata = {};
         if (self._onGet) {
-            log.info('Invoking onGet()! on %s (%s)', self._name, route.format);
+            log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat);
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
-                self._deliverResponse(later, self.data, route.format);
+                self._deliverReply(later, response, route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             }).catch(function (error) {
@@ -607,7 +621,8 @@ var ResourcePlayer = (function (_super) {
             return later.promise;
         }
         log.info('Returning static data from %s', self._name);
-        self._deliverResponse(later, self.data, route.format);
+        var responseObj = { result: 'ok', httpCode: 200, data: self.data };
+        self._deliverReply(later, responseObj, route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.delete = function (route) {
@@ -637,7 +652,7 @@ var ResourcePlayer = (function (_super) {
             log.info('call onDelete() for %s', self._name);
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
-                self._deliverResponse(later, response.data, route.format);
+                self._deliverReply(later, response, route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -646,7 +661,8 @@ var ResourcePlayer = (function (_super) {
         log.info('Default Delete: Removing resource %s', self._name);
         self.parent.remove(self);
         self.parent = null;
-        self._deliverResponse(later, self, route.format);
+        var responseObj = { result: 'ok', httpCode: 200, data: self.data };
+        self._deliverReply(later, responseObj, route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.post = function (route, body) {
@@ -672,7 +688,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
-                self._deliverResponse(later, response.data, route.format);
+                self._deliverReply(later, response, route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -680,7 +696,8 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Adding data for %s', self._name);
         self._updateData(body);
-        self._deliverResponse(later, self.data, route.format);
+        var responseObj = { result: 'ok', httpCode: 200, data: self.data };
+        self._deliverReply(later, responseObj, route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.patch = function (route, body) {
@@ -710,7 +727,7 @@ var ResourcePlayer = (function (_super) {
             log.info('calling onPatch() for %s', self._name);
             self._onPatch(route.query, body).then(function (response) {
                 self._updateData(response.data);
-                self._deliverResponse(later, self.data, route.format);
+                self._deliverReply(later, response, route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -718,7 +735,8 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Updating data for %s', self._name);
         self._updateData(body);
-        self._deliverResponse(later, self.data, route.format);
+        var responseObj = { result: 'ok', httpCode: 200, data: self.data };
+        self._deliverReply(later, responseObj, route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.put = function (route, body) {

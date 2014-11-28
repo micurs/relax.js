@@ -35,7 +35,7 @@ var usersResource = {
         view: 'user',
         layout: 'layout',
         urlParameters: ['idx'],
-        // POST method: save a user
+        // POST: save a user
         onPost: function (query, userData, respond) {
             var self = this;
             var newKey = genGuid();
@@ -44,7 +44,7 @@ var usersResource = {
             store.save();
             self.redirect(respond, '/users', userData);
         },
-        // GET method: retrieve a user
+        // GET: retrieve a user
         onGet: function (query, respond) {
             var self = this;
             var userid = self._parameters.idx; // query['id'];
@@ -59,7 +59,7 @@ var usersResource = {
                 }
             });
         },
-        // DELETE : remove a given user
+        // DELETE: remove a given user
         onDelete: function (query, respond) {
             var self = this;
             var userid = self._parameters.idx; // query['id'];
