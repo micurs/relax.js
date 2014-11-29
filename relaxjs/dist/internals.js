@@ -165,7 +165,7 @@ function createEmbodiment(viewData, mimeType) {
             switch (mimeType) {
                 case 'application/xml':
                 case 'text/xml':
-                    var builder = new xml2js.Builder({ rootName: resourceName });
+                    var builder = new xml2js.Builder({ rootName: resourceName, renderOpts: { 'pretty': false }, headless: true });
                     dataString = builder.buildObject(destObj);
                     break;
                 case 'application/json':

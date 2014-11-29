@@ -91,6 +91,7 @@ export interface Resource {
   data?: any;
   resources?: Resource[];
   urlParameters?: string[];
+  outFormat?: string;
   onHead?: ( query: any, callback: DataCallback ) => void;
   onGet?: ( query: any, callback: DataCallback ) => void;
   onPost?: ( query: any, body: any, callback: DataCallback) => void;
@@ -643,6 +644,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   private _template: string = '';
   private _layout: string;
   private _paramterNames: string[];
+  private _outFormat: string;
   private _onGet : ( query: any ) => Q.Promise<any>;
   private _onPost : ( query: any, body: any ) => Q.Promise<any>;
   private _onPatch : ( query: any, body: any ) => Q.Promise<any>;
@@ -660,6 +662,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     self._layout = res.layout;
     self._paramterNames = res.urlParameters ? res.urlParameters : [];
     self._parameters = {};
+    self._outFormat = res.outFormat;
     self._onGet = res.onGet ? Q.nbind(res.onGet,this) : undefined ;
     self._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
     self._onPatch = res.onPatch ? Q.nbind(res.onPatch,this) : undefined ;
@@ -850,7 +853,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       self._onGet( route.query )
         .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
-          self._deliverReply(later, response, route.outFormat );
+          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -864,7 +867,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // When onGet() is NOT available use the static data member to respond to this request.
     log.info('Returning static data from %s', self._name);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
-    self._deliverReply(later, responseObj, route.outFormat );
+    self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat );
     return later.promise;
   }
 

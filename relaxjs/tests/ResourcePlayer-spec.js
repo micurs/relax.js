@@ -195,6 +195,47 @@ describe('Test GET responses: ', function() {
     });
   });
 
+  describe('1.9 GET static data from a Resource: hello as XML', function() {
+    it('should get <resource><message>Hello World!</message></resource>', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'hello',
+        outFormat: 'text/xml',
+        data: { message: "Hello World!" }
+      });
+      rp.get( new routing.Route('hello') )
+        .then( function(emb) { result = emb.bodyAsString(); })
+        .fail( function (error) { result = JSON.stringify(error);  } );
+
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( result ).toBe('<resource><message>Hello World!</message></resource>');
+      });
+    });
+  });
+
+  describe('1.10 GET dynamic data from a Resource: test as XML', function() {
+    it('should get <resource><message>This is XML</message></resource>', function() {
+      var result;
+      var rp = new relaxjs.ResourcePlayer( {
+        name: 'test',
+        outFormat: 'text/xml',
+        onGet : function( query, response ) {
+          this.ok(response, { message: "This is XML" } );
+        },
+        data: { message: "This is now Hello World!" } });
+      rp.get( new routing.Route('test') )
+        .then( function(emb) { result = emb.bodyAsString(); })
+        .fail( function (error) { result = JSON.stringify(error);  } );
+
+      waitsFor( function() { return result!=undefined } , 'Waited to long for the GET call to be completed.', 1000 );
+      runs( function() {
+        expect( result ).toBeDefined();
+        expect( result ).toBe('<resource><message>This is XML</message></resource>' );
+      });
+    });
+  });
 
 })
 /**/

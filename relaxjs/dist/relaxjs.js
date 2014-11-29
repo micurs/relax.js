@@ -452,6 +452,7 @@ var ResourcePlayer = (function (_super) {
         self._layout = res.layout;
         self._paramterNames = res.urlParameters ? res.urlParameters : [];
         self._parameters = {};
+        self._outFormat = res.outFormat;
         self._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
         self._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
         self._onPatch = res.onPatch ? Q.nbind(res.onPatch, this) : undefined;
@@ -612,7 +613,7 @@ var ResourcePlayer = (function (_super) {
             log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat);
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
-                self._deliverReply(later, response, route.outFormat);
+                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             }).catch(function (error) {
@@ -622,7 +623,7 @@ var ResourcePlayer = (function (_super) {
         }
         log.info('Returning static data from %s', self._name);
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
-        self._deliverReply(later, responseObj, route.outFormat);
+        self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.delete = function (route) {

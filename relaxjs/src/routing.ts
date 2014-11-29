@@ -26,7 +26,7 @@ export class Route {
   outFormat: string;
   inFormat : string;
 
-  constructor( uri?: string ) {
+  constructor( uri?: string, outFormat?: string, inFormat?: string ) {
     if ( uri ) {
       var parsedUrl : url.Url = url.parse(uri, true);
       var extension = path.extname(parsedUrl.pathname)
@@ -41,20 +41,24 @@ export class Route {
       this.path = _.filter( resources, (res) => res.length>0 );
       // console.log(_.str.sprintf('Route Path:"%s" Extension:"%s"', JSON.stringify(this.path), extension ) );
       this.static = ( extension.length>0 );
-      // this.format = 'application/json';
+      this.outFormat = outFormat ? outFormat : 'application/json';
+      this.inFormat = inFormat ? inFormat: 'application/json';
     }
   }
 
   // Create a new Route with a new path without the first item
   stepThrough( stpes: number ) : Route {
     var newRoute : Route = new Route();
-    newRoute.verb = this.verb;
+    _.assign( newRoute, {
+      verb: this.verb,
+      static: this.static,
+      pathname: this.pathname,
+      path: [],
+      query: this.query,
+      outFormat: this.outFormat,
+      inFormat: this.inFormat
+    });
     newRoute.path = _.map(this.path, (v) => _.clone(v) );
-    newRoute.static = this.static;
-    newRoute.pathname = this.pathname;
-    newRoute.query = this.query;
-    newRoute.outFormat = this.outFormat;
-    newRoute.inFormat = this.inFormat;
     newRoute.path.splice(0,stpes);
     return newRoute;
   }

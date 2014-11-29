@@ -2,7 +2,7 @@ var url = require('url');
 var path = require('path');
 var _ = require("lodash");
 var Route = (function () {
-    function Route(uri) {
+    function Route(uri, outFormat, inFormat) {
         this.static = true;
         if (uri) {
             var parsedUrl = url.parse(uri, true);
@@ -16,17 +16,22 @@ var Route = (function () {
             this.query = parsedUrl.query;
             this.path = _.filter(resources, function (res) { return res.length > 0; });
             this.static = (extension.length > 0);
+            this.outFormat = outFormat ? outFormat : 'application/json';
+            this.inFormat = inFormat ? inFormat : 'application/json';
         }
     }
     Route.prototype.stepThrough = function (stpes) {
         var newRoute = new Route();
-        newRoute.verb = this.verb;
+        _.assign(newRoute, {
+            verb: this.verb,
+            static: this.static,
+            pathname: this.pathname,
+            path: [],
+            query: this.query,
+            outFormat: this.outFormat,
+            inFormat: this.inFormat
+        });
         newRoute.path = _.map(this.path, function (v) { return _.clone(v); });
-        newRoute.static = this.static;
-        newRoute.pathname = this.pathname;
-        newRoute.query = this.query;
-        newRoute.outFormat = this.outFormat;
-        newRoute.inFormat = this.inFormat;
         newRoute.path.splice(0, stpes);
         return newRoute;
     };
