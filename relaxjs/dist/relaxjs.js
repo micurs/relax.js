@@ -11,9 +11,10 @@ var xml2js = require('xml2js');
 var internals = require('./internals');
 var routing = require('./routing');
 var rxError = require('./rxerror');
+var package = require(__dirname + '/../package.json');
 exports.routing = routing;
 exports.rxError = rxError;
-exports.version = "0.1.2";
+exports.version = package.version;
 function relax() {
     console.log('relax.js !');
 }
@@ -492,8 +493,7 @@ var ResourcePlayer = (function (_super) {
         response(null, respObj);
     };
     ResourcePlayer.prototype.fail = function (response, err) {
-        var self = this;
-        var log = internals.log().child({ func: self._name + '.fail' });
+        var log = internals.log().child({ func: this._name + '.fail' });
         log.info('Call failed: %s', err.message);
         response(err, null);
     };
@@ -524,7 +524,8 @@ var ResourcePlayer = (function (_super) {
             }
         });
     };
-    ResourcePlayer.prototype._deliverReply = function (later, resResponse, outFormat) {
+    ResourcePlayer.prototype._deliverReply = function (later, resResponse, outFormat, deliverAnyFormat) {
+        if (deliverAnyFormat === void 0) { deliverAnyFormat = false; }
         var self = this;
         var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ')._deliverReply' });
         var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
@@ -569,7 +570,12 @@ var ResourcePlayer = (function (_super) {
                 });
             }
             else {
-                later.reject(new rxError.RxError('output as (' + outFormat + ') is not available for this resource', 'Unsupported Media Type', 415));
+                if (deliverAnyFormat) {
+                    later.resolve(new Embodiment(outFormat, 200, resResponse.data));
+                }
+                else {
+                    later.reject(new rxError.RxError('output as (' + outFormat + ') is not available for this resource', 'Unsupported Media Type', 415));
+                }
             }
         }
     };
@@ -613,7 +619,7 @@ var ResourcePlayer = (function (_super) {
             log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat);
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
-                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
+                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat, self._outFormat !== undefined);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             }).catch(function (error) {
@@ -653,7 +659,7 @@ var ResourcePlayer = (function (_super) {
             log.info('call onDelete() for %s', self._name);
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
-                self._deliverReply(later, response, route.outFormat);
+                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -663,7 +669,7 @@ var ResourcePlayer = (function (_super) {
         self.parent.remove(self);
         self.parent = null;
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
-        self._deliverReply(later, responseObj, route.outFormat);
+        self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.post = function (route, body) {
@@ -689,7 +695,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
             self._onPost(route.query, body).then(function (response) {
-                self._deliverReply(later, response, route.outFormat);
+                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -698,7 +704,7 @@ var ResourcePlayer = (function (_super) {
         log.info('Adding data for %s', self._name);
         self._updateData(body);
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
-        self._deliverReply(later, responseObj, route.outFormat);
+        self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.patch = function (route, body) {
@@ -728,7 +734,7 @@ var ResourcePlayer = (function (_super) {
             log.info('calling onPatch() for %s', self._name);
             self._onPatch(route.query, body).then(function (response) {
                 self._updateData(response.data);
-                self._deliverReply(later, response, route.outFormat);
+                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
             }).fail(function (rxErr) {
                 later.reject(rxErr);
             });
@@ -737,7 +743,7 @@ var ResourcePlayer = (function (_super) {
         log.info('Updating data for %s', self._name);
         self._updateData(body);
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
-        self._deliverReply(later, responseObj, route.outFormat);
+        self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
     ResourcePlayer.prototype.put = function (route, body) {
@@ -749,6 +755,7 @@ var ResourcePlayer = (function (_super) {
         });
         return later.promise;
     };
+    ResourcePlayer.version = exports.version;
     return ResourcePlayer;
 })(Container);
 exports.ResourcePlayer = ResourcePlayer;

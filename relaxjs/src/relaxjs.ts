@@ -21,14 +21,17 @@ import internals = require('./internals');
 import routing = require('./routing');
 import rxError = require('./rxerror');
 
+var package = require(__dirname+'/../package.json');
+
 exports.routing = routing;
 exports.rxError = rxError;
 
-export var version = "0.1.2";
+export var version = package.version;
 
 export function relax() : void {
   console.log('relax.js !');
 }
+
 
 /*
  * The resource player implement the resource runtime capabilities.
@@ -73,12 +76,14 @@ export interface ResourceResponse {
   location?: string;
 }
 
+
 /*
  * Type definition for the response callback function to use on the HTTP verb function
 */
 export interface DataCallback {
   ( err: Error, resp?: ResourceResponse ): void;
 }
+
 
 /*
  * This is the definition for a resource as entered by the user of the library.
@@ -100,6 +105,7 @@ export interface Resource {
   onPatch?: ( query: any, body: any, callback: DataCallback) => void;
 }
 
+
 /*
  * A Resource map is a collection of Resource arrays.
  * Each arrray contain resource of the same type.
@@ -107,6 +113,7 @@ export interface Resource {
 export interface ResourceMap {
   [name: string]: Container [];
 }
+
 
 /*
  * Every resource is converted to their embodiment before they can be served
@@ -150,6 +157,7 @@ export class Embodiment {
     return JSON.parse(this.bodyAsString());
   }
 }
+
 
 /*
  * A container of resources. This class offer helper functions to add and retrieve resources
@@ -632,13 +640,14 @@ export class Site extends Container implements HttpPlayer {
 
 }
 
+
 /*
  * ResourcePlayer absorbs a user defined resource and execute the HTTP requests.
  * The player dispatch requests to the childres resources or invoke user defined
  * response function for each verb.
 */
 export class ResourcePlayer extends Container implements HttpPlayer {
-
+  static version = version;
   private _name: string = '';
   private _site: Site;
   private _template: string = '';
@@ -705,14 +714,17 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   // Helper function to call the response callback with a fail error
   fail( response: DataCallback, err: rxError.RxError ) : void {
-    var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: self._name+'.fail'} );
+    var log = internals.log().child( { func: this._name+'.fail'} );
     log.info('Call failed: %s', err.message );
     response( err, null );
 
   }
 
-  // Read the parameters from a route
+
+  /*
+   * Reads the parameters from a route and store them in the this._parmaters member.
+   * Return the number of paramters correcly parsed.
+  */
   private _readParameters( path: string[], generateError: boolean = true ) : number {
     var log = internals.log().child( { func: this._name+'._readParameters'} );
     var counter = 0;
@@ -730,8 +742,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     return counter;
   }
 
-  // Reset the data property for this object and copy all the
-  // elements from the given parameter into it.
+
+  /*
+   * Reset the data property for this object and copy all the
+   * elements from the given parameter into it.
+   */
   private _updateData( newData: any ) : void {
     var self = this;
     self.data = {};
@@ -742,11 +757,15 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     } );
   }
 
-  // Deliver a response through the given deferred function according to
-  // the given outFormat
+
+  /*
+   * Delivers a reply as Embodiment of the given response through the given promise and
+   * in the given outFormat
+  */
   private _deliverReply( later: Q.Deferred<Embodiment>,
                          resResponse: ResourceResponse,
-                         outFormat: string ) : void {
+                         outFormat: string,
+                         deliverAnyFormat: boolean = false ) : void {
     var self = this;
     var log = internals.log().child( { func: 'ResourcePlayer('+self._name+')._deliverReply'} );
     var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
@@ -770,7 +789,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
     else {
       var mimeType = undefined;
-      // This should be improved
+      // This is orrible, it should be improved in version 0.1.3
       if ( mimeTypes.indexOf('*/*')!=-1 ) { mimeType = 'application/json'; }
       if ( mimeTypes.indexOf('application/json')!=-1 ) { mimeType = 'application/json'; }
       if ( mimeTypes.indexOf('application/xml')!=-1 ) { mimeType = 'application/xml'; }
@@ -789,21 +808,31 @@ export class ResourcePlayer extends Container implements HttpPlayer {
           });
       }
       else {
-        later.reject(new rxError.RxError( 'output as ('+outFormat+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+        if ( deliverAnyFormat ) {
+          later.resolve( new Embodiment( outFormat, 200, resResponse.data ) );
+        }
+        else {
+          later.reject(new rxError.RxError( 'output as ('+outFormat+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+        }
       }
     }
   }
 
+
   // -------------------- HTTP VERB FUNCIONS -------------------------------------
 
-  // Resource Player HEAD
-  // Get the response as for a GET request, but without the response body.
+
+  /*
+   * Resource Player HEAD
+   * Get the response as for a GET request, but without the response body.
+  */
   head( route : routing.Route) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var later = Q.defer< Embodiment >();
     _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });
     return later.promise;
   }
+
 
   /*
    * HttpPlayer GET
@@ -832,7 +861,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
     }
 
-    // Read the parameters from the route
+    // 2 - Read the parameters from the route
     log.info('GET Target Found : %s (requires %d parameters)', self._name, paramCount );
     if ( paramCount>0 ) {
       if ( self._readParameters(route.path)<paramCount ) {
@@ -853,7 +882,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       self._onGet( route.query )
         .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
-          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat );
+          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat, self._outFormat!==undefined );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -864,12 +893,13 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       return later.promise;
     }
 
-    // When onGet() is NOT available use the static data member to respond to this request.
+    // 4 - Perform the default GET that is: deliver the data associated with this resource
     log.info('Returning static data from %s', self._name);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
     self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat );
     return later.promise;
   }
+
 
   /*
    * HttpPlayer DELETE
@@ -881,9 +911,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
-    // console.log(ctx+paramCount)
 
-    // Dives in and navigates through the path to find the child resource that can answer this DELETE call
+    // 1 - Dives in and navigates through the path to find the child resource that can answer this DELETE call
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
       if ( direction ) {
@@ -896,7 +925,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
     }
 
-    // Read the parameters from the route
+    // 2 - Read the parameters from the route
     log.info('DELETE Target Found : %s (requires %d parameters)', self._name, paramCount );
     if ( paramCount>0 ) {
       if ( self._readParameters(route.path)<paramCount ) {
@@ -911,7 +940,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       this._onDelete( route.query )
         .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
-          self._deliverReply(later, response, route.outFormat );
+          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -919,19 +948,21 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       return later.promise;
     }
 
-    // When onDelete() is NOT available we fallback on a default implementation
-    // that is the removal of this resource
+    // 4 - Perform the default DELETE that is: delete this resource
     log.info('Default Delete: Removing resource %s',self._name );
     self.parent.remove(self);
     self.parent = null;
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
-    self._deliverReply(later, responseObj, route.outFormat );
+    self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat  );
     return later.promise;
   }
 
-  // HttpPlayer POST
-  // Asks the resource to create a new subordinate of the web resource identified by the URI.
-  // The body sent to a post must contain the resource name to be created.
+
+  /*
+   * HttpPlayer POST
+   * Asks the resource to create a new subordinate of the web resource identified by the URI.
+   * The body sent to a post must contain the resource name to be created.
+  */
   post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').post'} );
@@ -951,7 +982,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
     }
 
-    // Read the parameters from the route
+    // 2 - Read the parameters from the route
     log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount );
     if ( paramCount>0 ) {
       // In a POST not finding all the paramters expeceted should not fail the call.
@@ -963,7 +994,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       log.info('calling onPost() for %s', self._name );
       self._onPost( route.query, body )
         .then( ( response: ResourceResponse ) => {
-          self._deliverReply(later, response, route.outFormat );
+          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -971,24 +1002,26 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       return later.promise;
     }
 
-    // Set the data directly
+    // 4 - Perform the default POST that is: set the data directly
     log.info('Adding data for %s',self._name );
     self._updateData(body);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
-    self._deliverReply(later, responseObj, route.outFormat );
+    self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat );
     return later.promise;
   }
 
 
-  // HttpPlayer PATCH
-  // Applies partial modifications to a resource (as identified in the URI).
+  /*
+   * HttpPlayer PATCH
+   * Applies partial modifications to a resource (as identified in the URI).
+  */
   patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').patch'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
-    // Dives in and navigates through the path to find the child resource that can answer this POST call
+    // 1 - Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
       var direction = self._getStepDirection( route );
       if ( direction ) {
@@ -1001,7 +1034,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
     }
 
-    // Read the parameters from the route
+    // 2 - Read the parameters from the route
     log.info('PATCH Target Found : %s (requires %d parameters)', self._name, paramCount );
     if ( paramCount>0 ) {
       if ( self._readParameters(route.path)<paramCount ) {
@@ -1010,12 +1043,13 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
     }
 
+    // 3 - call the resource defined function to respond to a PATCH request
     if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self._name );
       self._onPatch( route.query, body )
         .then( ( response: ResourceResponse ) => {
           self._updateData(response.data);
-          self._deliverReply(later, response, route.outFormat );
+          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
         })
         .fail( function( rxErr: rxError.RxError ) {
           later.reject(rxErr);
@@ -1023,18 +1057,20 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       return later.promise;
     }
 
-    // Set the data directly
+    // 4 - Perform the default PATH that is set the data directly
     log.info('Updating data for %s',self._name );
     self._updateData(body);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
-    self._deliverReply(later, responseObj, route.outFormat );
+    self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat  );
     return later.promise;
   }
 
 
-  // HttpPlayer PUT
-  // Asks that the enclosed entity be stored under the supplied URI.
-  // The body sent to a post does not contain the resource name to be stored since that name is the URI.
+  /*
+   * HttpPlayer PUT
+   * Asks that the enclosed entity be stored under the supplied URI.
+   * The body sent to a post does not contain the resource name to be stored since that name is the URI.
+  */
   put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').put'} );

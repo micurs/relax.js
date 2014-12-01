@@ -1,0 +1,14 @@
+{
+  "name": "sample05",
+  "version": "0.1.2",
+  "description": "Deliver binary data",
+  "main": "bninary.js",
+  "author": "Michele Ursino",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -m commonjs -t ES5 binary.ts",
+    "typings" : "tsd reinstall --save --overwrite",
+    "start": "node binary.js --relaxjs-verbose | bunyan",
+    "debug": "node-debug binary.js"
+  }
+}
