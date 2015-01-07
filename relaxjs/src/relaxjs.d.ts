@@ -34,7 +34,6 @@ declare module "relaxjs" {
     }
   }
 
-
   export module routing {
 
     export class Route {
@@ -121,11 +120,21 @@ declare module "relaxjs" {
     childrenCount() : number;
   }
 
+  export interface FilterResultCB {
+    ( err: rxError.RxError, data: any ) : void;
+  }
+
+  export interface FilterCB {
+    ( route : routing.Route, body: any, resultCall : FilterResultCB ) : void ;
+  }
+
   export class Site extends Container implements HttpPlayer {
     name: string;
     urlName: string;
     version: string;
     siteName: string;
+    enableFilters: boolean;
+
 
     constructor( siteName:string, parent?: Container );
     public static $( name:string ):Site;
@@ -134,6 +143,8 @@ declare module "relaxjs" {
     serve() : http.Server ;
     setHome( path: string ) : void;
     getResource( pathname: string ) : Container;
+    addRequestFilter( filterFunction: FilterCB ) : void;
+    deleteRequestFilter( filterFunction?: FilterCB ) : boolean;
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;

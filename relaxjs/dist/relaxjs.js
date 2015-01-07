@@ -184,6 +184,8 @@ var Site = (function (_super) {
         this._siteName = 'site';
         this._home = '/';
         this._pathCache = {};
+        this._filters = [];
+        this.enableFilters = false;
         this._siteName = siteName;
         if (Site._instance) {
             throw new Error('Error: Only one site is allowed.');
@@ -291,6 +293,18 @@ var Site = (function (_super) {
         }
         response.end();
     };
+    Site.prototype.addRequestFilter = function (filterFunction) {
+        this._filters.push(filterFunction);
+    };
+    Site.prototype.deleteRequestFilter = function (filterFunction) {
+        if (!filterFunction) {
+            this._filters = [];
+            return true;
+        }
+        else {
+            return (_.remove(this._filters, function (f) { return f === filterFunction; }) != undefined);
+        }
+    };
     Site.prototype.serve = function () {
         var _this = this;
         var self = this;
@@ -313,13 +327,27 @@ var Site = (function (_super) {
                     return;
                 }
                 internals.parseData(body, route.inFormat).then(function (bodyData) {
-                    site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
-                        log.info('HTTP %s request fulfilled', msg.method);
-                        reply.serve(response);
-                    }).fail(function (error) {
-                        log.error('HTTP %s request failed: %s:', msg.method, error.message);
-                        self._outputError(response, error, route.outFormat);
-                    }).done();
+                    var filtersCalls = _.map(self._filters, function (f) { return Q.nfcall(f, route, body); });
+                    Q.allSettled(filtersCalls).then(function (results) {
+                        var allFilterOk = _.reduce(results, function (andRes, r) { return andRes = andRes && r.state === 'fulfilled'; }, true);
+                        if (!allFilterOk) {
+                            var message = _.reduce(results, function (m, r) {
+                                if (r.state !== 'fulfilled')
+                                    m += r.reason.message + '\n';
+                                return m;
+                            }, '');
+                            self._outputError(response, new rxError.RxError(message, 'Filters rejected the call', 500), route.outFormat);
+                        }
+                        else {
+                            site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
+                                log.info('HTTP %s request fulfilled', msg.method);
+                                reply.serve(response);
+                            }).fail(function (error) {
+                                log.error('HTTP %s request failed: %s:', msg.method, error.message);
+                                self._outputError(response, error, route.outFormat);
+                            }).done();
+                        }
+                    });
                 }).fail(function (error) {
                     log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
                     self._outputError(response, error, route.outFormat);

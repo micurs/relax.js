@@ -33,6 +33,7 @@ export function relax() : void {
 }
 
 
+
 /*
  * The resource player implement the resource runtime capabilities.
  * Derived classed manage the flow of requests coming from the site.
@@ -332,6 +333,21 @@ export class Container {
 
 }
 
+// Node style callback function. call with err = null if the operation succeed.
+export interface FilterResultCB {
+  ( err: rxError.RxError, data: any ) : void;
+}
+
+/*
+ * A filter function is called on every request and can stop the dispatch of the request to the
+ * target resource. The call is asyncronous. When complete it must call the resultCall passed
+ * as third argument.
+ * Note: the filterCB is called by the Site before evenb attempting to route the request to a
+ * resource.
+ */
+export interface FilterCB {
+  ( route : routing.Route, body: any, resultCall : FilterResultCB ) : void ;
+}
 
 /*
  * Root object for the application is the Site.
@@ -344,6 +360,9 @@ export class Site extends Container implements HttpPlayer {
   private _siteName : string = 'site';
   private _home : string = '/';
   private _pathCache = {};
+
+  private _filters: FilterCB[] = [];
+  public enableFilters: boolean = false;
 
   constructor( siteName:string, parent?: Container ) {
     super(parent);
@@ -459,6 +478,23 @@ export class Site extends Container implements HttpPlayer {
   }
 
   /*
+   * Set a user callback function to be executed on every request.
+   */
+  addRequestFilter( filterFunction: FilterCB ) : void {
+    this._filters.push(filterFunction);
+  }
+
+  deleteRequestFilter( filterFunction?: FilterCB ) : boolean {
+    if ( !filterFunction ) {
+      this._filters = [];
+      return true;
+    }
+    else {
+      return ( _.remove( this._filters, (f) => f === filterFunction ) != undefined );
+    }
+  }
+
+  /*
    * Create a Server for the site and manage all the requests by routing them to the appropriate resource
   */
   serve() : http.Server {
@@ -489,17 +525,38 @@ export class Site extends Container implements HttpPlayer {
         // Parse the data received with this request
         internals.parseData(body,route.inFormat)
           .then( (bodyData: any ) => {
-          // Execute the HTTP request
-            site[msg.method.toLowerCase()]( route, bodyData )
-              .then( ( reply : Embodiment ) => {
-                log.info('HTTP %s request fulfilled',msg.method  );
-                reply.serve(response);
-              })
-              .fail( (error) => {
-                log.error('HTTP %s request failed: %s:',msg.method,error.message);
-                self._outputError(response,error,route.outFormat);
-              })
-              .done();
+
+            var filtersCalls = _.map( self._filters, (f) => Q.nfcall(f,route,body) );
+
+            // Filter the request
+            Q.allSettled( filtersCalls )
+              .then( ( results: Q.PromiseState<any>[] ) => {
+
+                var allFilterOk = _.reduce( results, (andRes:boolean, r) => andRes = andRes && r.state === 'fulfilled', true  );
+
+                // If one filter fails then collect all the filter failing errors and output as one error
+                if ( ! allFilterOk ) {
+                  var message = _.reduce( results, (m: string, r: Q.PromiseState<any>) => {
+                    if ( r.state !== 'fulfilled' )
+                      m += r.reason.message+'\n';
+                    return m;
+                  }, '' );
+                  self._outputError(response, new rxError.RxError(message,'Filters rejected the call',500) , route.outFormat );
+                }
+                else {
+                  // Execute the HTTP request
+                  site[msg.method.toLowerCase()]( route, bodyData )
+                    .then( ( reply : Embodiment ) => {
+                      log.info('HTTP %s request fulfilled',msg.method  );
+                      reply.serve(response);
+                    })
+                    .fail( (error) => {
+                      log.error('HTTP %s request failed: %s:',msg.method,error.message);
+                      self._outputError(response,error,route.outFormat);
+                    })
+                    .done();
+                }
+              });
           })
           .fail( (error) => {
             log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
@@ -647,6 +704,7 @@ export class Site extends Container implements HttpPlayer {
  * response function for each verb.
 */
 export class ResourcePlayer extends Container implements HttpPlayer {
+
   static version = version;
   private _name: string = '';
   private _site: Site;

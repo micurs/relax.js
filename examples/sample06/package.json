@@ -1,0 +1,14 @@
+{
+  "name": "sample6",
+  "version": "0.1.3",
+  "description": "Setting a filter",
+  "main": "sample6.js",
+  "author": "Michele Ursino",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -m commonjs -t ES5 sample06.ts",
+    "start": "node sample06.js --relaxjs-verbose | bunyan",
+    "typings": "tsd reinstall --save --overwrite",    
+    "debug": "node-debug sample06.js"
+  }
+}
