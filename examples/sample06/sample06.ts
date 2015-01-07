@@ -19,23 +19,27 @@ site.add(  {
 
 site.addRequestFilter( (route : relaxjs.routing.Route, body: any, returnCall : relaxjs.FilterResultCB ) => {
   counter++;
+  returnCall( null, { count: counter } );
+});
+
+site.addRequestFilter( (route : relaxjs.routing.Route, body: any, returnCall : relaxjs.FilterResultCB ) => {
   if ( counter>=6 ) {
-    console.log('>>>>> FILTER MAX 10 Request Reached!  #: ', counter );
+    console.log('>>>>> 10 Requests limit reached!  #: ', counter );
     returnCall( new relaxjs.rxError.RxError('Max number of requests reached!'), null );
   }
   else {
-    console.log('Max Filter >>>>> Request #: ', counter );
+    console.log('Max Filter Counting Request #: ', counter );
     returnCall( null, { count: counter } );
   }
 });
 
 site.addRequestFilter( (route : relaxjs.routing.Route, body: any, returnCall : relaxjs.FilterResultCB ) => {
   if ( counter<=3 ) {
-    console.log('>>>>> FILTER MIN 3 Request needed!  #: ', counter );
+    console.log('>>>>> Filter Min 3 Request needed before responding  #: ', counter );
     returnCall( new relaxjs.rxError.RxError('Min number of requests not yet reached - please reload!'), null );
   }
   else {
-    console.log('Min Filter >>>>> Request #: ', counter );
+    console.log('Min Filter Counting Request #: ', counter );
     returnCall( null, { count: counter } );
   }
 });
