@@ -526,13 +526,13 @@ export class Site extends Container implements HttpPlayer {
         internals.parseData(body,route.inFormat)
           .then( (bodyData: any ) => {
 
-            var filtersCalls = _.map( self._filters, (f) => Q.nfcall(f,route,body) );
+            var filtersCalls = self.enableFilters ? _.map( self._filters, (f) => Q.nfcall(f,route,body) ): [] ;
 
             // Filter the request
             Q.allSettled( filtersCalls )
               .then( ( results: Q.PromiseState<any>[] ) => {
 
-                var allFilterOk = _.reduce( results, (andRes:boolean, r) => andRes = andRes && r.state === 'fulfilled', true  );
+                var allFilterOk = _.reduce( results, (andRes:boolean, r) => andRes = andRes && r.state === 'fulfilled', true );
 
                 // If one filter fails then collect all the filter failing errors and output as one error
                 if ( ! allFilterOk ) {

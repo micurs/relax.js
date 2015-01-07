@@ -327,7 +327,7 @@ var Site = (function (_super) {
                     return;
                 }
                 internals.parseData(body, route.inFormat).then(function (bodyData) {
-                    var filtersCalls = _.map(self._filters, function (f) { return Q.nfcall(f, route, body); });
+                    var filtersCalls = self.enableFilters ? _.map(self._filters, function (f) { return Q.nfcall(f, route, body); }) : [];
                     Q.allSettled(filtersCalls).then(function (results) {
                         var allFilterOk = _.reduce(results, function (andRes, r) { return andRes = andRes && r.state === 'fulfilled'; }, true);
                         if (!allFilterOk) {
