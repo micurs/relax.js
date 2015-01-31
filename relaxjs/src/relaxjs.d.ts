@@ -27,7 +27,7 @@ declare module "relaxjs" {
       public name: string;
       public message: string;
       public stack: string;
-      constructor( message: string, name?: string, co12de?: number );
+      constructor( message: string, name?: string, code?: number, extra?: string );
       getHttpCode(): number;
       getExtra(): string;
       toString(): string;
@@ -42,6 +42,11 @@ declare module "relaxjs" {
       pathname : string;
       path : string[];
       query: any;
+      outFormat: string;
+      inFormat : string;
+      cookies: string[]; // Unparsed cookies received withing the request.
+      request: http.ServerRequest;
+      response: http.ServerResponse;
 
       constructor( uri?: string );
       stepThrough( stpes: number ) : Route;
@@ -108,9 +113,19 @@ declare module "relaxjs" {
   }
 
   export class Container {
+    name: string;
+    urlName: string;
     public _resources:ResourceMap;
     public parent : Container ;
+
     constructor( parent?: Container );
+    setCookie( cookie: string );
+    getCookies( ) : string[];
+
+    ok( response: DataCallback, data?: any ) : void;
+    redirect( response: DataCallback, where: string, data?: any ) : void ;
+    fail( response: DataCallback, data?: any ) : void;
+
     add( newRes: Resource ) : void ;
     remove( child: ResourcePlayer ) : boolean ;
     getResource( pathname: string ) : Container ;
@@ -129,12 +144,9 @@ declare module "relaxjs" {
   }
 
   export class Site extends Container implements HttpPlayer {
-    name: string;
-    urlName: string;
     version: string;
     siteName: string;
     enableFilters: boolean;
-
 
     constructor( siteName:string, parent?: Container );
     public static $( name:string ):Site;
@@ -160,9 +172,6 @@ declare module "relaxjs" {
     urlName: string;
 
     constructor( res : Resource );
-    ok( response: DataCallback, data?: any ) : void;
-    redirect( response: DataCallback, where: string, data?: any ) : void ;
-    fail( response: DataCallback, data?: any ) : void;
     readParameters( path: string[]) : number ;
 
     head( route : routing.Route) : Q.Promise<Embodiment> ;

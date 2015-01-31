@@ -25,6 +25,9 @@ export class Route {
   query: any;
   outFormat: string;
   inFormat : string;
+  cookies: string[]; // Unparsed cookies received withing the request.
+  request: http.ServerRequest;
+  response: http.ServerResponse;
 
   constructor( uri?: string, outFormat?: string, inFormat?: string ) {
     if ( uri ) {
@@ -56,7 +59,10 @@ export class Route {
       path: [],
       query: this.query,
       outFormat: this.outFormat,
-      inFormat: this.inFormat
+      inFormat: this.inFormat,
+      cookies: this.cookies,
+      request: this.request,
+      response: this.response
     });
     newRoute.path = _.map(this.path, (v) => _.clone(v) );
     newRoute.path.splice(0,stpes);
@@ -83,10 +89,18 @@ export class Direction {
 // becomes
 //  home.users.put( 100, data)
 // --------------------------------------------------------------
-export function fromUrl( request: http.ServerRequest ) : Route {
+export function fromRequestResponse( request: http.ServerRequest, response: http.ServerResponse ) : Route {
   if ( !request.url )
     request.url = '/';
   var route = new Route( request.url );
+
+  route.request = request;
+  route.response = response;
+
+  // Extract the cookies (if any) from the request
+  if ( request.headers.cookie ) {
+    route.cookies = request.headers.cookie.split(';');
+  }
 
   // This is the format the request would like to have back
   if ( request.headers['accept'] ) {

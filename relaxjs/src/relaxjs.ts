@@ -75,6 +75,7 @@ export interface ResourceResponse {
   data?: any;
   httpCode?: number;
   location?: string;
+  cookiesData?: string[];
 }
 
 
@@ -83,6 +84,17 @@ export interface ResourceResponse {
 */
 export interface DataCallback {
   ( err: Error, resp?: ResourceResponse ): void;
+}
+
+/*
+ * A filter function is called on every request and can stop the dispatch of the request to the
+ * target resource. The call is asyncronous. When complete it must call the resultCall passed
+ * as third argument.
+ * Note: the filter is called by the Site before evenb attempting to route the request to a
+ * resource.
+ */
+export interface RequestFilter {
+  ( route : routing.Route, body: any, result : DataCallback ) : void ;
 }
 
 
@@ -125,11 +137,17 @@ export class Embodiment {
   public location : string;
   public mimeType : string;
   public body : Buffer;
+  public cookiesData: string[] = []; // example a cookie valie would be ["type=ninja", "language=javascript"]
 
   constructor(  mimeType: string, code: number = 200, body?: Buffer ) {
     this.httpCode = code;
     this.body = body;
     this.mimeType = mimeType;
+  }
+
+  // Add a serialized cookie to be returned as a set  cookie in a response.
+  addSetCookie( cookie: string ) {
+    this.cookiesData.push(cookie);
   }
 
   serve(response: http.ServerResponse) : void {
@@ -139,6 +157,9 @@ export class Embodiment {
       headers['content-length'] = this.body.length;
     if ( this.location )
       headers['Location'] = this.location;
+
+    // Add the cookies set to the header
+    _.each( this.cookiesData, (cookie) => response.setHeader('Set-Cookie', cookie ) );
 
     response.writeHead( this.httpCode, headers );
     if ( this.body ) {
@@ -165,8 +186,13 @@ export class Embodiment {
  * child resources
 */
 export class Container {
-  public _resources:ResourceMap = {};
+  protected _name: string = '';
   private _parent: Container;
+
+  protected _cookiesData : string[] = [];   // Outgoing cookies to be set
+  protected _cookies: string[] = [];        // Received cookies unparsed
+
+  public _resources:ResourceMap = {};
 
   constructor( parent?: Container ) {
     this._parent = parent;
@@ -174,6 +200,46 @@ export class Container {
 
   get parent() : Container {
     return this._parent;
+  }
+  get name(): string {
+    return this._name;
+  }
+  get urlName() : string {
+    return internals.slugify(this.name);
+  }
+
+  setName( newName:string ) : void {
+    this._name = newName;
+  }
+
+  setCookie( cookie: string ) {
+    this._cookiesData.push(cookie);
+  }
+  getCookies( ) : string[] {
+    return this._cookies;
+  }
+
+  // Helper function to call the response callback with a succesful code 'ok'
+  ok( response: DataCallback, data?: any ) : void {
+    var respObj : ResourceResponse = { result: 'ok', httpCode: 200, cookiesData: this._cookiesData };
+    if ( data )
+      respObj['data'] = data;
+    response( null, respObj );
+  }
+
+  // Helper function to call the response callback with a redirect code 303
+  redirect( response: DataCallback, where: string, data?: any ) : void {
+    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where, cookiesData: this._cookiesData  };
+    if ( data )
+      respObj['data'] = data;
+    response( null, respObj );
+  }
+
+  // Helper function to call the response callback with a fail error
+  fail( response: DataCallback, err: rxError.RxError ) : void {
+    var log = internals.log().child( { func: this._name+'.fail'} );
+    log.info('Call failed: %s', err.message );
+    response( err, null );
   }
 
   /*
@@ -321,7 +387,6 @@ export class Container {
       return 0;
   }
 
-
   /*
    * Return the total number of children resources for this node.
   */
@@ -333,21 +398,6 @@ export class Container {
 
 }
 
-// Node style callback function. call with err = null if the operation succeed.
-export interface FilterResultCB {
-  ( err: rxError.RxError, data: any ) : void;
-}
-
-/*
- * A filter function is called on every request and can stop the dispatch of the request to the
- * target resource. The call is asyncronous. When complete it must call the resultCall passed
- * as third argument.
- * Note: the filterCB is called by the Site before evenb attempting to route the request to a
- * resource.
- */
-export interface FilterCB {
-  ( route : routing.Route, body: any, resultCall : FilterResultCB ) : void ;
-}
 
 /*
  * Root object for the application is the Site.
@@ -355,13 +405,13 @@ export interface FilterCB {
 */
 export class Site extends Container implements HttpPlayer {
   private static _instance : Site = null;
-  private _name: string = "site";
+  // private _name: string = "site";
   private _version : string = version;
   private _siteName : string = 'site';
   private _home : string = '/';
   private _pathCache = {};
 
-  private _filters: FilterCB[] = [];
+  private _filters: RequestFilter[] = [];
   public enableFilters: boolean = false;
 
   constructor( siteName:string, parent?: Container ) {
@@ -417,18 +467,18 @@ export class Site extends Container implements HttpPlayer {
     return undefined;
   }
 
-
+  /*
   get name(): string {
     return this._name;
   }
-
-  get urlName() : string {
-    return internals.slugify(this.name);
-  }
-
   setName( newName:string ) : void {
     this._name = newName;
   }
+  get urlName() : string {
+    return internals.slugify(this.name);
+  }
+  */
+
 
   get version() : string {
     return this._version;
@@ -480,18 +530,58 @@ export class Site extends Container implements HttpPlayer {
   /*
    * Set a user callback function to be executed on every request.
    */
-  addRequestFilter( filterFunction: FilterCB ) : void {
+  addRequestFilter( filterFunction: RequestFilter ) : void {
     this._filters.push(filterFunction);
   }
 
-  deleteRequestFilter( filterFunction?: FilterCB ) : boolean {
-    if ( !filterFunction ) {
-      this._filters = [];
-      return true;
+  deleteRequestFilter( filterFunction?: RequestFilter ) : boolean {
+    return ( _.remove( this._filters, (f) => f === filterFunction ) != undefined );
+  }
+
+  deleteAllRequestFilters() : boolean {
+    this._filters = [];
+    return true;
+  }
+
+  /*
+   * Execute the filters.
+  */
+  private _checkFilters( route : routing.Route, body: any, response : http.ServerResponse) : Q.Promise< boolean > {
+    var self = this;
+    var later = Q.defer< boolean> ()
+    if ( !self.enableFilters || self._filters.length == 0 ) {
+      later.resolve(true);
+      return later.promise;
     }
-    else {
-      return ( _.remove( this._filters, (f) => f === filterFunction ) != undefined );
-    }
+
+    var filtersCalls = _.map( self._filters, (f) => Q.nfcall( f.bind(self,route,body) ) );
+
+    // Filter the request: execute all the filters regarding if the fail or not
+    Q.all( filtersCalls )
+      .then( ( replies : ResourceResponse[] ) => {
+        // If any filter filled the reply with some data we need to return that instead of leaving the
+        // request to the destination resource.
+        var filterResponse = _.find( replies, (r: ResourceResponse) => r.httpCode != 200 || r.data !== undefined );
+
+        if ( !filterResponse ) {
+          later.resolve(true);
+          return;
+        }
+        // One filter had a response. This is what we deliver!
+        internals.createEmbodiment( filterResponse.data, 'application/json' )
+          .then( ( reply: Embodiment ) => {
+            reply.httpCode = filterResponse.httpCode ? filterResponse.httpCode : 200;
+            reply.location = filterResponse.location;
+            reply.cookiesData = filterResponse.cookiesData;
+            reply.serve(response);
+            later.resolve(false);
+          })
+        })
+      .fail( ( err : rxError.RxError ) => {
+        later.reject( err );
+        });
+
+    return later.promise;
   }
 
   /*
@@ -501,7 +591,7 @@ export class Site extends Container implements HttpPlayer {
     var self = this;
     return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
       // here we need to route the call to the appropriate class:
-      var route : routing.Route = routing.fromUrl(msg);
+      var route : routing.Route = routing.fromRequestResponse(msg,response);
       var site : Site = this;
       var log = internals.log().child( { func: 'Site.serve'} );
 
@@ -524,26 +614,11 @@ export class Site extends Container implements HttpPlayer {
 
         // Parse the data received with this request
         internals.parseData(body,route.inFormat)
-          .then( (bodyData: any ) => {
+          .then( ( bodyData: any ) => {
 
-            var filtersCalls = self.enableFilters ? _.map( self._filters, (f) => Q.nfcall(f,route,body) ): [] ;
-
-            // Filter the request
-            Q.allSettled( filtersCalls )
-              .then( ( results: Q.PromiseState<any>[] ) => {
-
-                var allFilterOk = _.reduce( results, (andRes:boolean, r) => andRes = andRes && r.state === 'fulfilled', true );
-
-                // If one filter fails then collect all the filter failing errors and output as one error
-                if ( ! allFilterOk ) {
-                  var message = _.reduce( results, (m: string, r: Q.PromiseState<any>) => {
-                    if ( r.state !== 'fulfilled' )
-                      m += r.reason.message+'\n';
-                    return m;
-                  }, '' );
-                  self._outputError(response, new rxError.RxError(message,'Filters rejected the call',500) , route.outFormat );
-                }
-                else {
+            self._checkFilters(route,body,response)
+              .then( ( allFilteresPass: boolean ) => {
+                if ( allFilteresPass ) {
                   // Execute the HTTP request
                   site[msg.method.toLowerCase()]( route, bodyData )
                     .then( ( reply : Embodiment ) => {
@@ -556,12 +631,15 @@ export class Site extends Container implements HttpPlayer {
                     })
                     .done();
                 }
-              });
-          })
+              })
+              .fail( (err: rxError.RxError ) => {
+                self._outputError(response, err , route.outFormat );
+                });
+            })
           .fail( (error) => {
             log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
             self._outputError(response,error,route.outFormat);
-          });
+            });
       }); // End msg.on()
     }); // End http.createServer()
   }
@@ -706,7 +784,7 @@ export class Site extends Container implements HttpPlayer {
 export class ResourcePlayer extends Container implements HttpPlayer {
 
   static version = version;
-  private _name: string = '';
+  //private _name: string = '';
   private _site: Site;
   private _template: string = '';
   private _layout: string;
@@ -746,17 +824,24 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     self._updateData(res.data);
   }
 
+
+/*
+  get urlName() : string {
+    return internals.slugify(this.name);
+  }
   get name(): string {
     return this._name;
   }
-
-  get urlName() : string {
-    return internals.slugify(this.name);
+  setCookie( cookie: string ) {
+    this._cookiesData.push(cookie);
+  }
+  getCookies( ) : string[] {
+    return this._cookies;
   }
 
   // Helper function to call the response callback with a succesful code 'ok'
   ok( response: DataCallback, data?: any ) : void {
-    var respObj : ResourceResponse = { result: 'ok'};
+    var respObj : ResourceResponse = { result: 'ok', cookiesData: this._cookiesData };
     if ( data )
       respObj['data'] = data;
     response( null, respObj );
@@ -764,7 +849,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   // Helper function to call the response callback with a redirect code 303
   redirect( response: DataCallback, where: string, data?: any ) : void {
-    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where };
+    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where, cookiesData: this._cookiesData  };
     if ( data )
       respObj['data'] = data;
     response( null, respObj );
@@ -777,7 +862,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     response( err, null );
 
   }
-
+*/
 
   /*
    * Reads the parameters from a route and store them in the this._parmaters member.
@@ -839,6 +924,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
         .then( ( reply: Embodiment ) => {
           reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
           reply.location = resResponse.location;
+          reply.cookiesData = resResponse.cookiesData;
           later.resolve(reply);
         })
         .fail( (err) => {
@@ -859,6 +945,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
           .then( ( reply: Embodiment ) => {
             reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
             reply.location = resResponse.location;
+            reply.cookiesData = resResponse.cookiesData;
             later.resolve(reply);
           })
           .fail( (err) => {
@@ -937,6 +1024,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
       log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat );
+      this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       self._onGet( route.query )
         .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
@@ -995,6 +1083,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onDelete() is defined use it to invoke a user define delete.
     if ( self._onDelete ) {
       log.info('call onDelete() for %s',self._name );
+      this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       this._onDelete( route.query )
         .then( function( response: ResourceResponse ) {
           self._updateData(response.data);
@@ -1050,6 +1139,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Call the onPost() for this resource (user code)
     if ( self._onPost ) {
       log.info('calling onPost() for %s', self._name );
+      this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       self._onPost( route.query, body )
         .then( ( response: ResourceResponse ) => {
           self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
@@ -1104,6 +1194,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // 3 - call the resource defined function to respond to a PATCH request
     if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self._name );
+      this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       self._onPatch( route.query, body )
         .then( ( response: ResourceResponse ) => {
           self._updateData(response.data);
