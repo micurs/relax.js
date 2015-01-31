@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -m commonjs -t ES5 sample06.ts",
     "start": "node sample06.js --relaxjs-verbose | bunyan",
-    "typings": "tsd reinstall --save --overwrite",    
-    "debug": "node-debug sample06.js"
+    "typings": "tsd reinstall --save --overwrite",
+    "debug": "node-debug sample06.js --relaxjs-verbose | bunyan"
   }
 }
