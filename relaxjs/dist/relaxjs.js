@@ -539,6 +539,9 @@ var ResourcePlayer = (function (_super) {
         }
         self._updateData(res.data);
     }
+    ResourcePlayer.prototype.setOutputFormat = function (fmt) {
+        this._outFormat = fmt;
+    };
     ResourcePlayer.prototype._readParameters = function (path, generateError) {
         var _this = this;
         if (generateError === void 0) { generateError = true; }

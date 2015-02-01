@@ -824,6 +824,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     self._updateData(res.data);
   }
 
+  setOutputFormat( fmt: string ) {
+    this._outFormat = fmt;
+  }
 
 /*
   get urlName() : string {
