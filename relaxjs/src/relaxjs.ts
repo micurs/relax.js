@@ -33,7 +33,6 @@ export function relax() : void {
 }
 
 
-
 /*
  * The resource player implement the resource runtime capabilities.
  * Derived classed manage the flow of requests coming from the site.
@@ -297,6 +296,7 @@ export class Container {
     return direction;
   }
 
+
   /*
    * Returns the direction toward the resource in the given route.
    * The Direction object returned may point directly to the resource requested or
@@ -387,6 +387,7 @@ export class Container {
       return 0;
   }
 
+
   /*
    * Return the total number of children resources for this node.
   */
@@ -404,6 +405,7 @@ export class Container {
  * The site is in itself a Resource and is accessed via the root / in a url.
 */
 export class Site extends Container implements HttpPlayer {
+
   private static _instance : Site = null;
   // private _name: string = "site";
   private _version : string = version;
@@ -466,19 +468,6 @@ export class Site extends Container implements HttpPlayer {
     log.info('No Direction found', verb, route.pathname );
     return undefined;
   }
-
-  /*
-  get name(): string {
-    return this._name;
-  }
-  setName( newName:string ) : void {
-    this._name = newName;
-  }
-  get urlName() : string {
-    return internals.slugify(this.name);
-  }
-  */
-
 
   get version() : string {
     return this._version;
@@ -594,6 +583,8 @@ export class Site extends Container implements HttpPlayer {
       var route : routing.Route = routing.fromRequestResponse(msg,response);
       var site : Site = this;
       var log = internals.log().child( { func: 'Site.serve'} );
+
+      this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
 
       log.info('   REQUEST: %s', route.verb );
       log.info('      PATH: %s %s', route.pathname, route.query);
@@ -784,7 +775,6 @@ export class Site extends Container implements HttpPlayer {
 export class ResourcePlayer extends Container implements HttpPlayer {
 
   static version = version;
-  //private _name: string = '';
   private _site: Site;
   private _template: string = '';
   private _layout: string;
@@ -828,44 +818,6 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     this._outFormat = fmt;
   }
 
-/*
-  get urlName() : string {
-    return internals.slugify(this.name);
-  }
-  get name(): string {
-    return this._name;
-  }
-  setCookie( cookie: string ) {
-    this._cookiesData.push(cookie);
-  }
-  getCookies( ) : string[] {
-    return this._cookies;
-  }
-
-  // Helper function to call the response callback with a succesful code 'ok'
-  ok( response: DataCallback, data?: any ) : void {
-    var respObj : ResourceResponse = { result: 'ok', cookiesData: this._cookiesData };
-    if ( data )
-      respObj['data'] = data;
-    response( null, respObj );
-  }
-
-  // Helper function to call the response callback with a redirect code 303
-  redirect( response: DataCallback, where: string, data?: any ) : void {
-    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where, cookiesData: this._cookiesData  };
-    if ( data )
-      respObj['data'] = data;
-    response( null, respObj );
-  }
-
-  // Helper function to call the response callback with a fail error
-  fail( response: DataCallback, err: rxError.RxError ) : void {
-    var log = internals.log().child( { func: this._name+'.fail'} );
-    log.info('Call failed: %s', err.message );
-    response( err, null );
-
-  }
-*/
 
   /*
    * Reads the parameters from a route and store them in the this._parmaters member.

@@ -366,6 +366,7 @@ var Site = (function (_super) {
             var route = routing.fromRequestResponse(msg, response);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
+            _this._cookies = route.cookies;
             log.info('   REQUEST: %s', route.verb);
             log.info('      PATH: %s %s', route.pathname, route.query);
             log.info('Out FORMAT: %s', route.outFormat);
