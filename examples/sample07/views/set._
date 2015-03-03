@@ -1,0 +1,17 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= name %></title>
+</head>
+<body>
+  <div class="container">
+    <h1>Sample 07: Set and Check cookies</h1>
+    <form method="post" action="/set">
+      <input type="text" id="value" name="value" placeholder="enter the cookie value">
+      <button type="submit" class="btn btn-default">Set</button>
+    </form>
+  </div>
+</body>
+</html>
