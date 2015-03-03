@@ -316,7 +316,6 @@ var Site = (function (_super) {
                 var builder = new xml2js.Builder({ rootName: 'relaxjs' });
                 response.write(builder.buildObject(errObj));
                 break;
-            case 'application/json':
             default:
                 response.write(JSON.stringify(errObj));
                 break;
@@ -327,7 +326,7 @@ var Site = (function (_super) {
         this._filters.push(filterFunction);
     };
     Site.prototype.deleteRequestFilter = function (filterFunction) {
-        return (_.remove(this._filters, function (f) { return f === filterFunction; }) != undefined);
+        return (_.remove(this._filters, function (f) { return f === filterFunction; }) !== undefined);
     };
     Site.prototype.deleteAllRequestFilters = function () {
         this._filters = [];
@@ -336,7 +335,7 @@ var Site = (function (_super) {
     Site.prototype._checkFilters = function (route, body, response) {
         var self = this;
         var later = Q.defer();
-        if (!self.enableFilters || self._filters.length == 0) {
+        if (!self.enableFilters || self._filters.length === 0) {
             later.resolve(true);
             return later.promise;
         }
@@ -362,7 +361,7 @@ var Site = (function (_super) {
     Site.prototype.serve = function () {
         var _this = this;
         var self = this;
-        return http.createServer(function (msg, response) {
+        var srv = http.createServer(function (msg, response) {
             var route = routing.fromRequestResponse(msg, response);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
@@ -371,36 +370,30 @@ var Site = (function (_super) {
             log.info('      PATH: %s %s', route.pathname, route.query);
             log.info('Out FORMAT: %s', route.outFormat);
             log.info(' In FORMAT: %s', route.inFormat);
-            var body = '';
-            msg.on('data', function (data) {
-                body += data;
-            });
-            msg.on('end', function () {
-                var promise;
-                if (site[msg.method.toLowerCase()] === undefined) {
-                    log.error('%s request is not supported ');
-                    return;
-                }
-                internals.parseData(body, route.inFormat).then(function (bodyData) {
-                    self._checkFilters(route, body, response).then(function (allFilteresPass) {
-                        if (allFilteresPass) {
-                            site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
-                                log.info('HTTP %s request fulfilled', msg.method);
-                                reply.serve(response);
-                            }).fail(function (error) {
-                                log.error('HTTP %s request failed: %s:', msg.method, error.message);
-                                self._outputError(response, error, route.outFormat);
-                            }).done();
-                        }
-                    }).fail(function (err) {
-                        self._outputError(response, err, route.outFormat);
-                    });
-                }).fail(function (error) {
-                    log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
-                    self._outputError(response, error, route.outFormat);
+            if (site[msg.method.toLowerCase()] === undefined) {
+                log.error('%s request is not supported ');
+                return;
+            }
+            internals.parseRequestData(msg, route.inFormat).then(function (bodyData) {
+                self._checkFilters(route, bodyData, response).then(function (allFilteresPass) {
+                    if (allFilteresPass) {
+                        site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
+                            log.info('HTTP %s request fulfilled', msg.method);
+                            reply.serve(response);
+                        }).fail(function (error) {
+                            log.error('HTTP %s request failed: %s:', msg.method, error.message);
+                            self._outputError(response, error, route.outFormat);
+                        }).done();
+                    }
+                }).fail(function (err) {
+                    self._outputError(response, err, route.outFormat);
                 });
+            }).fail(function (error) {
+                log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
+                self._outputError(response, error, route.outFormat);
             });
         });
+        return srv;
     };
     Site.prototype.setHome = function (path) {
         this._home = path;

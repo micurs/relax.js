@@ -1,6 +1,6 @@
 /*
- * Relax.js version 0.1.2
- * by Michele Ursino Nov - 2014
+ * Relax.js version 0.1.3
+ * by Michele Ursino March - 2015
 */
 
 ///<reference path='../typings/node/node.d.ts' />
@@ -508,7 +508,6 @@ export class Site extends Container implements HttpPlayer {
         var builder = new xml2js.Builder({ rootName: 'relaxjs' });
         response.write( builder.buildObject(errObj) );
       break;
-      case 'application/json':
       default:
         response.write( JSON.stringify(errObj) );
       break;
@@ -524,7 +523,7 @@ export class Site extends Container implements HttpPlayer {
   }
 
   deleteRequestFilter( filterFunction?: RequestFilter ) : boolean {
-    return ( _.remove( this._filters, (f) => f === filterFunction ) != undefined );
+    return ( _.remove( this._filters, (f) => f === filterFunction ) !== undefined );
   }
 
   deleteAllRequestFilters() : boolean {
@@ -538,7 +537,7 @@ export class Site extends Container implements HttpPlayer {
   private _checkFilters( route : routing.Route, body: any, response : http.ServerResponse) : Q.Promise< boolean > {
     var self = this;
     var later = Q.defer< boolean> ()
-    if ( !self.enableFilters || self._filters.length == 0 ) {
+    if ( !self.enableFilters || self._filters.length === 0 ) {
       later.resolve(true);
       return later.promise;
     }
@@ -578,7 +577,7 @@ export class Site extends Container implements HttpPlayer {
   */
   serve() : http.Server {
     var self = this;
-    return http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
+    var srv = http.createServer( (msg: http.ServerRequest , response : http.ServerResponse) => {
       // here we need to route the call to the appropriate class:
       var route : routing.Route = routing.fromRequestResponse(msg,response);
       var site : Site = this;
@@ -591,48 +590,40 @@ export class Site extends Container implements HttpPlayer {
       log.info('Out FORMAT: %s', route.outFormat);
       log.info(' In FORMAT: %s', route.inFormat);
 
-      // Read the message body (if available)
-      var body : string = '';
-      msg.on('data', function (data) {
-          body += data;
-        });
-      msg.on('end', function () {
-        var promise: Q.Promise<Embodiment>;
-        if ( site[msg.method.toLowerCase()] === undefined ) {
-          log.error('%s request is not supported ');
-          return;
-        }
+      if ( site[msg.method.toLowerCase()] === undefined ) {
+        log.error('%s request is not supported ');
+        return;
+      }
 
-        // Parse the data received with this request
-        internals.parseData(body,route.inFormat)
-          .then( ( bodyData: any ) => {
-
-            self._checkFilters(route,body,response)
-              .then( ( allFilteresPass: boolean ) => {
-                if ( allFilteresPass ) {
-                  // Execute the HTTP request
-                  site[msg.method.toLowerCase()]( route, bodyData )
-                    .then( ( reply : Embodiment ) => {
-                      log.info('HTTP %s request fulfilled',msg.method  );
-                      reply.serve(response);
-                    })
-                    .fail( (error) => {
-                      log.error('HTTP %s request failed: %s:',msg.method,error.message);
-                      self._outputError(response,error,route.outFormat);
-                    })
-                    .done();
-                }
-              })
-              .fail( (err: rxError.RxError ) => {
-                self._outputError(response, err , route.outFormat );
-                });
+      // Parse the data received with this request
+      internals.parseRequestData(msg,route.inFormat)
+        .then( ( bodyData: any ) => {
+          self._checkFilters(route,bodyData,response)
+            .then( ( allFilteresPass: boolean ) => {
+              if ( allFilteresPass ) {
+                // Execute the HTTP request
+                site[msg.method.toLowerCase()]( route, bodyData )
+                  .then( ( reply : Embodiment ) => {
+                    log.info('HTTP %s request fulfilled',msg.method  );
+                    reply.serve(response);
+                  })
+                  .fail( (error) => {
+                    log.error('HTTP %s request failed: %s:',msg.method,error.message);
+                    self._outputError(response,error,route.outFormat);
+                  })
+                  .done();
+              }
             })
-          .fail( (error) => {
-            log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
-            self._outputError(response,error,route.outFormat);
-            });
-      }); // End msg.on()
+            .fail( (err: rxError.RxError ) => {
+              self._outputError(response, err , route.outFormat );
+              });
+          })
+        .fail( (error) => {
+          log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
+          self._outputError(response,error,route.outFormat);
+          });
     }); // End http.createServer()
+    return srv;
   }
 
   setHome( path: string ) : void {

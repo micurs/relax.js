@@ -1,6 +1,6 @@
 /*
- * Relax.js version 0.1.2
- * by Michele Ursino Nov - 2014
+ * Relax.js version 0.1.3
+ * by Michele Ursino March - 2015
 */
 
 ///<reference path='../typings/node/node.d.ts' />
@@ -9,9 +9,11 @@
 ///<reference path='../typings/mime/mime.d.ts' />
 ///<reference path='../typings/bunyan/bunyan.d.ts' />
 ///<reference path='../typings/xml2js/xml2js.d.ts' />
+///<reference path='../typings/multiparty/multiparty.d.ts' />
 
 ///<reference path='./relaxjs.ts' />
 
+import http = require("http");
 import fs = require('fs');
 import mime = require('mime');
 import Q = require('q');
@@ -19,7 +21,7 @@ import querystring = require('querystring');
 import bunyan = require('bunyan');
 import _ = require("lodash");
 import xml2js = require('xml2js');
-
+import multiparty = require('multiparty');
 
 import relaxjs = require('./relaxjs');
 import rxError = require('./rxerror');
@@ -60,7 +62,6 @@ export function format( source: string , ...args: any[]): string {
   });
 }
 
-
 export function slugify ( source: string ): string
 {
   var res = source.toLowerCase()
@@ -72,54 +73,73 @@ export function slugify ( source: string ): string
   return res;
 }
 
-
-
-
 /*
  * Parse the body of a request according the given mime-type
 */
-export function parseData( bodyData: string,  contentType: string ) : Q.Promise<any> {
+export function parseRequestData( req: http.ServerRequest,  contentType: string ) : Q.Promise<any> {
   var log = _log.child( { func: 'internals.parseData'} );
   var later = Q.defer< any >();
-  if ( !bodyData || bodyData.length==0 ) {
-    later.resolve({});
-    return later.promise;
-  }
   var mimeType = contentType.split(/[\s,;]+/)[0];
-  log.info('Parsing "%s" as (%s)',bodyData,mimeType);
-  try {
-    switch(mimeType) {
-      case 'application/xml':
-      case 'text/xml':
-        xml2js.parseString( bodyData, { explicitRoot: false, explicitArray: false },
-          function( err: Error, res:any ) {
-            if (err) {
-              _log.error('Error parsing XML data with ' );
-              _log.error( err );
-              later.reject(err);
-            }
-            else {
-              log.info('Parsed XML as: %s', JSON.stringify(res));
-              later.resolve(res);
-            }
-          });
-        break;
-      case 'application/x-www-form-urlencoded':
-        log.info('Parsing "%s" ', bodyData );
-        var parsedData = querystring.parse(bodyData);
-        log.info('Parsed "%s" ', JSON.stringify(parsedData));
-        later.resolve( parsedData );
-        break;
-      case 'application/json':
-      default:
-        later.resolve( JSON.parse(bodyData) );
-        break;
-    }
+
+  if ( mimeType=='multipart/form-data' ) {
+    log.info('parsing multipart/form-data using multiparty');
+    var form = new multiparty.Form();
+    form.parse(req, function(err, fields, files) {
+      if ( !err ) {
+        var bodyData = { fileds: fields, files: files };
+        later.resolve(bodyData);
+      }
+      else {
+        later.reject(err);
+      }
+    });
   }
-  catch( err ) {
-    _log.error('Error parsing incoming data with %s',contentType );
-    _log.error( err );
-    later.reject(err);
+  else {
+    // Read the full message body before parsing (if available)
+    var bodyData : string = '';
+    req.on('data', function (data) { bodyData += data; });
+    req.on('end', function () {
+      if ( !bodyData || bodyData.length==0 ) {
+        later.resolve({});
+        return later.promise;
+      }
+      log.info('Parsing "%s" as (%s)',bodyData,mimeType);
+      try {
+        switch(mimeType) {
+          case 'application/xml':
+          case 'text/xml':
+            xml2js.parseString(
+              bodyData,
+              { explicitRoot: false, explicitArray: false },
+              function( err: Error, res:any ) {
+                if (err) {
+                  _log.error('Error parsing XML data with ' );
+                  _log.error( err );
+                  later.reject(err);
+                }
+                else {
+                  log.info('Parsed XML as: %s', JSON.stringify(res));
+                  later.resolve(res);
+                }
+              });
+            break;
+          case 'application/x-www-form-urlencoded':
+            log.info('Parsing "%s" ', bodyData );
+            var parsedData = querystring.parse(bodyData);
+            log.info('Parsed "%s" ', JSON.stringify(parsedData));
+            later.resolve( parsedData );
+            break;
+          default:
+            later.resolve( JSON.parse(bodyData) );
+            break;
+        }
+      }
+      catch( err ) {
+        _log.error('Error parsing incoming data with %s',contentType );
+        _log.error( err );
+        later.reject(err);
+      }
+    });
   }
   return later.promise;
 }
@@ -230,7 +250,6 @@ export function createEmbodiment( viewData: any, mimeType: string ) : Q.Promise<
           var builder = new xml2js.Builder({ rootName: resourceName, renderOpts : { 'pretty': false }, headless: true });
           dataString = builder.buildObject( destObj );
           break;
-        case 'application/json':
         default:
           dataString = JSON.stringify( destObj );
           break;
@@ -272,7 +291,7 @@ export function viewDynamic(
       try {
         log.info('Compile composite view %s in %s',templateFilename,layoutFilename);
         var innerContent = new Buffer( _.template(content)(viewData), 'utf-8' );
-        var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name }), 'utf-8');
+        var fullContent = new Buffer( _.template(outerContent)( { page: innerContent, name: viewData.Name, data: viewData.data }), 'utf-8');
         laterAct.resolve( new relaxjs.Embodiment( 'text/html', 200, fullContent ));
       }
       catch( err ) {
