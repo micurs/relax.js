@@ -84,9 +84,9 @@ export function parseRequestData( req: http.ServerRequest,  contentType: string 
   if ( mimeType=='multipart/form-data' ) {
     log.info('parsing multipart/form-data using multiparty');
     var form = new multiparty.Form();
-    form.parse(req, function(err, fields, files) {
+    form.parse(req, function(err, mpfields, mpfiles) {
       if ( !err ) {
-        var bodyData = { fileds: fields, files: files };
+        var bodyData = { fileds: mpfields, files: mpfiles };
         later.resolve(bodyData);
       }
       else {
