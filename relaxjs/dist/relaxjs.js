@@ -380,11 +380,14 @@ var Site = (function (_super) {
                         site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
                             reply.serve(response);
                         }).fail(function (error) {
-                            log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
+                            if (error.httpCode >= 300)
+                                log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
                             self._outputError(response, error, route.outFormat);
                         }).done();
                     }
                 }).fail(function (err) {
+                    if (error.httpCode >= 300)
+                        log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
                     self._outputError(response, err, route.outFormat);
                 });
             }).fail(function (error) {

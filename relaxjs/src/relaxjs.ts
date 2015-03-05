@@ -607,13 +607,16 @@ export class Site extends Container implements HttpPlayer {
                     reply.serve(response);
                   })
                   .fail( (error) => {
-                    log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
+                    if ( error.httpCode >= 300 )
+                      log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
                     self._outputError(response,error,route.outFormat);
                   })
                   .done();
               }
             })
             .fail( (err: rxError.RxError ) => {
+              if ( error.httpCode >= 300 )
+                log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
               self._outputError(response, err , route.outFormat );
               });
           })
