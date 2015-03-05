@@ -24,7 +24,12 @@ install_dependency nodejs
 
 # install_dependency npm
 
-node_install node-gyp
+# node_install node-gyp
+#echo ' -> use midnight commander to easily navigate the filesystem and copy/move files around'
+#node_install mc
+#echo ' -> use nodemon to reload source code everytime they change'
+#node_install nodemon
+
 echo ' -> use tsc to compile typescript to node js file'
 node_install typescript
 echo ' -> use tsd to search downlaod and mainitain typescript type declaration files'
@@ -35,10 +40,6 @@ echo ' -> use gulp to compile node typescript files, less etc.'
 node_install gulp
 echo ' -> use bower to download and update client side packages'
 node_install bower
-echo ' -> use nodemon to reload source code everytime they change'
-node_install nodemon
-echo ' -> use midnight commander to easily navigate the filesystem and copy/move files around'
-node_install mc
 echo ' -> use jasmin-node to run the tests under /relaxjs/tests'
 node_install jasmine-node
 echo ' -> use jasmin-node to run the tests under /relaxjs/tests'
