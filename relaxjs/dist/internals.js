@@ -52,7 +52,7 @@ function parseRequestData(req, contentType) {
         var form = new multiparty.Form();
         form.parse(req, function (err, mpfields, mpfiles) {
             if (!err) {
-                var bodyData = { fileds: mpfields, files: mpfiles };
+                var bodyData = { fields: mpfields, files: mpfiles };
                 later.resolve(bodyData);
             }
             else {

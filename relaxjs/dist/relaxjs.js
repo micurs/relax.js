@@ -378,10 +378,9 @@ var Site = (function (_super) {
                 self._checkFilters(route, bodyData, response).then(function (allFilteresPass) {
                     if (allFilteresPass) {
                         site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
-                            log.info('HTTP %s request fulfilled', msg.method);
                             reply.serve(response);
                         }).fail(function (error) {
-                            log.error('HTTP %s request failed: %s:', msg.method, error.message);
+                            log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
                             self._outputError(response, error, route.outFormat);
                         }).done();
                     }
@@ -389,7 +388,7 @@ var Site = (function (_super) {
                     self._outputError(response, err, route.outFormat);
                 });
             }).fail(function (error) {
-                log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
+                log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : request body could not be parsed: " + error.name + " - " + error.message);
                 self._outputError(response, error, route.outFormat);
             });
         });

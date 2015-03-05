@@ -604,11 +604,10 @@ export class Site extends Container implements HttpPlayer {
                 // Execute the HTTP request
                 site[msg.method.toLowerCase()]( route, bodyData )
                   .then( ( reply : Embodiment ) => {
-                    log.info('HTTP %s request fulfilled',msg.method  );
                     reply.serve(response);
                   })
                   .fail( (error) => {
-                    log.error('HTTP %s request failed: %s:',msg.method,error.message);
+                    log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
                     self._outputError(response,error,route.outFormat);
                   })
                   .done();
@@ -619,7 +618,7 @@ export class Site extends Container implements HttpPlayer {
               });
           })
         .fail( (error) => {
-          log.error('HTTP %s request body could not be parsed: %s:',msg.method,error.message);
+          log.error(`HTTP ${msg.method} failed : ${error.httpCode} : request body could not be parsed: ${error.name} - ${error.message}`);
           self._outputError(response,error,route.outFormat);
           });
     }); // End http.createServer()
