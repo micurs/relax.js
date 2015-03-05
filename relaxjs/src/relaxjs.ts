@@ -411,6 +411,7 @@ export class Site extends Container implements HttpPlayer {
   private _version : string = version;
   private _siteName : string = 'site';
   private _home : string = '/';
+  private _tempDir : string;
   private _pathCache = {};
 
   private _filters: RequestFilter[] = [];
@@ -614,10 +615,10 @@ export class Site extends Container implements HttpPlayer {
                   .done();
               }
             })
-            .fail( (err: rxError.RxError ) => {
+            .fail( (error: rxError.RxError ) => {
               if ( error.httpCode >= 300 )
                 log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
-              self._outputError(response, err , route.outFormat );
+              self._outputError(response, error , route.outFormat );
               });
           })
         .fail( (error) => {
@@ -632,8 +633,10 @@ export class Site extends Container implements HttpPlayer {
     this._home = path;
   }
 
-
-
+  setTempDirectory( path: string ) : void {
+    this._tempDir = path;
+    internals.setMultipartDataTempDir(path);
+  }
 
   // HTTP Verb functions --------------------
 

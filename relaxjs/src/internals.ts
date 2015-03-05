@@ -29,6 +29,7 @@ import rxError = require('./rxerror');
 
 var _log : bunyan.Logger;
 var _appName : string;
+var _multipOptions : multiparty.FormOptions = {};
 
 /*
  * Bunyan log utilities
@@ -52,6 +53,12 @@ export function log(): bunyan.Logger {
   return _log;
 }
 
+/*
+ * multipart/form-data settings
+*/
+export function setMultipartDataTempDir( path: string ) {
+  _multipOptions.uploadDir = path;
+}
 
 export function format( source: string , ...args: any[]): string {
  return source.replace(/{(\d+)}/g, function( match: any , n: number) {
@@ -83,7 +90,7 @@ export function parseRequestData( req: http.ServerRequest,  contentType: string 
 
   if ( mimeType=='multipart/form-data' ) {
     log.info('parsing multipart/form-data using multiparty');
-    var form = new multiparty.Form();
+    var form = new multiparty.Form( _multipOptions );
     form.parse(req, function(err, mpfields, mpfiles) {
       if ( !err ) {
         var bodyData = { fields: mpfields, files: mpfiles };

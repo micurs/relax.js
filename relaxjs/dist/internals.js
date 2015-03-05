@@ -10,6 +10,7 @@ var relaxjs = require('./relaxjs');
 var rxError = require('./rxerror');
 var _log;
 var _appName;
+var _multipOptions = {};
 function setLogVerbose(flag) {
     _log.level(bunyan.INFO);
 }
@@ -28,6 +29,10 @@ function log() {
     return _log;
 }
 exports.log = log;
+function setMultipartDataTempDir(path) {
+    _multipOptions.uploadDir = path;
+}
+exports.setMultipartDataTempDir = setMultipartDataTempDir;
 function format(source) {
     var args = [];
     for (var _i = 1; _i < arguments.length; _i++) {
@@ -49,7 +54,7 @@ function parseRequestData(req, contentType) {
     var mimeType = contentType.split(/[\s,;]+/)[0];
     if (mimeType == 'multipart/form-data') {
         log.info('parsing multipart/form-data using multiparty');
-        var form = new multiparty.Form();
+        var form = new multiparty.Form(_multipOptions);
         form.parse(req, function (err, mpfields, mpfiles) {
             if (!err) {
                 var bodyData = { fields: mpfields, files: mpfiles };

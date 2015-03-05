@@ -385,10 +385,10 @@ var Site = (function (_super) {
                             self._outputError(response, error, route.outFormat);
                         }).done();
                     }
-                }).fail(function (err) {
+                }).fail(function (error) {
                     if (error.httpCode >= 300)
                         log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
-                    self._outputError(response, err, route.outFormat);
+                    self._outputError(response, error, route.outFormat);
                 });
             }).fail(function (error) {
                 log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : request body could not be parsed: " + error.name + " - " + error.message);
@@ -399,6 +399,10 @@ var Site = (function (_super) {
     };
     Site.prototype.setHome = function (path) {
         this._home = path;
+    };
+    Site.prototype.setTempDirectory = function (path) {
+        this._tempDir = path;
+        internals.setMultipartDataTempDir(path);
     };
     Site.prototype.head = function (route, body) {
         var self = this;
