@@ -46,6 +46,7 @@ site.add(  {
 });
 
 site.setHome('/sample8.html');
+site.setTempDirectory('/examples/sample08');
 
 // Create the application server for the site and listen on port 3000
 var appSrv = site.serve().listen(3000);

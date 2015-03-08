@@ -32,15 +32,13 @@ site.add({
         var self = this;
         console.log('multipart', JSON.stringify(body, null, '  '));
         var uploadInfo = body.files.upload[0];
-        console.log('copy file', uploadInfo.path, './' + uploadInfo.originalFilename);
+        console.log('copying file from:', uploadInfo.path, 'to -> ./' + uploadInfo.originalFilename);
         _copyFile(uploadInfo.path, './' + uploadInfo.originalFilename).then(function (res) {
             self.redirect(respond, "/sample8.html?success=" + res);
         }).fail(function () { return self.fail('Upload failed'); });
-        //fs.readFile('image.jpg', function (err: Error, content: Buffer) {
-        //  self.ok(respond, content);
-        //});
     }
 });
 site.setHome('/sample8.html');
+site.setTempDirectory('/examples/sample08');
 // Create the application server for the site and listen on port 3000
 var appSrv = site.serve().listen(3000);
