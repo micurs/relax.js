@@ -22,10 +22,14 @@ exports.relax = relax;
 var Embodiment = (function () {
     function Embodiment(mimeType, code, body) {
         if (code === void 0) { code = 200; }
+        this.cookiesData = [];
         this.httpCode = code;
         this.body = body;
         this.mimeType = mimeType;
     }
+    Embodiment.prototype.addSetCookie = function (cookie) {
+        this.cookiesData.push(cookie);
+    };
     Embodiment.prototype.serve = function (response) {
         var log = internals.log().child({ func: 'Embodiment.serve' });
         var headers = { 'content-type': this.mimeType };
@@ -33,6 +37,7 @@ var Embodiment = (function () {
             headers['content-length'] = this.body.length;
         if (this.location)
             headers['Location'] = this.location;
+        _.each(this.cookiesData, function (cookie) { return response.setHeader('Set-Cookie', cookie); });
         response.writeHead(this.httpCode, headers);
         if (this.body) {
             response.write(this.body);
@@ -54,6 +59,9 @@ var Embodiment = (function () {
 exports.Embodiment = Embodiment;
 var Container = (function () {
     function Container(parent) {
+        this._name = '';
+        this._cookiesData = [];
+        this._cookies = [];
         this._resources = {};
         this._parent = parent;
     }
@@ -64,6 +72,46 @@ var Container = (function () {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(Container.prototype, "name", {
+        get: function () {
+            return this._name;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Container.prototype, "urlName", {
+        get: function () {
+            return internals.slugify(this.name);
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Container.prototype.setName = function (newName) {
+        this._name = newName;
+    };
+    Container.prototype.setCookie = function (cookie) {
+        this._cookiesData.push(cookie);
+    };
+    Container.prototype.getCookies = function () {
+        return this._cookies;
+    };
+    Container.prototype.ok = function (response, data) {
+        var respObj = { result: 'ok', httpCode: 200, cookiesData: this._cookiesData };
+        if (data)
+            respObj['data'] = data;
+        response(null, respObj);
+    };
+    Container.prototype.redirect = function (response, where, data) {
+        var respObj = { result: 'ok', httpCode: 303, location: where, cookiesData: this._cookiesData };
+        if (data)
+            respObj['data'] = data;
+        response(null, respObj);
+    };
+    Container.prototype.fail = function (response, err) {
+        var log = internals.log().child({ func: this._name + '.fail' });
+        log.info('Call failed: %s', err.message);
+        response(err, null);
+    };
     Container.prototype.remove = function (child) {
         var log = internals.log().child({ func: 'Container.remove' });
         var resArr = this._resources[child.name];
@@ -179,11 +227,12 @@ var Site = (function (_super) {
     __extends(Site, _super);
     function Site(siteName, parent) {
         _super.call(this, parent);
-        this._name = "site";
         this._version = exports.version;
         this._siteName = 'site';
         this._home = '/';
         this._pathCache = {};
+        this._filters = [];
+        this.enableFilters = false;
         this._siteName = siteName;
         if (Site._instance) {
             throw new Error('Error: Only one site is allowed.');
@@ -224,23 +273,6 @@ var Site = (function (_super) {
         }
         log.info('No Direction found', verb, route.pathname);
         return undefined;
-    };
-    Object.defineProperty(Site.prototype, "name", {
-        get: function () {
-            return this._name;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Site.prototype, "urlName", {
-        get: function () {
-            return internals.slugify(this.name);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Site.prototype.setName = function (newName) {
-        this._name = newName;
     };
     Object.defineProperty(Site.prototype, "version", {
         get: function () {
@@ -284,51 +316,93 @@ var Site = (function (_super) {
                 var builder = new xml2js.Builder({ rootName: 'relaxjs' });
                 response.write(builder.buildObject(errObj));
                 break;
-            case 'application/json':
             default:
                 response.write(JSON.stringify(errObj));
                 break;
         }
         response.end();
     };
+    Site.prototype.addRequestFilter = function (filterFunction) {
+        this._filters.push(filterFunction);
+    };
+    Site.prototype.deleteRequestFilter = function (filterFunction) {
+        return (_.remove(this._filters, function (f) { return f === filterFunction; }) !== undefined);
+    };
+    Site.prototype.deleteAllRequestFilters = function () {
+        this._filters = [];
+        return true;
+    };
+    Site.prototype._checkFilters = function (route, body, response) {
+        var self = this;
+        var later = Q.defer();
+        if (!self.enableFilters || self._filters.length === 0) {
+            later.resolve(true);
+            return later.promise;
+        }
+        var filtersCalls = _.map(self._filters, function (f) { return Q.nfcall(f.bind(self, route, body)); });
+        Q.all(filtersCalls).then(function (replies) {
+            var filterResponse = _.find(replies, function (r) { return r.httpCode != 200 || r.data !== undefined; });
+            if (!filterResponse) {
+                later.resolve(true);
+                return;
+            }
+            internals.createEmbodiment(filterResponse.data, 'application/json').then(function (reply) {
+                reply.httpCode = filterResponse.httpCode ? filterResponse.httpCode : 200;
+                reply.location = filterResponse.location;
+                reply.cookiesData = filterResponse.cookiesData;
+                reply.serve(response);
+                later.resolve(false);
+            });
+        }).fail(function (err) {
+            later.reject(err);
+        });
+        return later.promise;
+    };
     Site.prototype.serve = function () {
         var _this = this;
         var self = this;
-        return http.createServer(function (msg, response) {
-            var route = routing.fromUrl(msg);
+        var srv = http.createServer(function (msg, response) {
+            var route = routing.fromRequestResponse(msg, response);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
+            _this._cookies = route.cookies;
             log.info('   REQUEST: %s', route.verb);
             log.info('      PATH: %s %s', route.pathname, route.query);
             log.info('Out FORMAT: %s', route.outFormat);
             log.info(' In FORMAT: %s', route.inFormat);
-            var body = '';
-            msg.on('data', function (data) {
-                body += data;
-            });
-            msg.on('end', function () {
-                var promise;
-                if (site[msg.method.toLowerCase()] === undefined) {
-                    log.error('%s request is not supported ');
-                    return;
-                }
-                internals.parseData(body, route.inFormat).then(function (bodyData) {
-                    site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
-                        log.info('HTTP %s request fulfilled', msg.method);
-                        reply.serve(response);
-                    }).fail(function (error) {
-                        log.error('HTTP %s request failed: %s:', msg.method, error.message);
-                        self._outputError(response, error, route.outFormat);
-                    }).done();
+            if (site[msg.method.toLowerCase()] === undefined) {
+                log.error('%s request is not supported ');
+                return;
+            }
+            internals.parseRequestData(msg, route.inFormat).then(function (bodyData) {
+                self._checkFilters(route, bodyData, response).then(function (allFilteresPass) {
+                    if (allFilteresPass) {
+                        site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
+                            reply.serve(response);
+                        }).fail(function (error) {
+                            if (error.httpCode >= 300)
+                                log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
+                            self._outputError(response, error, route.outFormat);
+                        }).done();
+                    }
                 }).fail(function (error) {
-                    log.error('HTTP %s request body could not be parsed: %s:', msg.method, error.message);
+                    if (error.httpCode >= 300)
+                        log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
                     self._outputError(response, error, route.outFormat);
                 });
+            }).fail(function (error) {
+                log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : request body could not be parsed: " + error.name + " - " + error.message);
+                self._outputError(response, error, route.outFormat);
             });
         });
+        return srv;
     };
     Site.prototype.setHome = function (path) {
         this._home = path;
+    };
+    Site.prototype.setTempDirectory = function (path) {
+        this._tempDir = path;
+        internals.setMultipartDataTempDir(path);
     };
     Site.prototype.head = function (route, body) {
         var self = this;
@@ -443,7 +517,6 @@ var ResourcePlayer = (function (_super) {
     __extends(ResourcePlayer, _super);
     function ResourcePlayer(res, parent) {
         _super.call(this, parent);
-        this._name = '';
         this._template = '';
         this._parameters = {};
         this.data = {};
@@ -466,36 +539,8 @@ var ResourcePlayer = (function (_super) {
         }
         self._updateData(res.data);
     }
-    Object.defineProperty(ResourcePlayer.prototype, "name", {
-        get: function () {
-            return this._name;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ResourcePlayer.prototype, "urlName", {
-        get: function () {
-            return internals.slugify(this.name);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    ResourcePlayer.prototype.ok = function (response, data) {
-        var respObj = { result: 'ok' };
-        if (data)
-            respObj['data'] = data;
-        response(null, respObj);
-    };
-    ResourcePlayer.prototype.redirect = function (response, where, data) {
-        var respObj = { result: 'ok', httpCode: 303, location: where };
-        if (data)
-            respObj['data'] = data;
-        response(null, respObj);
-    };
-    ResourcePlayer.prototype.fail = function (response, err) {
-        var log = internals.log().child({ func: this._name + '.fail' });
-        log.info('Call failed: %s', err.message);
-        response(err, null);
+    ResourcePlayer.prototype.setOutputFormat = function (fmt) {
+        this._outFormat = fmt;
     };
     ResourcePlayer.prototype._readParameters = function (path, generateError) {
         var _this = this;
@@ -535,6 +580,7 @@ var ResourcePlayer = (function (_super) {
             internals.viewDynamic(self._template, self, self._layout).then(function (reply) {
                 reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
                 reply.location = resResponse.location;
+                reply.cookiesData = resResponse.cookiesData;
                 later.resolve(reply);
             }).fail(function (err) {
                 later.reject(err);
@@ -564,6 +610,7 @@ var ResourcePlayer = (function (_super) {
                 internals.createEmbodiment(resResponse.data, mimeType).then(function (reply) {
                     reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
                     reply.location = resResponse.location;
+                    reply.cookiesData = resResponse.cookiesData;
                     later.resolve(reply);
                 }).fail(function (err) {
                     later.reject(err);
@@ -617,6 +664,7 @@ var ResourcePlayer = (function (_super) {
         var dyndata = {};
         if (self._onGet) {
             log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat);
+            this._cookies = route.cookies;
             self._onGet(route.query).then(function (response) {
                 self._updateData(response.data);
                 self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat, self._outFormat !== undefined);
@@ -657,6 +705,7 @@ var ResourcePlayer = (function (_super) {
         }
         if (self._onDelete) {
             log.info('call onDelete() for %s', self._name);
+            this._cookies = route.cookies;
             this._onDelete(route.query).then(function (response) {
                 self._updateData(response.data);
                 self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
@@ -694,6 +743,7 @@ var ResourcePlayer = (function (_super) {
         }
         if (self._onPost) {
             log.info('calling onPost() for %s', self._name);
+            this._cookies = route.cookies;
             self._onPost(route.query, body).then(function (response) {
                 self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
             }).fail(function (rxErr) {
@@ -732,6 +782,7 @@ var ResourcePlayer = (function (_super) {
         }
         if (self._onPatch) {
             log.info('calling onPatch() for %s', self._name);
+            this._cookies = route.cookies;
             self._onPatch(route.query, body).then(function (response) {
                 self._updateData(response.data);
                 self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);

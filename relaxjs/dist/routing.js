@@ -29,7 +29,10 @@ var Route = (function () {
             path: [],
             query: this.query,
             outFormat: this.outFormat,
-            inFormat: this.inFormat
+            inFormat: this.inFormat,
+            cookies: this.cookies,
+            request: this.request,
+            response: this.response
         });
         newRoute.path = _.map(this.path, function (v) { return _.clone(v); });
         newRoute.path.splice(0, stpes);
@@ -47,10 +50,15 @@ var Direction = (function () {
     return Direction;
 })();
 exports.Direction = Direction;
-function fromUrl(request) {
+function fromRequestResponse(request, response) {
     if (!request.url)
         request.url = '/';
     var route = new Route(request.url);
+    route.request = request;
+    route.response = response;
+    if (request.headers.cookie) {
+        route.cookies = request.headers.cookie.split(';');
+    }
     if (request.headers['accept']) {
         route.outFormat = request.headers['accept'];
     }
@@ -70,5 +78,5 @@ function fromUrl(request) {
     route.verb = request.method;
     return route;
 }
-exports.fromUrl = fromUrl;
+exports.fromRequestResponse = fromRequestResponse;
 //# sourceMappingURL=routing.js.map

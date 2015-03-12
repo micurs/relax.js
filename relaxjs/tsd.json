@@ -25,6 +25,9 @@
     },
     "xml2js/xml2js.d.ts": {
       "commit": "bd2377d9f89860c796bb678f05f3c1326ba8c842"
+    },
+    "multiparty/multiparty.d.ts": {
+      "commit": "bb465f2cc799a41a7ccb688c6d1a8f5583dda12d"
     }
   }
 }
