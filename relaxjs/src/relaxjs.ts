@@ -470,6 +470,9 @@ export class Site extends Container implements HttpPlayer {
     return undefined;
   }
 
+  get name(): string {
+    return 'site';
+  }
   get version() : string {
     return this._version;
   }

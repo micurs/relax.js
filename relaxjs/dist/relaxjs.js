@@ -274,6 +274,13 @@ var Site = (function (_super) {
         log.info('No Direction found', verb, route.pathname);
         return undefined;
     };
+    Object.defineProperty(Site.prototype, "name", {
+        get: function () {
+            return 'site';
+        },
+        enumerable: true,
+        configurable: true
+    });
     Object.defineProperty(Site.prototype, "version", {
         get: function () {
             return this._version;

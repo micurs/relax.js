@@ -287,7 +287,7 @@ export function viewDynamic(
   var readFile = Q.denodeify(fs.readFile);
   var templateFilename = './views/'+viewName+'._';
   if ( viewName === 'site') {
-    templateFilename = __dirname+'/../views/'+viewName+'._';
+    templateFilename = `${__dirname}/../views/${viewName}._`;
   }
   if ( layoutName ) {
     var layoutFilename = './views/'+layoutName+'._';
