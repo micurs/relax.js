@@ -30,18 +30,22 @@ function _copyFile(src: string, dst: string): Q.Promise<boolean> {
 // Create the application by assembling the resources
 var site = relax.site('sample8');
 
+// Add the upload resource accepting POST call of binary data.
 site.add(  {
   name: 'upload',
   onPost: function( query, body, respond ) {
     var self = this;
     console.log('multipart', JSON.stringify(body, null, '  '));
     var uploadInfo = body.files.upload[0];
-    console.log('copying file from:', uploadInfo.path,'to -> ./'+uploadInfo.originalFilename );
-    _copyFile(uploadInfo.path,'./'+uploadInfo.originalFilename)
+    console.log('copying file from:', uploadInfo.path, `to -> ./${uploadInfo.originalFilename}` );
+    _copyFile(uploadInfo.path,`./${uploadInfo.originalFilename}`)
       .then( (res) => {
         self.redirect(respond,`/sample8.html?success=${res}`);
       })
-      .fail( () => self.fail('Upload failed') );
+      .fail( (errMsg) => {
+        var respError = new relaxjs.RxError(errMsg,'Upload failed',404);
+        respond.fail(respError );
+      });
   }
 });
 

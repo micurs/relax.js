@@ -14,7 +14,8 @@ site.add(  {
   onGet: function( query, respond ) {
     var self = this;
     fs.readFile('image.jpg', function (err: Error, content: Buffer) {
-      self.ok(respond, content);
+      self.data = content;
+      respond.ok();
     });
   }
 });

@@ -1,56 +1,49 @@
-// Relax.js example #7 - Set and check cookies
-///<reference path='typings/node/node.d.ts' />
-///<reference path='typings/q/q.d.ts' />
-///<reference path='typings/lodash/lodash.d.ts' />
-///<reference path='typings/cookie/cookie.d.ts' />
-///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 var relaxjs = require('relaxjs');
 var ck = require('cookie');
 var _ = require('lodash');
-// Create the application by assembling the resources
 var site = relaxjs.site('sample7.com');
-/*
- * Allow to set a cookie named 'name' required for accessing the /check page.
-*/
 site.add({
     name: 'set',
     view: 'set',
     onGet: function (query, respond) {
-        this.ok(respond);
+        respond.ok();
     },
     onPost: function (query, postData, respond) {
         if (postData.value) {
+            this.data = postData;
             var cookieStr = ck.serialize('name', postData.value);
             this.setCookie(cookieStr);
         }
-        this.redirect(respond, '/check');
+        respond.redirect('/check');
     }
 });
-/*
- * Shows all the cookies received
-*/
 site.add({
     name: 'check',
     view: 'check',
     onGet: function (query, respond) {
-        this.ok(respond, { cookies: this.getCookies() });
+        this.data = {
+            cookies: this.getCookies()
+        };
+        respond.ok();
     }
 });
-/*
- * Redirect to /set all the request that do not have a cookie
-*/
-site.addRequestFilter(function (route, body, returnCall) {
+site.addRequestFilter(function (route, body, complete) {
+    if (route.pathname === '/set') {
+        complete();
+        return;
+    }
     if (!route.cookies)
-        returnCall(new relaxjs.rxError.RxError('Need to set a cookie', 'cookie required', 302, '/set'), null);
-    var cookies = _.map(route.cookies, function (c) { return ck.parse(c); });
-    var nameCookie = _.find(cookies, function (c) { return c['name'] !== undefined; });
+        complete(new relaxjs.RxError('Need to set a cookie', 'cookie required', 302, '/set'));
+    var cookies = _.map(route.cookies, function (c) {
+        return ck.parse(c);
+    });
+    var nameCookie = _.find(cookies, function (c) {
+        return c['name'] !== undefined;
+    });
     if (!nameCookie)
-        returnCall(new relaxjs.rxError.RxError('Need to set a cookie "name" ', 'cookie required', 302, '/set'), null);
-    returnCall(null, null);
+        complete(new relaxjs.RxError('Need to set a cookie "name" ', 'cookie required', 302, '/set'));
+    complete();
 });
-/*
- * Set basic defaults and run the site
-*/
 site.enableFilters = true;
-site.setHome('/check');
+site.setHome('/set');
 site.serve().listen(3000);

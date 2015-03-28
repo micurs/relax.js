@@ -20,15 +20,16 @@ var site = relaxjs.site('sample7.com');
 site.add(  {
   name: 'set',
   view: 'set',
-  onGet: function( query, respond: relaxjs.DataCallback ) {
-    this.ok(respond);
+  onGet: function( query, respond: relaxjs.Response ) {
+    respond.ok();
   },
-  onPost: function( query, postData: any, respond: relaxjs.DataCallback ) {
+  onPost: function( query, postData: any, respond: relaxjs.Response ) {
     if ( postData.value ) {
+      this.data = postData;
       var cookieStr = ck.serialize( 'name', postData.value );
       this.setCookie( cookieStr );
     }
-    this.redirect(respond,'/check');
+    respond.redirect('/check');
   }
 
 });
@@ -40,28 +41,33 @@ site.add(  {
   name: 'check',
   view: 'check',
   onGet: function( query, respond )  {
-    this.ok(respond, { cookies : this.getCookies() } );
+    this.data = { cookies : this.getCookies() };
+    respond.ok();
   }
 });
 
 /*
  * Redirect to /set all the request that do not have a cookie
 */
-site.addRequestFilter( ( route : relaxjs.routing.Route, body: any, returnCall : relaxjs.FilterResultCB ) => {
+site.addRequestFilter( ( route : relaxjs.routing.Route, body: any, complete : relaxjs.FilterResultCB ) => {
+  if ( route.pathname === '/set') {
+    complete(); // let it pass without check
+    return;
+  }
   if ( !route.cookies )
-    returnCall( new relaxjs.rxError.RxError('Need to set a cookie','cookie required', 302, '/set' ) ,null);
+    complete( new relaxjs.RxError('Need to set a cookie','cookie required', 302, '/set' ) );
 
-  var cookies = _.map( route.cookies, (c) => ck.parse(c) );
+  var cookies: string[] = _.map( route.cookies, (c) => ck.parse(c) );
   var nameCookie = _.find( cookies, (c ) => c['name'] !== undefined );
   if ( !nameCookie )
-    returnCall( new relaxjs.rxError.RxError('Need to set a cookie "name" ','cookie required', 302, '/set' ) ,null);
+    complete( new relaxjs.RxError('Need to set a cookie "name" ','cookie required', 302, '/set' ) );
 
-  returnCall(null,null);
+  complete(); // Filter pass
 });
 
 /*
  * Set basic defaults and run the site
 */
 site.enableFilters = true;
-site.setHome('/check')
+site.setHome('/set')
 site.serve().listen(3000);

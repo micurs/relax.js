@@ -14,34 +14,37 @@ var site = relaxjs.site('sample1.com');
 
 site.add(  {
   name: 'test',
-  onGet: function(q,r ) {
-    this.ok( r, { data: { message: "All good ...", count: counter } } );
+  outFormat: 'application/json',
+  onGet: function( q, r ) {
+    this.data = { message: "All good ...", count: counter } ;
+    r.ok();
   }
 });
 
 // Filter 1 : count the request. Never fails
-site.addRequestFilter( function(route : relaxjs.routing.Route, body: any, resp : relaxjs.DataCallback ) {
+site.addRequestFilter( function(route : relaxjs.routing.Route, body: any, complete : relaxjs.FilterResultCB )  {
   counter++;
-  this.ok( resp, null );  // Filter pass
+  complete();  // Filter pass
 });
 
 // Filter 2 : reply with a warning 1 step befaore failinig
-site.addRequestFilter( function(route : relaxjs.routing.Route, body: any, resp : relaxjs.DataCallback ) {
+site.addRequestFilter( function(route : relaxjs.routing.Route, body: any, complete : relaxjs.FilterResultCB ) {
   if ( counter==9 ) {
-    this.ok( resp, { data: { message: "Next call it will fail!!", count: counter } } );
+    // Filter the request sending back a warning message.
+    complete( null, { data: { message: "Next call will fail!!", count: counter } } );
   }
   else {
-    this.ok( resp, null );
+    complete();  // Filter pass
   }
 });
 
 // Filter 3 : fails if the request counter pass 10
-site.addRequestFilter( function(route : relaxjs.routing.Route, body: any, resp : relaxjs.DataCallback ) {
+site.addRequestFilter( function(route : relaxjs.routing.Route, body: any, complete : relaxjs.FilterResultCB ) {
   if ( counter>=10 ) {
-    this.fail( resp, new relaxjs.rxError.RxError('Max number of requests reached!') );
+    complete( new relaxjs.RxError('The maximum number of requests was reached!','This call cannot go to requested Resource'), null );
   }
   else {
-    this.ok( resp, null );
+    complete();  // Filter pass
   }
 });
 

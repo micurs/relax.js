@@ -30,11 +30,12 @@ var usersResource : relaxjs.Resource = {
   name: 'users',
   view: 'users',
   layout: 'layout',
-  onGet: function( query: any, respond: relaxjs.DataCallback  ) {
+  onGet: function( query: any, respond: relaxjs.Response  ) {
     var self = this;
     store.hgetall( 'user', ( err: Error, items: any ) => {
       var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
-      self.ok(respond, { users: userList }  );
+      self.data = { users: userList };
+      respond.ok();
     });
   },
 
@@ -45,43 +46,44 @@ var usersResource : relaxjs.Resource = {
       urlParameters: [ 'idx' ],
 
       // POST: save a user
-      onPost: function( query: any, userData: any, respond: relaxjs.DataCallback ) {
+      onPost: function( query: any, userData: any, respond: relaxjs.Response ) {
         var self = this;
         var newKey = genGuid();
         userData['userId'] = newKey;
         store.hset('user', newKey, JSON.stringify(userData) );
         store.save();
-        self.redirect(respond,'/users',userData);
+        respond.redirect('/users');
       },
 
       // GET: retrieve a user
-      onGet: function( query: any, respond: relaxjs.DataCallback  ) {
+      onGet: function( query: any, respond: relaxjs.Response  ) {
         var self = this;
         var userid = self._parameters.idx; // query['id'];
         store.hget( 'user',userid, function( err: Error, data: string ) {
           if ( data ) {
-            self.ok(respond, JSON.parse(data))
+            self.data = JSON.parse(data);
+            respond.ok();
           }
           else {
             var errMsg = 'Could not find User with id: '+userid;
-            var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
-            self.fail(respond, respError );
+            var respError = new relaxjs.RxError(errMsg,'User not found',404);
+            respond.fail(respError );
           }
         });
       },
 
       // DELETE: remove a given user
-      onDelete: function( query: any, respond: relaxjs.DataCallback  ) {
+      onDelete: function( query: any, respond: relaxjs.Response  ) {
         var self = this;
         var userid = self._parameters.idx; // query['id'];
         store.hdel( 'user', userid, function( err: Error, data: string ) {
           if ( !err ) {
-            self.redirect(respond,'/users');
+            respond.redirect('/users');
           }
           else {
-            var errMsg = 'Could not find User with id: '+userid;
-            var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
-            self.fail(respond, respError );
+            var errMsg = `Could not find User with id: ${userid}`;
+            var respError = new relaxjs.RxError(errMsg,'User not found',404);
+            respond.fail(respError);
           }
         });
       },
@@ -91,23 +93,26 @@ var usersResource : relaxjs.Resource = {
         view: 'edituser',
         layout: 'layout',
         urlParameters: [ 'idx' ],
-        onGet: function( query: any, respond: relaxjs.DataCallback  ) {
+
+        // GET: user editor page
+        onGet: function( query: any, respond: relaxjs.Response  ) {
           var self = this;
           var userid = self._parameters.idx; // query['id'];
           store.hget( 'user',userid, function( err: Error, data: string ) {
             if ( data ) {
-              self.ok( respond, JSON.parse(data) );
+              self.data = JSON.parse(data);
+              respond.ok();
             }
             else {
               var errMsg = 'Could not find User with id: '+userid;
-              var respError = new relaxjs.rxError.RxError(errMsg,'User not found',404);
-              self.fail(respond, respError );
+              var respError = new relaxjs.RxError(errMsg,'User not found',404);
+              respond.fail(respError);
             }
           });
         },
 
         // PATCH: Editing an existing user
-        onPatch: function( query: any, userData: any, respond: relaxjs.DataCallback  ) {
+        onPatch: function( query: any, userData: any, respond: relaxjs.Response  ) {
           var self = this;
           var userid = self._parameters.idx;
           userData['userId'] = userid;
@@ -115,12 +120,12 @@ var usersResource : relaxjs.Resource = {
           store.hset('user', userid, JSON.stringify(userData), function( err: Error, data: string ) {
             if (!err) {
               store.save();
-              self.redirect(respond,'/users');
+              respond.redirect('/users');
             }
             else {
               var errMsg = 'Could not Save User with id: '+userid;
-              var respError = new relaxjs.rxError.RxError(errMsg,'User could not be updated found');
-              self.fail(respond, respError );
+              var respError = new relaxjs.RxError(errMsg,'User could not be updated found');
+              respond.fail(respError);
             }
           });
         }

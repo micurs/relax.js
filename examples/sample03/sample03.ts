@@ -1,4 +1,5 @@
-// Relax.js example #3
+// relaxjs example #2 - part of relaxjs v 0.1.4
+// by Michele Ursino
 
 ///<reference path='typings/node/node.d.ts' />
 ///<reference path='typings/q/q.d.ts' />
@@ -14,45 +15,72 @@ import redis = require("redis");
 // Create the data store (with redis)
 var store = redis.createClient();
 
+// Storing some test data in Redis
 store.hset('user', 'f40705f1-58b3-47e6-98da-5955c6bd1e30',
             '{ "firstName": "Mary", "lastName": "Stewart", "userId": "f40705f1-58b3-47e6-98da-5955c6bd1e30" }');
 store.hset('user', 'f40705f1-58b3-47e6-98da-3956c6fd1e31',
             '{ "firstName": "John", "lastName": "Smith", "userId": "f40705f1-58b3-47e6-98da-3956c6fd1e31" }');
 store.save();
 
-// Create the application by assembling the resources
-var mysite = relaxjs.site('Example #3');
+
+function findAllUsers( cb ) {
+  store.hgetall( 'user', ( err: Error, items: any[] ) => {
+    if (err)
+      cb(err,null);
+    else {
+      var res = _.zipObject( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) ) ;
+      console.log(items);
+      cb(null,res );
+    }
+  });
+}
+
+function findUser( id : string , cb ) {
+  store.hget( 'user', id,
+    ( err: Error, userdata: string ) => {
+      if ( err || !userdata ) {
+        var message = err ? err.message : `Could not find a user with the given ID: ${id}`;
+        var respError = new relaxjs.RxError(message,'User not found',404);
+        cb( respError, null );
+      }
+      else {
+        cb( null, JSON.parse(userdata) );
+      }
+  });
+}
 
 // Create a resource that can retrieve and store users info into redis
 var usersResource : relaxjs.Resource = {
   name: 'users',
   view: 'users',
-  onGet: function( query: any, respond: relaxjs.DataCallback  ) {
-    store.hgetall( 'user', ( err: Error, items: any ) => {
-        var userList = _.object( _.keys(items), _.map( _.values(items), (item) => JSON.parse(item) ) );
-        this.ok(respond, { users: userList } );
-      });
+  onGet: function( query: any, respond: relaxjs.Response  ) {
+    findAllUsers( ( err: Error, users: any[] ) => {
+      if (err) {
+        respond.fail( new relaxjs.RxError(err.message, 'Error trying to find users', 404) );
+      }
+      else {
+        this.data = { 'users': users };
+        respond.ok();
+      }
+    });
   },
   resources : [ {
       name: 'user',
       view: 'user',
-      onGet: function( query: any, respond: relaxjs.DataCallback  ) {
+      onGet: function( query: any, respond: relaxjs.Response  ) {
         var self = this;
         var userid = query['id'];
         if ( !userid ) {
-          self.fail(respond, new relaxjs.rxError.RxError('Need the id paramter to find a user','User not found',404) );
+          respond.fail( new relaxjs.RxError('Need the id paramter to find a user','User not found',404) );
         }
         else {
-          store.hget( 'user',userid,
-            ( err: Error, userdata: string ) => {
-              if ( err || !userdata ) {
-                var message = err ? err.message : "Could not find the reuqested key in the hash";
-                console.log('>> '+ message );
-                var respError = new relaxjs.rxError.RxError(message,'User not found',404);
-                self.fail(respond, respError );
+          findUser(userid, ( err: relaxjs.RxError, userdata: any ) => {
+              if ( err ) {
+                respond.fail( err );
               }
               else {
-                self.ok(respond, JSON.parse(userdata) );
+                this.data = userdata;
+                respond.ok();
               }
           });
         }
@@ -61,6 +89,7 @@ var usersResource : relaxjs.Resource = {
   ]
 }
 
+// Create the site, add the resources and listen
+var mysite = relaxjs.site('Example #3');
 mysite.add( usersResource );
-
 mysite.serve().listen(3000);

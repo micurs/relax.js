@@ -1,50 +1,58 @@
+// relaxjs example #1 - part of relaxjs v 0.1.4
+
 var r = require('relaxjs');
 
 // Create the application by assembling the resources
-var site = r.site('sample1.com');
+var site = r.site('Example #1');
 
 site.add(  {
-  name: 'Page',
+  name: 'Page1',
   view: 'helloworld',
   data: { message: "Hello World!" }
 });
 
 site.add( {
-  name: 'Page',
+  name: 'Page2',
   view: 'helloworld',
   data: { message: "Asta la vista!" }
 });
 
 site.add( {
-  name: 'Page',
+  name: 'ContainerPage',
   view: 'helloworld',
-  data: { message: "Ciao Mondo!" },
+  data: { message: "This is a resource with child resources" },
   resources: [
     {
-      name: 'Page',
+      name: 'Child1',
       view: 'helloworld',
-      data: { message: "Ciao Mondo Interiore #1 !" }
+      data: { message: "Hello! This is child #1 !" }
     },
     {
-      name: 'Page',
+      name: 'Child2',
       view: 'helloworld',
-      data: { message: "Ciao Mondo Interiore #2 !" }
+      data: { message: "Hello! This is child #2 !" }
     }
   ]
 });
 
+function getCurrentDate() {
+  var date = new Date();
+  return ''+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC';
+}
+
 var staticResource = {
   name: 'static',
   view : 'helloworld',
-  data : { message: "Hello Static World! This is data within my resource." }
+  data : { message: 'Hello! This resource was created on '+ getCurrentDate() }
 };
 
 var dynamicResource = {
   name: 'dynamic',
   view : 'helloworld',
-  onGet : function( query, response ) {
+  onGet : function( query, respond ) {
     var date = new Date();
-    this.ok(response, { message: 'Hello Dynamic World! It is '+date.getHours()+':'+date.getMinutes()+'.'+date.getSeconds()+' UTC' }  );
+    this.data = { message: 'Hello Dynamic World! It is now '+ getCurrentDate()  };
+    respond.ok();
   }
 };
 
