@@ -1,9 +1,18 @@
+/*
+ * Relax.js version 0.1.4
+ * by Michele Ursino March - 2015
+*/
 var __extends = this.__extends || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
     d.prototype = new __();
 };
+///<reference path='../typings/node/node.d.ts' />
+///<reference path='../typings/lodash/lodash.d.ts' />
+///<reference path='../typings/q/Q.d.ts' />
+///<reference path='../typings/mime/mime.d.ts' />
+///<reference path='../typings/xml2js/xml2js.d.ts' />
 var http = require("http");
 var Q = require('q');
 var _ = require("lodash");
@@ -16,53 +25,53 @@ exports.routing = routing;
 exports.rxError = rxError;
 exports.version = package.version;
 function relax() {
-    console.log('relax.js !');
+    console.log('relaxjs !');
 }
 exports.relax = relax;
-var Embodiment = (function () {
-    function Embodiment(mimeType, code, body) {
-        if (code === void 0) { code = 200; }
-        this.cookiesData = [];
-        this.httpCode = code;
-        this.body = body;
-        this.mimeType = mimeType;
+/*
+ * Extended Error class for Relax.js
+*/
+var RxError = (function () {
+    function RxError(message, name, code, extra) {
+        var tmp = new Error();
+        this.message = message;
+        this.name = name;
+        this.httpCode = code ? code : 500;
+        this.stack = tmp.stack;
+        this.extra = extra;
     }
-    Embodiment.prototype.addSetCookie = function (cookie) {
-        this.cookiesData.push(cookie);
+    RxError.prototype.getHttpCode = function () {
+        return this.httpCode;
     };
-    Embodiment.prototype.serve = function (response) {
-        var log = internals.log().child({ func: 'Embodiment.serve' });
-        var headers = { 'content-type': this.mimeType };
-        if (this.body)
-            headers['content-length'] = this.body.length;
-        if (this.location)
-            headers['Location'] = this.location;
-        _.each(this.cookiesData, function (cookie) { return response.setHeader('Set-Cookie', cookie); });
-        response.writeHead(this.httpCode, headers);
-        if (this.body) {
-            response.write(this.body);
-            if (this.body.length > 1024)
-                log.info('Sending %s Kb (as %s)', Math.round(this.body.length / 1024), this.mimeType);
-            else
-                log.info('Sending %s bytes (as %s)', this.body.length, this.mimeType);
-        }
-        response.end();
+    RxError.prototype.getExtra = function () {
+        return this.extra ? this.extra : '';
     };
-    Embodiment.prototype.bodyAsString = function () {
-        return this.body.toString('utf-8');
+    RxError.prototype.toString = function () {
+        return internals.format('RxError {0}: {1}\n{2}\nStack:\n{3}', this.httpCode, this.name, this.message, this.stack);
     };
-    Embodiment.prototype.bodyAsJason = function () {
-        return JSON.parse(this.bodyAsString());
-    };
-    return Embodiment;
+    return RxError;
 })();
-exports.Embodiment = Embodiment;
+exports.RxError = RxError;
+/*
+ * Type definition for the response callback function to use on the HTTP verb function
+*/
+/*
+export interface DataCallback {
+  ( err: Error, resp?: ResourceResponse ): void;
+}
+*/
+/*
+ * A container of resources. This class offer helper functions to add and retrieve resources
+ * child resources
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
 var Container = (function () {
     function Container(parent) {
         this._name = '';
-        this._cookiesData = [];
-        this._cookies = [];
+        this._cookiesData = []; // Outgoing cookies to be set
+        this._cookies = []; // Received cookies unparsed
         this._resources = {};
+        this.data = {};
         this._parent = parent;
     }
     Object.defineProperty(Container.prototype, "parent", {
@@ -95,23 +104,16 @@ var Container = (function () {
     Container.prototype.getCookies = function () {
         return this._cookies;
     };
-    Container.prototype.ok = function (response, data) {
-        var respObj = { result: 'ok', httpCode: 200, cookiesData: this._cookiesData };
-        if (data)
-            respObj['data'] = data;
-        response(null, respObj);
-    };
-    Container.prototype.redirect = function (response, where, data) {
-        var respObj = { result: 'ok', httpCode: 303, location: where, cookiesData: this._cookiesData };
-        if (data)
-            respObj['data'] = data;
-        response(null, respObj);
-    };
-    Container.prototype.fail = function (response, err) {
-        var log = internals.log().child({ func: this._name + '.fail' });
-        log.info('Call failed: %s', err.message);
-        response(err, null);
-    };
+    Object.defineProperty(Container.prototype, "cookiesData", {
+        get: function () {
+            return this._cookiesData;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    /*
+     * Remove a child resource from this container
+    */
     Container.prototype.remove = function (child) {
         var log = internals.log().child({ func: 'Container.remove' });
         var resArr = this._resources[child.name];
@@ -124,15 +126,26 @@ var Container = (function () {
         log.info('- %s', child.name);
         return true;
     };
+    /*
+     * Inspect the cuurent path in the given route and create the direction
+     * to pass a http request to a child resource.
+     * If the route.path is terminal this function finds the immediate target resource
+     * and assign it to the direction.resource.
+     * This function manages also the interpretaiton of an index in the path immediately
+     * after the resource name.
+    */
     Container.prototype._getStepDirection = function (route) {
         var log = internals.log().child({ func: 'Container.getStepDirection' });
-        var direction = new routing.Direction();
-        log.info('Get the next step on %s', JSON.stringify(route.path));
+        var direction = new Direction();
+        log.info('Follow next step on %s', JSON.stringify(route.path));
         direction.route = route.stepThrough(1);
         var childResName = direction.route.getNextStep();
         if (childResName in this._resources) {
             var idx = 0;
             if (this._resources[childResName].length > 1) {
+                // Since there are more than just ONE resource maching the name
+                // we check the next element in the path for the index needed to
+                // locate the right resource in the array.
                 if (direction.route.path[1] !== undefined) {
                     idx = parseInt(direction.route.path[1]);
                     if (isNaN(idx)) {
@@ -148,6 +161,11 @@ var Container = (function () {
         }
         return direction;
     };
+    /*
+     * Returns the direction toward the resource in the given route.
+     * The Direction object returned may point directly to the resource requested or
+     * may point to a resource that will lead to the requested resource
+    */
     Container.prototype._getDirection = function (route, verb) {
         if (verb === void 0) { verb = 'GET'; }
         var log = internals.log().child({ func: 'Container._getDirection' });
@@ -160,9 +178,12 @@ var Container = (function () {
         log.info('No Direction found', verb, route.pathname);
         return undefined;
     };
+    /*
+     * Return the resource matching the given path.
+    */
     Container.prototype.getResource = function (pathname) {
         var route = new routing.Route(pathname);
-        var direction = this._getDirection(route);
+        var direction = this._getDirection(route); // This one may return the resource directly if cached
         if (!direction)
             return undefined;
         var resource = direction.resource;
@@ -179,11 +200,13 @@ var Container = (function () {
         }
         return resource;
     };
+    // Add a resource of the given type as child
     Container.prototype.add = function (newRes) {
         var log = internals.log().child({ func: 'Container.add' });
         newRes['_version'] = site().version;
         newRes['siteName'] = site().siteName;
         var resourcePlayer = new ResourcePlayer(newRes, this);
+        // Add the resource player to the child resource container for this container.
         var indexName = internals.slugify(newRes.name);
         var childArray = this._resources[indexName];
         if (childArray === undefined)
@@ -193,6 +216,7 @@ var Container = (function () {
         }
         log.info('+ %s', indexName);
     };
+    // Find the first resource of the given type
     Container.prototype.getFirstMatching = function (typeName) {
         var childArray = this._resources[typeName];
         if (childArray === undefined) {
@@ -207,12 +231,18 @@ var Container = (function () {
         else
             return undefined;
     };
+    /*
+     * Return the number of children resources of the given type.
+    */
     Container.prototype.childTypeCount = function (typeName) {
         if (this._resources[typeName])
             return this._resources[typeName].length;
         else
             return 0;
     };
+    /*
+     * Return the total number of children resources for this node.
+    */
     Container.prototype.childrenCount = function () {
         var counter = 0;
         _.each(this._resources, function (arrayItem) {
@@ -223,10 +253,105 @@ var Container = (function () {
     return Container;
 })();
 exports.Container = Container;
+/*
+ * Helper class used to deliver a response from a HTTP verb function call.
+ * An instance of this class is passed as argument to all verb functions
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+var Response = (function () {
+    function Response(resource) {
+        this._resource = resource;
+    }
+    Response.prototype.onOk = function (cb) {
+        this._onOk = cb;
+    };
+    Response.prototype.onFail = function (cb) {
+        this._onFail = cb;
+    };
+    // Helper function to call the response callback with a succesful code 'ok'
+    Response.prototype.ok = function () {
+        var respObj = { result: 'ok', httpCode: 200, cookiesData: this._resource.cookiesData };
+        respObj['data'] = this._resource.data;
+        if (this._onOk)
+            this._onOk(respObj);
+    };
+    // Helper function to call the response callback with a redirect code 303
+    Response.prototype.redirect = function (where) {
+        var respObj = { result: 'ok', httpCode: 303, location: where, cookiesData: this._resource.cookiesData };
+        respObj['data'] = this._resource.data;
+        if (this._onOk)
+            this._onOk(respObj);
+    };
+    // Helper function to call the response callback with a fail error
+    Response.prototype.fail = function (err) {
+        var log = internals.log().child({ func: this._resource.name + '.fail' });
+        log.info('Call failed: %s', err.message);
+        if (this._onFail)
+            this._onFail(err);
+    };
+    return Response;
+})();
+exports.Response = Response;
+var Direction = (function () {
+    function Direction() {
+    }
+    return Direction;
+})();
+exports.Direction = Direction;
+/*
+ * Every resource is converted to their embodiment before is sent back as a HTTP Response
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+var Embodiment = (function () {
+    function Embodiment(mimeType, code, body) {
+        if (code === void 0) { code = 200; }
+        this.cookiesData = []; // example a cookie valie would be ["type=ninja", "language=javascript"]
+        this.httpCode = code;
+        this.body = body;
+        this.mimeType = mimeType;
+    }
+    // Add a serialized cookie to be returned as a set  cookie in a response.
+    Embodiment.prototype.addSetCookie = function (cookie) {
+        this.cookiesData.push(cookie);
+    };
+    Embodiment.prototype.serve = function (response) {
+        var log = internals.log().child({ func: 'Embodiment.serve' });
+        var headers = { 'content-type': this.mimeType };
+        if (this.body)
+            headers['content-length'] = this.body.length;
+        if (this.location)
+            headers['Location'] = this.location;
+        // Add the cookies set to the header
+        _.each(this.cookiesData, function (cookie) { return response.setHeader('Set-Cookie', cookie); });
+        response.writeHead(this.httpCode, headers);
+        if (this.body) {
+            response.write(this.body);
+            if (this.body.length > 1024)
+                log.info('Sending %s Kb (as %s)', Math.round(this.body.length / 1024), this.mimeType);
+            else
+                log.info('Sending %s bytes (as %s)', this.body.length, this.mimeType);
+        }
+        response.end();
+        log.info('<< REQUEST: Complete');
+    };
+    Embodiment.prototype.bodyAsString = function () {
+        return this.body.toString('utf-8');
+    };
+    Embodiment.prototype.bodyAsJason = function () {
+        return JSON.parse(this.bodyAsString());
+    };
+    return Embodiment;
+})();
+exports.Embodiment = Embodiment;
+/*
+ * Root object for the application is the Site.
+ * The site is in itself a Resource and is accessed via the root / in a url.
+*/
 var Site = (function (_super) {
     __extends(Site, _super);
     function Site(siteName, parent) {
         _super.call(this, parent);
+        // private _name: string = "site";
         this._version = exports.version;
         this._siteName = 'site';
         this._home = '/';
@@ -250,12 +375,17 @@ var Site = (function (_super) {
         }
         return Site._instance;
     };
+    /*
+     * Returns the direction toward the resource in the given route.
+     * The Direction object returned may point directly to the resource requested or
+     * may point to a resource that will lead to the requested resource
+    */
     Site.prototype._getDirection = function (route, verb) {
         if (verb === void 0) { verb = 'GET'; }
         var log = internals.log().child({ func: 'Site._getDirection' });
         var cachedPath = this._pathCache[route.pathname];
         if (cachedPath) {
-            var direction = new routing.Direction();
+            var direction = new Direction();
             direction.resource = cachedPath.resource;
             direction.route = route;
             direction.route.path = cachedPath.path;
@@ -298,6 +428,7 @@ var Site = (function (_super) {
     Site.prototype.setPathCache = function (path, shortcut) {
         this._pathCache[path] = shortcut;
     };
+    // Output to response the given error following the mime type in format.
     Site.prototype._outputError = function (response, error, format) {
         var mimeType = format.split(/[\s,]+/)[0];
         var errCode = error.getHttpCode ? error.getHttpCode() : 500;
@@ -313,10 +444,12 @@ var Site = (function (_super) {
         };
         switch (mimeType) {
             case 'text/html':
-                response.write('<h1>relax.js: We Got Errors</h1>');
+                response.write('<html><body style="font-family:arial;">');
+                response.write('<h1>relaxjs: the resource request caused an error.</h1>');
                 response.write('<h2>' + error.name + '</h2>');
                 response.write('<h3 style="color:red;">' + _.escape(error.message) + '</h3><hr/>');
                 response.write('<pre>' + _.escape(error.stack) + '</pre>');
+                response.write('<body></html>');
                 break;
             case 'application/xml':
             case 'text/xml':
@@ -329,6 +462,9 @@ var Site = (function (_super) {
         }
         response.end();
     };
+    /*
+     * Set a user callback function to be executed on every request.
+     */
     Site.prototype.addRequestFilter = function (filterFunction) {
         this._filters.push(filterFunction);
     };
@@ -339,6 +475,9 @@ var Site = (function (_super) {
         this._filters = [];
         return true;
     };
+    /*
+     * Execute the filters.
+    */
     Site.prototype._checkFilters = function (route, body, response) {
         var self = this;
         var later = Q.defer();
@@ -347,12 +486,15 @@ var Site = (function (_super) {
             return later.promise;
         }
         var filtersCalls = _.map(self._filters, function (f) { return Q.nfcall(f.bind(self, route, body)); });
-        Q.all(filtersCalls).then(function (replies) {
-            var filterResponse = _.find(replies, function (r) { return r.httpCode != 200 || r.data !== undefined; });
+        // Filter the request: execute all the filters regarding if the fail or not
+        Q.all(filtersCalls).then(function (dataArr) {
+            // If any filter returns some data we send that back instead of leaving the request to the destination resource.
+            var filterResponse = _.find(dataArr, function (resp) { return resp && resp.data !== undefined; });
             if (!filterResponse) {
                 later.resolve(true);
                 return;
             }
+            // One filter had a response. This is what we deliver!
             internals.createEmbodiment(filterResponse.data, 'application/json').then(function (reply) {
                 reply.httpCode = filterResponse.httpCode ? filterResponse.httpCode : 200;
                 reply.location = filterResponse.location;
@@ -365,15 +507,19 @@ var Site = (function (_super) {
         });
         return later.promise;
     };
+    /*
+     * Create a Server for the site and manage all the requests by routing them to the appropriate resource
+    */
     Site.prototype.serve = function () {
         var _this = this;
         var self = this;
         var srv = http.createServer(function (msg, response) {
+            // here we need to route the call to the appropriate class:
             var route = routing.fromRequestResponse(msg, response);
             var site = _this;
             var log = internals.log().child({ func: 'Site.serve' });
-            _this._cookies = route.cookies;
-            log.info('   REQUEST: %s', route.verb);
+            _this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
+            log.info('>> REQUEST: %s', route.verb);
             log.info('      PATH: %s %s', route.pathname, route.query);
             log.info('Out FORMAT: %s', route.outFormat);
             log.info(' In FORMAT: %s', route.inFormat);
@@ -381,9 +527,11 @@ var Site = (function (_super) {
                 log.error('%s request is not supported ');
                 return;
             }
+            // Parse the data received with this request
             internals.parseRequestData(msg, route.inFormat).then(function (bodyData) {
                 self._checkFilters(route, bodyData, response).then(function (allFilteresPass) {
                     if (allFilteresPass) {
+                        // Execute the HTTP request
                         site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
                             reply.serve(response);
                         }).fail(function (error) {
@@ -401,7 +549,7 @@ var Site = (function (_super) {
                 log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : request body could not be parsed: " + error.name + " - " + error.message);
                 self._outputError(response, error, route.outFormat);
             });
-        });
+        }); // End http.createServer()
         return srv;
     };
     Site.prototype.setHome = function (path) {
@@ -411,6 +559,7 @@ var Site = (function (_super) {
         this._tempDir = path;
         internals.setMultipartDataTempDir(path);
     };
+    // HTTP Verb functions --------------------
     Site.prototype.head = function (route, body) {
         var self = this;
         var log = internals.log().child({ func: 'Site.head' });
@@ -436,6 +585,7 @@ var Site = (function (_super) {
         var self = this;
         var log = internals.log().child({ func: 'Site.get' });
         log.info('route: %s', route.pathname);
+        //log.info(' FORMAT: %s', route.outFormat);
         if (route.static) {
             return internals.viewStatic(route.pathname);
         }
@@ -520,46 +670,72 @@ var Site = (function (_super) {
     return Site;
 })(Container);
 exports.Site = Site;
+/*
+ * ResourcePlayer absorbs a user defined resource and execute the HTTP requests.
+ * The player dispatch requests to the childres resources or invoke user defined
+ * response function for each verb.
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
 var ResourcePlayer = (function (_super) {
     __extends(ResourcePlayer, _super);
+    // public data = {};
     function ResourcePlayer(res, parent) {
         _super.call(this, parent);
         this._template = '';
         this._parameters = {};
-        this.data = {};
         var self = this;
-        self._name = res.name;
+        self.setName(res.name);
         self._template = res.view;
         self._layout = res.layout;
         self._paramterNames = res.urlParameters ? res.urlParameters : [];
         self._parameters = {};
         self._outFormat = res.outFormat;
-        self._onGet = res.onGet ? Q.nbind(res.onGet, this) : undefined;
-        self._onPost = res.onPost ? Q.nbind(res.onPost, this) : undefined;
-        self._onPatch = res.onPatch ? Q.nbind(res.onPatch, this) : undefined;
-        self._onDelete = res.onDelete ? Q.nbind(res.onDelete, this) : undefined;
-        self._onPut = res.onPut ? Q.nbind(res.onPut, this) : undefined;
+        self._onGet = res.onGet;
+        self._onPost = res.onPost;
+        self._onPatch = res.onPatch;
+        self._onDelete = res.onDelete;
+        self._onPut = res.onPut;
+        // Add children resources if available
         if (res.resources) {
             _.each(res.resources, function (child, index) {
                 self.add(child);
             });
         }
+        // Merge the data into this object to easy access in the view.
         self._updateData(res.data);
     }
     ResourcePlayer.prototype.setOutputFormat = function (fmt) {
         this._outFormat = fmt;
     };
+    Object.defineProperty(ResourcePlayer.prototype, "outFormat", {
+        set: function (f) {
+            this._outFormat = f;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(ResourcePlayer.prototype, "resources", {
+        get: function () {
+            return this._resources;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    /*
+     * Reads the parameters from a route and store them in the this._parmaters member.
+     * Return the number of paramters correcly parsed.
+    */
     ResourcePlayer.prototype._readParameters = function (path, generateError) {
         var _this = this;
         if (generateError === void 0) { generateError = true; }
-        var log = internals.log().child({ func: this._name + '._readParameters' });
+        var log = internals.log().child({ func: this.name + '._readParameters' });
         var counter = 0;
         _.each(this._paramterNames, function (parameterName, idx, list) {
             if (!path[idx + 1]) {
                 if (generateError) {
                     log.error('Could not read all the required paramters from URI. Read %d, needed %d', counter, _this._paramterNames.length);
                 }
-                return counter;
+                return counter; // breaks out of the each loop.
             }
             _this._parameters[parameterName] = path[idx + 1];
             counter++;
@@ -567,6 +743,10 @@ var ResourcePlayer = (function (_super) {
         log.info('Read %d parameters from request URL: %s', counter, JSON.stringify(this._parameters));
         return counter;
     };
+    /*
+     * Reset the data property for this object and copy all the
+     * elements from the given parameter into it.
+     */
     ResourcePlayer.prototype._updateData = function (newData) {
         var self = this;
         self.data = {};
@@ -576,13 +756,20 @@ var ResourcePlayer = (function (_super) {
             }
         });
     };
+    /*
+     * Delivers a reply as Embodiment of the given response through the given promise and
+     * in the given outFormat
+    */
     ResourcePlayer.prototype._deliverReply = function (later, resResponse, outFormat, deliverAnyFormat) {
         if (deliverAnyFormat === void 0) { deliverAnyFormat = false; }
         var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ')._deliverReply' });
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ')._deliverReply' });
         var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
         log.info('Formats: %s', JSON.stringify(mimeTypes));
+        // Use the template for GET html requests
         if (self._template && (mimeTypes.indexOf('text/html') != -1 || mimeTypes.indexOf('*/*') != -1)) {
+            // Here we copy the data into the resource itself and process it through the viewing engine.
+            // This allow the code in the view to act in the context of the resourcePlayer.
             self.data = resResponse.data;
             internals.viewDynamic(self._template, self, self._layout).then(function (reply) {
                 reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
@@ -595,6 +782,7 @@ var ResourcePlayer = (function (_super) {
         }
         else {
             var mimeType = undefined;
+            // This is orrible, it should be improved in version 0.1.3
             if (mimeTypes.indexOf('*/*') != -1) {
                 mimeType = 'application/json';
             }
@@ -628,29 +816,39 @@ var ResourcePlayer = (function (_super) {
                     later.resolve(new Embodiment(outFormat, 200, resResponse.data));
                 }
                 else {
-                    later.reject(new rxError.RxError('output as (' + outFormat + ') is not available for this resource', 'Unsupported Media Type', 415));
+                    later.reject(new RxError('output as (' + outFormat + ') is not available for this resource', 'Unsupported Media Type', 415)); // 415 Unsupported Media Type
                 }
             }
         }
     };
+    // -------------------- HTTP VERB FUNCIONS -------------------------------------
+    /*
+     * Resource Player HEAD
+     * Get the response as for a GET request, but without the response body.
+    */
     ResourcePlayer.prototype.head = function (route) {
-        var self = this;
+        var self = this; // use to consistently access this object.
         var later = Q.defer();
         _.defer(function () {
-            later.reject(new rxError.RxError('Not Implemented'));
+            later.reject(new RxError('Not Implemented'));
         });
         return later.promise;
     };
+    /*
+     * HttpPlayer GET
+     * This is the resource player GET:
+     * it will call a GET to a child resource or the onGet() for the current resource.
+    */
     ResourcePlayer.prototype.get = function (route) {
-        var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').get' });
+        var self = this; // use to consistently access this object.
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').get' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        // Dives in and navigates through the path to find the child resource that can answer this GET call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
             if (direction.resource) {
                 var res = (direction.resource);
-                log.info('GET on resource "%s"', res.name);
                 return res.get(direction.route);
             }
             else {
@@ -660,38 +858,52 @@ var ResourcePlayer = (function (_super) {
                     return internals.promiseError(internals.format('[error: no such child] ResourcePlayer GET could not find a Resource for "{0}"', JSON.stringify(route.path)), route.pathname);
             }
         }
-        log.info('GET Target Found : %s (requires %d parameters)', self._name, paramCount);
+        // 2 - Read the parameters from the route
+        log.info('GET Target Found : %s (requires %d parameters)', self.name, paramCount);
         if (paramCount > 0) {
             if (self._readParameters(route.path) < paramCount) {
-                later.reject(new rxError.RxError('Not enough paramters available in the URI ', 'GET ' + self.name, 404));
+                later.reject(new RxError('Not enough paramters available in the URI ', 'GET ' + self.name, 404));
                 return later.promise;
             }
         }
+        // Set the cach to invoke this resource for this path directly next time
         site().setPathCache(route.pathname, { resource: this, path: route.path });
+        // This is the resource that need to answer either with a onGet or directly with data
         var dyndata = {};
+        // If the onGet() is defined use id to get dynamic data from the user defined resource.
         if (self._onGet) {
-            log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat);
-            this._cookies = route.cookies;
-            self._onGet(route.query).then(function (response) {
-                self._updateData(response.data);
-                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat, self._outFormat !== undefined);
-            }).fail(function (rxErr) {
-                later.reject(rxErr);
-            }).catch(function (error) {
-                later.reject(error);
+            log.info('Invoking onGet()! on %s (%s)', self.name, route.outFormat);
+            this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
+            var response = new Response(self);
+            response.onOk(function (resresp) {
+                self._updateData(resresp.data);
+                self._deliverReply(later, resresp, self._outFormat ? self._outFormat : route.outFormat, self._outFormat !== undefined);
             });
+            response.onFail(function (rxErr) { return later.reject(rxErr); });
+            try {
+                self._onGet(route.query, response);
+            }
+            catch (error) {
+                later.reject(error);
+            }
             return later.promise;
         }
-        log.info('Returning static data from %s', self._name);
+        // 4 - Perform the default GET that is: deliver the data associated with this resource
+        log.info('Returning static data from %s', self.name);
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
         self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
+    /*
+     * HttpPlayer DELETE
+     * Deletes the specified resource (as identified in the URI within the route).
+    */
     ResourcePlayer.prototype.delete = function (route) {
-        var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').delete' });
+        var self = this; // use to consistently access this object.
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').delete' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        // 1 - Dives in and navigates through the path to find the child resource that can answer this DELETE call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
             if (direction) {
@@ -703,36 +915,51 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
-        log.info('DELETE Target Found : %s (requires %d parameters)', self._name, paramCount);
+        // 2 - Read the parameters from the route
+        log.info('DELETE Target Found : %s (requires %d parameters)', self.name, paramCount);
         if (paramCount > 0) {
             if (self._readParameters(route.path) < paramCount) {
-                later.reject(new rxError.RxError('Not enough paramters available in the URI ', 'DELETE ' + self.name, 404));
+                later.reject(new RxError('Not enough paramters available in the URI ', 'DELETE ' + self.name, 404));
                 return later.promise;
             }
         }
+        // If the onDelete() is defined use it to invoke a user define delete.
         if (self._onDelete) {
-            log.info('call onDelete() for %s', self._name);
-            this._cookies = route.cookies;
-            this._onDelete(route.query).then(function (response) {
-                self._updateData(response.data);
-                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
-            }).fail(function (rxErr) {
-                later.reject(rxErr);
+            log.info('call onDelete() for %s', self.name);
+            this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
+            var response = new Response(self);
+            response.onOk(function (resresp) {
+                self._updateData(resresp.data);
+                self._deliverReply(later, resresp, self._outFormat ? self._outFormat : route.outFormat);
             });
+            response.onFail(function (rxErr) { return later.reject(rxErr); });
+            try {
+                this._onDelete(route.query, response);
+            }
+            catch (err) {
+                later.reject(err);
+            }
             return later.promise;
         }
-        log.info('Default Delete: Removing resource %s', self._name);
+        // 4 - Perform the default DELETE that is: delete this resource
+        log.info('Default Delete: Removing resource %s', self.name);
         self.parent.remove(self);
         self.parent = null;
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
         self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
+    /*
+     * HttpPlayer POST
+     * Asks the resource to create a new subordinate of the web resource identified by the URI.
+     * The body sent to a post must contain the resource name to be created.
+    */
     ResourcePlayer.prototype.post = function (route, body) {
-        var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').post' });
+        var self = this; // use to consistently access this object.
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').post' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        // Dives in and navigates through the path to find the child resource that can answer this POST call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
             if (direction) {
@@ -744,31 +971,46 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
-        log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount);
+        // 2 - Read the parameters from the route
+        log.info('POST Target Found : %s (requires %d parameters)', self.name, paramCount);
         if (paramCount > 0) {
+            // In a POST not finding all the paramters expeceted should not fail the call.
             self._readParameters(route.path, false);
         }
+        // Call the onPost() for this resource (user code)
         if (self._onPost) {
-            log.info('calling onPost() for %s', self._name);
-            this._cookies = route.cookies;
-            self._onPost(route.query, body).then(function (response) {
-                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
-            }).fail(function (rxErr) {
-                later.reject(rxErr);
+            log.info('calling onPost() for %s', self.name);
+            this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
+            var response = new Response(self);
+            response.onOk(function (resresp) {
+                self._deliverReply(later, resresp, self._outFormat ? self._outFormat : route.outFormat);
             });
+            response.onFail(function (rxErr) { return later.reject(rxErr); });
+            try {
+                self._onPost(route.query, body, response);
+            }
+            catch (err) {
+                later.reject(new RxError(err));
+            }
             return later.promise;
         }
-        log.info('Adding data for %s', self._name);
+        // 4 - Perform the default POST that is: set the data directly
+        log.info('Adding data for %s', self.name);
         self._updateData(body);
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
         self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
+    /*
+     * HttpPlayer PATCH
+     * Applies partial modifications to a resource (as identified in the URI).
+    */
     ResourcePlayer.prototype.patch = function (route, body) {
-        var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').patch' });
+        var self = this; // use to consistently access this object.
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').patch' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        // 1 - Dives in and navigates through the path to find the child resource that can answer this POST call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
             if (direction) {
@@ -780,36 +1022,50 @@ var ResourcePlayer = (function (_super) {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
             }
         }
-        log.info('PATCH Target Found : %s (requires %d parameters)', self._name, paramCount);
+        // 2 - Read the parameters from the route
+        log.info('PATCH Target Found : %s (requires %d parameters)', self.name, paramCount);
         if (paramCount > 0) {
             if (self._readParameters(route.path) < paramCount) {
-                later.reject(new rxError.RxError('Not enough paramters available in the URI ', 'PATCH ' + self.name, 404));
+                later.reject(new RxError('Not enough paramters available in the URI ', 'PATCH ' + self.name, 404));
                 return later.promise;
             }
         }
+        // 3 - call the resource defined function to respond to a PATCH request
         if (self._onPatch) {
-            log.info('calling onPatch() for %s', self._name);
-            this._cookies = route.cookies;
-            self._onPatch(route.query, body).then(function (response) {
-                self._updateData(response.data);
-                self._deliverReply(later, response, self._outFormat ? self._outFormat : route.outFormat);
-            }).fail(function (rxErr) {
-                later.reject(rxErr);
+            log.info('calling onPatch() for %s', self.name);
+            this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
+            var response = new Response(self);
+            response.onOk(function (resresp) {
+                self._updateData(resresp.data);
+                self._deliverReply(later, resresp, self._outFormat ? self._outFormat : route.outFormat);
             });
+            response.onFail(function (rxErr) { return later.reject(rxErr); });
+            try {
+                self._onPatch(route.query, body, response);
+            }
+            catch (err) {
+                later.reject(new RxError(err));
+            }
             return later.promise;
         }
-        log.info('Updating data for %s', self._name);
+        // 4 - Perform the default PATH that is set the data directly
+        log.info('Updating data for %s', self.name);
         self._updateData(body);
         var responseObj = { result: 'ok', httpCode: 200, data: self.data };
         self._deliverReply(later, responseObj, self._outFormat ? self._outFormat : route.outFormat);
         return later.promise;
     };
+    /*
+     * HttpPlayer PUT
+     * Asks that the enclosed entity be stored under the supplied URI.
+     * The body sent to a post does not contain the resource name to be stored since that name is the URI.
+    */
     ResourcePlayer.prototype.put = function (route, body) {
-        var self = this;
-        var log = internals.log().child({ func: 'ResourcePlayer(' + self._name + ').put' });
+        var self = this; // use to consistently access this object.
+        var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').put' });
         var later = Q.defer();
         _.defer(function () {
-            later.reject(new rxError.RxError('Not Implemented'));
+            later.reject(new RxError('Not Implemented'));
         });
         return later.promise;
     };

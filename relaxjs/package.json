@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/micurs/relax.js"
   },
-  "version": "0.1.31",
+  "version": "0.1.4",
   "license": "MIT",
   "main": "dist/relaxjs.js",
   "bugs": "https://github.com/micurs/relax.js/issues",
@@ -28,7 +28,7 @@
     "definition": "dist/relaxjs.d.ts"
   },
   "scripts": {
-    "build": "gulp",
+    "build": "tsc -m commonjs -t ES5 --outdir dist --sourcemap --sourceRoot ../src src/routing.ts src/internals.ts src/relaxjs.ts",
     "tsd": "tsd reinstall --save --overwrite",
     "test": "jasmine-node --verbose --color tests"
   },

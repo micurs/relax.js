@@ -1,6 +1,6 @@
 
 /*
- * Realx.js v 0.1.1 type definitons
+ * Realx.js v 0.1.4 type definitons
  * Project: https://github.com/micurs/relax.js
  * Definitions by: Michele Ursino <http://github.com/micurs>
 */
@@ -12,26 +12,23 @@ declare module "relaxjs" {
 
   export function relax(): void;
 
-  export module rxError {
+  export interface IRxError extends Error {
+    httpCode: number;
+    extra: string;
+    getHttpCode(): number;
+    getExtra(): string;
+  }
 
-    export interface IRxError extends Error {
-      httpCode: number;
-      extra: string;
-      getHttpCode(): number;
-      getExtra(): string;
-    }
-
-    export class RxError implements IRxError {
-      httpCode: number;
-      extra: string;
-      public name: string;
-      public message: string;
-      public stack: string;
-      constructor( message: string, name?: string, code?: number, extra?: string );
-      getHttpCode(): number;
-      getExtra(): string;
-      toString(): string;
-    }
+  export class RxError implements IRxError {
+    httpCode: number;
+    extra: string;
+    public name: string;
+    public message: string;
+    public stack: string;
+    constructor( message: string, name?: string, code?: number, extra?: string );
+    getHttpCode(): number;
+    getExtra(): string;
+    toString(): string;
   }
 
   export module routing {
@@ -73,12 +70,14 @@ declare module "relaxjs" {
     name: string;
     urlName: string;
 
+    /*
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
     put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
     delete( route : routing.Route ) : Q.Promise<Embodiment> ;
     patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    */
   }
 
   export interface ResourceResponse {
@@ -88,10 +87,10 @@ declare module "relaxjs" {
     location?: string;
   }
 
-  export interface DataCallback {
-    ( err: Error, data?: ResourceResponse ): void;
-  }
-
+  /*
+   * This is the definition for a resource as entered by the user of the library.
+   * -----------------------------------------------------------------------------------------------------------------------------
+  */
   export interface Resource {
     name: string;
     key?: string;
@@ -100,13 +99,15 @@ declare module "relaxjs" {
     data?: any;
     resources?: Resource[];
     urlParameters?: string[];
-    onHead?: ( query: any, callback: DataCallback ) => void;
-    onGet?: ( query: any, callback: DataCallback ) => void;
-    onPost?: ( query: any, body: any, callback: DataCallback) => void;
-    onPut?: ( query: any, body: any, callback: DataCallback) => void;
-    onDelete?: ( query: any, callback: DataCallback ) => void;
-    onPatch?: ( query: any, body: any, callback: DataCallback) => void;
+    outFormat?: string;
+    onHead?: ( query: any, respond: Response ) => void;
+    onGet?: ( query: any, respond: Response ) => void;
+    onPost?: ( query: any, body: any, respond: Response) => void;
+    onPut?: ( query: any, body: any, respond: Response) => void;
+    onDelete?: ( query: any, respond: Response ) => void;
+    onPatch?: ( query: any, body: any, respond: Response) => void;
   }
+
 
   export interface ResourceMap {
     [name: string]: ResourcePlayer;
@@ -122,10 +123,6 @@ declare module "relaxjs" {
     setCookie( cookie: string );
     getCookies( ) : string[];
 
-    ok( response: DataCallback, data?: any ) : void;
-    redirect( response: DataCallback, where: string, data?: any ) : void ;
-    fail( response: DataCallback, data?: any ) : void;
-
     add( newRes: Resource ) : void ;
     remove( child: ResourcePlayer ) : boolean ;
     getResource( pathname: string ) : Container ;
@@ -135,12 +132,23 @@ declare module "relaxjs" {
     childrenCount() : number;
   }
 
+  export class Response {
+    constructor( resource: Container );
+
+    onOk( cb: ( resp: ResourceResponse ) => void );
+    onFail( cb: ( err: RxError ) => void );
+
+    ok() : void;
+    redirect( where: string ) : void ;
+    fail( err: RxError ) : void ;
+  }
+
   export interface FilterResultCB {
-    ( err: rxError.RxError, data: any ) : void;
+    ( err?: RxError, data?: any ) : void;
   }
 
   export interface FilterCB {
-    ( route : routing.Route, body: any, resultCall : FilterResultCB ) : void ;
+    ( route: routing.Route, body: any, resultCall : FilterResultCB ) : void ;
   }
 
   export class Site extends Container implements HttpPlayer {
@@ -159,12 +167,14 @@ declare module "relaxjs" {
     addRequestFilter( filterFunction: FilterCB ) : void;
     deleteRequestFilter( filterFunction?: FilterCB ) : boolean;
 
+    /*
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
     put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
     delete( route : routing.Route ) : Q.Promise<Embodiment> ;
     patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    */
   }
 
 
@@ -175,12 +185,14 @@ declare module "relaxjs" {
     constructor( res : Resource );
     readParameters( path: string[]) : number ;
 
+    /*
     head( route : routing.Route) : Q.Promise<Embodiment> ;
     get( route : routing.Route ) : Q.Promise<Embodiment> ;
     post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
     put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
     delete( route : routing.Route ) : Q.Promise<Embodiment> ;
     patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+    */
   }
 
   export function site( name?: string ) : Site;

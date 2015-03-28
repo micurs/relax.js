@@ -50,20 +50,21 @@ var typescript_options = {
   declaration: false,
   sourcemap: true,
   emitError: false,
-  removeComments: true,
-  outDir: './dist' };
+  removeComments: false,
+  outDir: 'dist',
+  sourceRoot: '../src'
+};
 
-var sources_to_compile = [ './src/relaxjs.ts',
-                           './src/internals.ts',
-                           './src/routing.ts',
-                           './src/rxerror.ts' ];
+var sources_to_compile = [ 'src/relaxjs.ts',
+                           'src/internals.ts',
+                           'src/routing.ts' ];
 
-var sources_to_copy = [ './src/relaxjs.d.ts' ];
-var dests = [ './dist/*.js' ];
+var sources_to_copy = [ 'src/relaxjs.d.ts' ];
+var dests = [ 'dist/*.js' ];
 
 gulp.task('relaxjs_copy', function() {
   return gulp.src( sources_to_copy )
-        .pipe(gulp.dest('./dist'));
+        .pipe(gulp.dest('dist'));
 });
 
 gulp.task('relaxjs_compile', function() {
@@ -93,4 +94,6 @@ gulp.task( 'watch', function() {
 gulp.task('test', [ 'lint' ], shell.task(['jasmine-node --verbose --color tests']) );
 
 // Default Task
+gulp.task('compile', ['relaxjs_compile', 'relaxjs_copy' ] );
+
 gulp.task( 'default', [ 'test' ] );

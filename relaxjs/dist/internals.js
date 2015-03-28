@@ -1,3 +1,7 @@
+/*
+ * Relax.js version 0.1.4
+ * by Michele Ursino - 2015
+*/
 var fs = require('fs');
 var mime = require('mime');
 var Q = require('q');
@@ -7,10 +11,12 @@ var _ = require("lodash");
 var xml2js = require('xml2js');
 var multiparty = require('multiparty');
 var relaxjs = require('./relaxjs');
-var rxError = require('./rxerror');
 var _log;
 var _appName;
 var _multipOptions = {};
+/*
+ * Bunyan log utilities
+*/
 function setLogVerbose(flag) {
     _log.level(bunyan.INFO);
 }
@@ -29,6 +35,9 @@ function log() {
     return _log;
 }
 exports.log = log;
+/*
+ * multipart/form-data settings
+*/
 function setMultipartDataTempDir(path) {
     _multipOptions.uploadDir = path;
 }
@@ -48,11 +57,14 @@ function slugify(source) {
     return res;
 }
 exports.slugify = slugify;
+/*
+ * Parse the body of a request according the given mime-type
+*/
 function parseRequestData(req, contentType) {
     var log = _log.child({ func: 'internals.parseData' });
     var later = Q.defer();
     var mimeType = contentType.split(/[\s,;]+/)[0];
-    if (mimeType == 'multipart/form-data') {
+    if (mimeType === 'multipart/form-data') {
         log.info('parsing multipart/form-data using multiparty');
         var form = new multiparty.Form(_multipOptions);
         form.parse(req, function (err, mpfields, mpfiles) {
@@ -66,12 +78,13 @@ function parseRequestData(req, contentType) {
         });
     }
     else {
+        // Read the full message body before parsing (if available)
         var bodyData = '';
         req.on('data', function (data) {
             bodyData += data;
         });
         req.on('end', function () {
-            if (!bodyData || bodyData.length == 0) {
+            if (!bodyData || bodyData.length === 0) {
                 later.resolve({});
                 return later.promise;
             }
@@ -113,21 +126,28 @@ function parseRequestData(req, contentType) {
     return later.promise;
 }
 exports.parseRequestData = parseRequestData;
+// Internal functions to emit error/warning messages
 function emitCompileViewError(content, err, filename) {
     var errTitle = '[error] Compiling View: %s' + filename;
     var errMsg = err.message;
     var code = format('<h4>Content being compiled</h4><pre>{0}</pre>', _.escape(content));
     _log.error(errTitle);
-    return new rxError.RxError(errMsg, errTitle, 500, code);
+    return new relaxjs.RxError(errMsg, errTitle, 500, code);
 }
 exports.emitCompileViewError = emitCompileViewError;
+/*
+ * Creates a RxError object with the given message and resource name
+ */
 function emitError(content, resname) {
     var errTitle = format('[error.500] Serving: {0}', resname);
     var errMsg = content;
     _log.error(errTitle);
-    return new rxError.RxError(errMsg, errTitle, 500);
+    return new relaxjs.RxError(errMsg, errTitle, 500);
 }
 exports.emitError = emitError;
+/*
+ * Emits a promise for a failure message
+*/
 function promiseError(msg, resName) {
     var later = Q.defer();
     _.defer(function () {
@@ -137,18 +157,25 @@ function promiseError(msg, resName) {
     return later.promise;
 }
 exports.promiseError = promiseError;
+/*
+ * Create a Redirect embodiment to force the requester to get the given location
+*/
 function redirect(location) {
     var later = Q.defer();
     _.defer(function () {
         _log.info('Sending a Redirect 307 towards %s', location);
         var redir = new relaxjs.Embodiment('text/html');
-        redir.httpCode = 307;
+        redir.httpCode = 307; // Temporary Redirect (since HTTP/1.1)
         redir.location = location;
         later.resolve(redir);
     });
     return later.promise;
 }
 exports.redirect = redirect;
+/*
+ * Realize a view from a generic get for a static file
+ * Return a promise that will return the full content of the view.
+*/
 function viewStatic(filename) {
     var fname = '[view static]';
     var log = _log.child({ func: 'internals.viewStatic' });
@@ -159,7 +186,7 @@ function viewStatic(filename) {
     fs.readFile(staticFile, function (err, content) {
         if (err) {
             log.warn('%s file "%s" not found', fname, staticFile);
-            laterAction.reject(new rxError.RxError(filename + ' not found', 'File Not Found', 404));
+            laterAction.reject(new relaxjs.RxError(filename + ' not found', 'File Not Found', 404));
         }
         else {
             laterAction.resolve(new relaxjs.Embodiment(mtype, 200, content));
@@ -168,6 +195,11 @@ function viewStatic(filename) {
     return laterAction.promise;
 }
 exports.viewStatic = viewStatic;
+/*
+ * Return a promise for a JSON or XML Embodiment for the given viewData.
+ * Note that this function strips automatically all the data item starting with '_'
+ * (undercore) since - as a convention in relax.js - these are private member variables.
+*/
 function createEmbodiment(viewData, mimeType) {
     var log = _log.child({ func: 'internals.viewJson' });
     var later = Q.defer();
@@ -175,8 +207,10 @@ function createEmbodiment(viewData, mimeType) {
     log.info('Creating Embodiment as %s', mimeType);
     _.defer(function () {
         try {
+            // 1 Copy the public properties and _name to a destination object for serialization.
             var destObj = {};
             _.each(_.keys(viewData), function (key) {
+                //
                 if (key === '_name') {
                     destObj['name'] = viewData[key];
                     resourceName = viewData[key];
@@ -184,9 +218,12 @@ function createEmbodiment(viewData, mimeType) {
                 else if (key.indexOf('_') === 0)
                     return;
                 else {
+                    //console.log('['+key+'] is '+viewData[key] );
                     destObj[key] = viewData[key];
                 }
             });
+            // 2 - build the embodiment serializing the data as a Buffer
+            // log.info('Serializing "%s"',JSON.stringify(destObj));
             var dataString = '';
             switch (mimeType) {
                 case 'application/xml':
@@ -198,17 +235,23 @@ function createEmbodiment(viewData, mimeType) {
                     dataString = JSON.stringify(destObj);
                     break;
             }
+            // log.info('Delivering: "%s"',dataString);
             var e = new relaxjs.Embodiment(mimeType, 200, new Buffer(dataString, 'utf-8'));
             later.resolve(e);
         }
         catch (err) {
             log.error(err);
-            later.reject(new rxError.RxError('JSON Serialization error: ' + err));
+            later.reject(new relaxjs.RxError('JSON Serialization error: ' + err));
         }
     });
     return later.promise;
 }
 exports.createEmbodiment = createEmbodiment;
+/*
+ * Realize the given view (viewName) merging it with the given data (viewData)
+ * It can use an embedding view layout as third argument (optional)
+ * Return a promise that will return the full content of the view + the viewdata.
+*/
 function viewDynamic(viewName, viewData, layoutName) {
     var log = _log.child({ func: 'internals.viewDynamic' });
     var laterAct = Q.defer();

@@ -1,6 +1,6 @@
 /*
- * Relax.js version 0.1.3
- * by Michele Ursino March - 2015
+ * Relax.js version 0.1.4
+ * by Michele Ursino - 2015
 */
 
 ///<reference path='../typings/node/node.d.ts' />
@@ -24,7 +24,6 @@ import xml2js = require('xml2js');
 import multiparty = require('multiparty');
 
 import relaxjs = require('./relaxjs');
-import rxError = require('./rxerror');
 
 
 var _log : bunyan.Logger;
@@ -88,7 +87,7 @@ export function parseRequestData( req: http.ServerRequest,  contentType: string 
   var later = Q.defer< any >();
   var mimeType = contentType.split(/[\s,;]+/)[0];
 
-  if ( mimeType=='multipart/form-data' ) {
+  if ( mimeType === 'multipart/form-data' ) {
     log.info('parsing multipart/form-data using multiparty');
     var form = new multiparty.Form( _multipOptions );
     form.parse(req, function(err, mpfields, mpfiles) {
@@ -106,7 +105,7 @@ export function parseRequestData( req: http.ServerRequest,  contentType: string 
     var bodyData : string = '';
     req.on('data', function (data) { bodyData += data; });
     req.on('end', function () {
-      if ( !bodyData || bodyData.length==0 ) {
+      if ( !bodyData || bodyData.length === 0 ) {
         later.resolve({});
         return later.promise;
       }
@@ -152,22 +151,22 @@ export function parseRequestData( req: http.ServerRequest,  contentType: string 
 }
 
 // Internal functions to emit error/warning messages
-export function emitCompileViewError( content: string, err: TypeError, filename: string ) : rxError.RxError {
+export function emitCompileViewError( content: string, err: TypeError, filename: string ) : relaxjs.RxError {
   var errTitle = '[error] Compiling View: %s'+ filename ;
   var errMsg = err.message;
   var code =  format('<h4>Content being compiled</h4><pre>{0}</pre>', _.escape(content));
   _log.error(errTitle);
-  return new rxError.RxError(errMsg, errTitle, 500, code );
+  return new relaxjs.RxError(errMsg, errTitle, 500, code );
 }
 
 /*
  * Creates a RxError object with the given message and resource name
  */
-export function emitError( content: string, resname: string ) : rxError.RxError {
+export function emitError( content: string, resname: string ) : relaxjs.RxError {
   var errTitle = format('[error.500] Serving: {0}', resname);
   var errMsg = content;
   _log.error(errTitle);
-  return new rxError.RxError(errMsg, errTitle, 500 );
+  return new relaxjs.RxError(errMsg, errTitle, 500 );
 }
 
 /*
@@ -212,7 +211,7 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
   fs.readFile( staticFile, function( err : Error, content : Buffer ) {
     if ( err ) {
       log.warn('%s file "%s" not found',fname,staticFile);
-      laterAction.reject( new rxError.RxError( filename + ' not found', 'File Not Found', 404 ) );
+      laterAction.reject( new relaxjs.RxError( filename + ' not found', 'File Not Found', 404 ) );
     }
     else {
       laterAction.resolve( new relaxjs.Embodiment( mtype, 200, content ) );
@@ -267,7 +266,7 @@ export function createEmbodiment( viewData: any, mimeType: string ) : Q.Promise<
     }
     catch( err ) {
       log.error(err);
-      later.reject( new rxError.RxError('JSON Serialization error: '+err ) )
+      later.reject( new relaxjs.RxError('JSON Serialization error: '+err ) )
     }
   });
   return later.promise;

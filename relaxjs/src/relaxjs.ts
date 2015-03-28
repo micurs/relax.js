@@ -1,5 +1,5 @@
 /*
- * Relax.js version 0.1.3
+ * Relax.js version 0.1.4
  * by Michele Ursino March - 2015
 */
 
@@ -29,92 +29,59 @@ exports.rxError = rxError;
 export var version = package.version;
 
 export function relax() : void {
-  console.log('relax.js !');
+  console.log('relaxjs !');
 }
 
 
+
 /*
- * The resource player implement the resource runtime capabilities.
- * Derived classed manage the flow of requests coming from the site.
- * HttpPlayer defines all the HTTP verb functions.
+ * Standard node Error: type declaration
 */
-export interface HttpPlayer {
-  name : string;
-  urlName: string;
-
-
-  // Asks for the response identical to the one that would correspond to a GET request, but without the response body.
-  head( route : routing.Route) : Q.Promise<Embodiment> ;
-
-  // Requests a representation of the specified resource.
-  get( route : routing.Route ) : Q.Promise<Embodiment> ;
-
-  // Requests that the server accept the entity enclosed in the request as a new subordinate
-  // of the web resource identified by the URI.
-  post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
-
-  // Requests that the enclosed entity be stored under the supplied URI.
-  // If the URI refers to an already existing resource, it is modified otherwise the resource can be created.
-  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
-
-  // Deletes the specified resource.
-  delete( route : routing.Route ) : Q.Promise<Embodiment> ;
-
-  // Applies partial modifications to a resource.
-  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+declare class Error {
+    public name: string;
+    public message: string;
+    public stack: string;
+    constructor(message?: string);
 }
 
 
 /*
- * Response definition every resource generate an instance of ResourceResponse
- * by calling the DataCallback response function.
+ * Extended Error information for Relax.js
 */
-export interface ResourceResponse {
-  result: string;
-  data?: any;
-  httpCode?: number;
-  location?: string;
-  cookiesData?: string[];
+export interface IRxError extends Error {
+  httpCode: number;
+  extra: string;
+  getHttpCode(): number;
+  getExtra(): string;
 }
 
-
 /*
- * Type definition for the response callback function to use on the HTTP verb function
+ * Extended Error class for Relax.js
 */
-export interface DataCallback {
-  ( err: Error, resp?: ResourceResponse ): void;
-}
+export class RxError implements IRxError {
+  httpCode: number;
+  extra: string;
+  public name: string;
+  public message: string;
+  public stack: string;
+  constructor( message: string, name?: string, code?: number, extra?: string ) {
+    var tmp = new Error();
+    this.message = message;
+    this.name = name;
+    this.httpCode = code ? code : 500;
+    this.stack = tmp.stack;
+    this.extra = extra;
+  }
+  getHttpCode(): number {
+    return this.httpCode;
+  }
+  getExtra(): string {
+    return this.extra ? this.extra : '' ;
+  }
 
-/*
- * A filter function is called on every request and can stop the dispatch of the request to the
- * target resource. The call is asyncronous. When complete it must call the resultCall passed
- * as third argument.
- * Note: the filter is called by the Site before evenb attempting to route the request to a
- * resource.
- */
-export interface RequestFilter {
-  ( route : routing.Route, body: any, result : DataCallback ) : void ;
-}
-
-
-/*
- * This is the definition for a resource as entered by the user of the library.
-*/
-export interface Resource {
-  name: string;
-  key?: string;
-  view?: string;
-  layout?: string;
-  data?: any;
-  resources?: Resource[];
-  urlParameters?: string[];
-  outFormat?: string;
-  onHead?: ( query: any, callback: DataCallback ) => void;
-  onGet?: ( query: any, callback: DataCallback ) => void;
-  onPost?: ( query: any, body: any, callback: DataCallback) => void;
-  onPut?: ( query: any, body: any, callback: DataCallback) => void;
-  onDelete?: ( query: any, callback: DataCallback ) => void;
-  onPatch?: ( query: any, body: any, callback: DataCallback) => void;
+  toString(): string {
+    return internals.format('RxError {0}: {1}\n{2}\nStack:\n{3}',this.httpCode,this.name,this.message,this.stack);
+  }
 }
 
 
@@ -128,70 +95,28 @@ export interface ResourceMap {
 
 
 /*
- * Every resource is converted to their embodiment before they can be served
+ * Type definition for the response callback function to use on the HTTP verb function
 */
-export class Embodiment {
-
-  public httpCode : number;
-  public location : string;
-  public mimeType : string;
-  public body : Buffer;
-  public cookiesData: string[] = []; // example a cookie valie would be ["type=ninja", "language=javascript"]
-
-  constructor(  mimeType: string, code: number = 200, body?: Buffer ) {
-    this.httpCode = code;
-    this.body = body;
-    this.mimeType = mimeType;
-  }
-
-  // Add a serialized cookie to be returned as a set  cookie in a response.
-  addSetCookie( cookie: string ) {
-    this.cookiesData.push(cookie);
-  }
-
-  serve(response: http.ServerResponse) : void {
-    var log = internals.log().child( { func: 'Embodiment.serve'} );
-    var headers = { 'content-type' : this.mimeType };
-    if ( this.body )
-      headers['content-length'] = this.body.length;
-    if ( this.location )
-      headers['Location'] = this.location;
-
-    // Add the cookies set to the header
-    _.each( this.cookiesData, (cookie) => response.setHeader('Set-Cookie', cookie ) );
-
-    response.writeHead( this.httpCode, headers );
-    if ( this.body ) {
-      response.write(this.body);
-      if ( this.body.length>1024 )
-        log.info( 'Sending %s Kb (as %s)', Math.round(this.body.length/1024), this.mimeType ) ;
-      else
-        log.info( 'Sending %s bytes (as %s)', this.body.length,this.mimeType );
-    }
-    response.end();
-  }
-
-  bodyAsString() : string {
-    return this.body.toString('utf-8');
-  }
-  bodyAsJason() : any {
-    return JSON.parse(this.bodyAsString());
-  }
+/*
+export interface DataCallback {
+  ( err: Error, resp?: ResourceResponse ): void;
 }
+*/
 
 
 /*
  * A container of resources. This class offer helper functions to add and retrieve resources
  * child resources
+ * -----------------------------------------------------------------------------------------------------------------------------
 */
 export class Container {
   protected _name: string = '';
   private _parent: Container;
-
   protected _cookiesData : string[] = [];   // Outgoing cookies to be set
   protected _cookies: string[] = [];        // Received cookies unparsed
+  protected _resources: ResourceMap = {};
 
-  public _resources:ResourceMap = {};
+  public data : any = {};
 
   constructor( parent?: Container ) {
     this._parent = parent;
@@ -218,28 +143,11 @@ export class Container {
     return this._cookies;
   }
 
-  // Helper function to call the response callback with a succesful code 'ok'
-  ok( response: DataCallback, data?: any ) : void {
-    var respObj : ResourceResponse = { result: 'ok', httpCode: 200, cookiesData: this._cookiesData };
-    if ( data )
-      respObj['data'] = data;
-    response( null, respObj );
+  get cookiesData() : string[] {
+    return this._cookiesData;
   }
 
-  // Helper function to call the response callback with a redirect code 303
-  redirect( response: DataCallback, where: string, data?: any ) : void {
-    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where, cookiesData: this._cookiesData  };
-    if ( data )
-      respObj['data'] = data;
-    response( null, respObj );
-  }
 
-  // Helper function to call the response callback with a fail error
-  fail( response: DataCallback, err: rxError.RxError ) : void {
-    var log = internals.log().child( { func: this._name+'.fail'} );
-    log.info('Call failed: %s', err.message );
-    response( err, null );
-  }
 
   /*
    * Remove a child resource from this container
@@ -265,12 +173,12 @@ export class Container {
    * This function manages also the interpretaiton of an index in the path immediately
    * after the resource name.
   */
-  protected _getStepDirection( route : routing.Route ) : routing.Direction {
+  protected _getStepDirection( route : routing.Route ) : Direction {
     var log = internals.log().child( { func: 'Container.getStepDirection'} );
-    var direction: routing.Direction = new routing.Direction();
-    log.info('Get the next step on %s', JSON.stringify(route.path) );
+    var direction: Direction = new Direction();
+    log.info('Follow next step on %s', JSON.stringify(route.path) );
     direction.route = route.stepThrough(1);
-    var childResName = direction.route.getNextStep();
+    var childResName : string = direction.route.getNextStep();
 
     if ( childResName in this._resources ) {
       var idx:number = 0;
@@ -302,7 +210,7 @@ export class Container {
    * The Direction object returned may point directly to the resource requested or
    * may point to a resource that will lead to the requested resource
   */
-  protected _getDirection( route: routing.Route, verb : string = 'GET' ) : routing.Direction {
+  protected _getDirection( route: routing.Route, verb : string = 'GET' ) : Direction {
     var log = internals.log().child( { func: 'Container._getDirection'} );
 
     log.info('%s Step into %s ', verb, route.pathname );
@@ -399,6 +307,201 @@ export class Container {
 
 }
 
+/*
+ * Response definition: every resource generate an instance of ResourceResponse
+ * by calling a response function ( ok(), fail() or redirect() ) from a response object
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+export interface ResourceResponse {
+  result: string;
+  data?: any;
+  httpCode?: number;
+  location?: string;
+  cookiesData?: string[];
+}
+
+/*
+ * Helper class used to deliver a response from a HTTP verb function call.
+ * An instance of this class is passed as argument to all verb functions
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+export class Response {
+
+  private _onOk : ( resp: ResourceResponse ) => void;
+  private _onFail : ( err: RxError ) => void
+  private _resource : Container;
+
+  constructor( resource: Container ) {
+    this._resource = resource;
+  }
+
+  onOk( cb: ( resp: ResourceResponse ) => void ) {
+    this._onOk = cb;
+  }
+  onFail( cb: ( err: RxError ) => void ) {
+    this._onFail = cb;
+  }
+
+  // Helper function to call the response callback with a succesful code 'ok'
+  ok() : void {
+    var respObj : ResourceResponse = { result: 'ok', httpCode: 200, cookiesData: this._resource.cookiesData };
+    respObj['data'] = this._resource.data;
+    if (this._onOk)
+      this._onOk( respObj );
+  }
+
+  // Helper function to call the response callback with a redirect code 303
+  redirect( where: string ) : void {
+    var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where, cookiesData: this._resource.cookiesData  };
+    respObj['data'] = this._resource.data;
+    if (this._onOk)
+      this._onOk( respObj );
+  }
+
+  // Helper function to call the response callback with a fail error
+  fail( err: RxError ) : void {
+    var log = internals.log().child( { func: this._resource.name+'.fail'} );
+    log.info('Call failed: %s', err.message );
+    if (this._onFail)
+      this._onFail( err );
+  }
+}
+
+
+export class Direction {
+  resource : Container;
+  route: routing.Route;
+  verb: string;
+}
+
+export interface FilterResultCB {
+  ( err?: RxError, data?: any ) : void;
+}
+
+/*
+ * A filter function is called on every request and can stop the dispatch of the request to the
+ * target resource. The call is asyncronous. When complete it must call the resultCall passed
+ * as third argument.
+ * Note: the filter is called by the Site before evenb attempting to route the request to a
+ * resource.
+ */
+export interface RequestFilter {
+  ( route : routing.Route, body: any, resultCall : FilterResultCB ) : void ;
+}
+
+
+/*
+ * The resource player implement the resource runtime capabilities.
+ * Derived classed manage the flow of requests coming from the site.
+ * HttpPlayer defines all the HTTP verb functions.
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+export interface HttpPlayer {
+  name : string;
+  urlName: string;
+
+
+  // Asks for the response identical to the one that would correspond to a GET request, but without the response body.
+  head( route : routing.Route) : Q.Promise<Embodiment> ;
+
+  // Requests a representation of the specified resource.
+  get( route : routing.Route ) : Q.Promise<Embodiment> ;
+
+  // Requests that the server accept the entity enclosed in the request as a new subordinate
+  // of the web resource identified by the URI.
+  post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+
+  // Requests that the enclosed entity be stored under the supplied URI.
+  // If the URI refers to an already existing resource, it is modified otherwise the resource can be created.
+  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+
+  // Deletes the specified resource.
+  delete( route : routing.Route ) : Q.Promise<Embodiment> ;
+
+  // Applies partial modifications to a resource.
+  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+}
+
+
+
+
+
+/*
+ * This is the definition for a resource as entered by the user of the library.
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+export interface Resource {
+  name: string;
+  key?: string;
+  view?: string;
+  layout?: string;
+  data?: any;
+  resources?: Resource[];
+  urlParameters?: string[];
+  outFormat?: string;
+  onHead?: ( query: any, respond: Response ) => void;
+  onGet?: ( query: any, respond: Response ) => void;
+  onPost?: ( query: any, body: any, respond: Response) => void;
+  onPut?: ( query: any, body: any, respond: Response) => void;
+  onDelete?: ( query: any, respond: Response ) => void;
+  onPatch?: ( query: any, body: any, respond: Response) => void;
+}
+
+
+
+/*
+ * Every resource is converted to their embodiment before is sent back as a HTTP Response
+ * -----------------------------------------------------------------------------------------------------------------------------
+*/
+export class Embodiment {
+
+  public httpCode : number;
+  public location : string;
+  public mimeType : string;
+  public body : Buffer;
+  public cookiesData: string[] = []; // example a cookie valie would be ["type=ninja", "language=javascript"]
+
+  constructor(  mimeType: string, code: number = 200, body?: Buffer ) {
+    this.httpCode = code;
+    this.body = body;
+    this.mimeType = mimeType;
+  }
+
+  // Add a serialized cookie to be returned as a set  cookie in a response.
+  addSetCookie( cookie: string ) {
+    this.cookiesData.push(cookie);
+  }
+
+  serve(response: http.ServerResponse) : void {
+    var log = internals.log().child( { func: 'Embodiment.serve'} );
+    var headers = { 'content-type' : this.mimeType };
+    if ( this.body )
+      headers['content-length'] = this.body.length;
+    if ( this.location )
+      headers['Location'] = this.location;
+
+    // Add the cookies set to the header
+    _.each( this.cookiesData, (cookie) => response.setHeader('Set-Cookie', cookie ) );
+
+    response.writeHead( this.httpCode, headers );
+    if ( this.body ) {
+      response.write(this.body);
+      if ( this.body.length>1024 )
+        log.info( 'Sending %s Kb (as %s)', Math.round(this.body.length/1024), this.mimeType ) ;
+      else
+        log.info( 'Sending %s bytes (as %s)', this.body.length,this.mimeType );
+    }
+    response.end();
+    log.info( '<< REQUEST: Complete');
+  }
+
+  bodyAsString() : string {
+    return this.body.toString('utf-8');
+  }
+  bodyAsJason() : any {
+    return JSON.parse(this.bodyAsString());
+  }
+}
 
 /*
  * Root object for the application is the Site.
@@ -446,11 +549,11 @@ export class Site extends Container implements HttpPlayer {
    * The Direction object returned may point directly to the resource requested or
    * may point to a resource that will lead to the requested resource
   */
-  protected _getDirection( route: routing.Route, verb : string = 'GET' ) : routing.Direction {
+  protected _getDirection( route: routing.Route, verb : string = 'GET' ) : Direction {
     var log = internals.log().child( { func: 'Site._getDirection'} );
     var cachedPath = this._pathCache[route.pathname];
     if ( cachedPath ) {
-      var direction = new routing.Direction();
+      var direction = new Direction();
       direction.resource = cachedPath.resource;
       direction.route = route;
       direction.route.path = cachedPath.path;
@@ -486,7 +589,7 @@ export class Site extends Container implements HttpPlayer {
   }
 
   // Output to response the given error following the mime type in format.
-  private _outputError( response : http.ServerResponse, error:rxError.RxError, format: string ) {
+  private _outputError( response : http.ServerResponse, error:RxError, format: string ) {
     var mimeType = format.split(/[\s,]+/)[0];
     var errCode = error.getHttpCode ? error.getHttpCode() : 500;
     response.writeHead( errCode, { 'content-type': mimeType } );
@@ -502,10 +605,12 @@ export class Site extends Container implements HttpPlayer {
 
     switch( mimeType ) {
       case 'text/html':
-        response.write('<h1>relax.js: We Got Errors</h1>');
+        response.write('<html><body style="font-family:arial;">');
+        response.write('<h1>relaxjs: the resource request caused an error.</h1>');
         response.write('<h2>'+error.name+'</h2>');
         response.write('<h3 style="color:red;">'+_.escape(error.message)+'</h3><hr/>');
         response.write('<pre>'+_.escape(error.stack)+'</pre>');
+        response.write('<body></html>');
       break;
       case 'application/xml':
       case 'text/xml':
@@ -550,10 +655,10 @@ export class Site extends Container implements HttpPlayer {
 
     // Filter the request: execute all the filters regarding if the fail or not
     Q.all( filtersCalls )
-      .then( ( replies : ResourceResponse[] ) => {
-        // If any filter filled the reply with some data we need to return that instead of leaving the
-        // request to the destination resource.
-        var filterResponse = _.find( replies, (r: ResourceResponse) => r.httpCode != 200 || r.data !== undefined );
+      .then( ( dataArr : any[] ) => {
+
+        // If any filter returns some data we send that back instead of leaving the request to the destination resource.
+        var filterResponse = _.find( dataArr, ( resp ) => resp && resp.data !== undefined );
 
         if ( !filterResponse ) {
           later.resolve(true);
@@ -569,7 +674,7 @@ export class Site extends Container implements HttpPlayer {
             later.resolve(false);
           })
         })
-      .fail( ( err : rxError.RxError ) => {
+      .fail( ( err : RxError ) => {
         later.reject( err );
         });
 
@@ -589,7 +694,7 @@ export class Site extends Container implements HttpPlayer {
 
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
 
-      log.info('   REQUEST: %s', route.verb );
+      log.info('>> REQUEST: %s', route.verb );
       log.info('      PATH: %s %s', route.pathname, route.query);
       log.info('Out FORMAT: %s', route.outFormat);
       log.info(' In FORMAT: %s', route.inFormat);
@@ -618,7 +723,7 @@ export class Site extends Container implements HttpPlayer {
                   .done();
               }
             })
-            .fail( (error: rxError.RxError ) => {
+            .fail( (error: RxError ) => {
               if ( error.httpCode >= 300 )
                 log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
               self._outputError(response, error , route.outFormat );
@@ -770,6 +875,7 @@ export class Site extends Container implements HttpPlayer {
  * ResourcePlayer absorbs a user defined resource and execute the HTTP requests.
  * The player dispatch requests to the childres resources or invoke user defined
  * response function for each verb.
+ * -----------------------------------------------------------------------------------------------------------------------------
 */
 export class ResourcePlayer extends Container implements HttpPlayer {
 
@@ -779,29 +885,31 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   private _layout: string;
   private _paramterNames: string[];
   private _outFormat: string;
-  private _onGet : ( query: any ) => Q.Promise<any>;
-  private _onPost : ( query: any, body: any ) => Q.Promise<any>;
-  private _onPatch : ( query: any, body: any ) => Q.Promise<any>;
-  private _onDelete : ( query: any ) => Q.Promise<any>;
-  private _onPut : ( query: any, body: any ) => Q.Promise<any>;
+
+  private _onGet : ( query: any, respond: Response ) => void;
+  private _onPost : ( query: any, body: any, respond: Response ) => void;
+  private _onPatch : ( query: any, body: any, respond: Response ) => void;
+  private _onDelete : ( query: any, respond: Response ) => void;
+  private _onPut : ( query: any, body: any, respond: Response ) => void;
+
   private _parameters = {};
 
-  public data = {};
+  // public data = {};
 
   constructor( res : Resource, parent: Container ) {
     super(parent);
     var self = this;
-    self._name = res.name;
+    self.setName(res.name);
     self._template = res.view;
     self._layout = res.layout;
     self._paramterNames = res.urlParameters ? res.urlParameters : [];
     self._parameters = {};
     self._outFormat = res.outFormat;
-    self._onGet = res.onGet ? Q.nbind(res.onGet,this) : undefined ;
-    self._onPost = res.onPost ? Q.nbind(res.onPost,this) : undefined ;
-    self._onPatch = res.onPatch ? Q.nbind(res.onPatch,this) : undefined ;
-    self._onDelete = res.onDelete ? Q.nbind(res.onDelete,this) : undefined ;
-    self._onPut = res.onPut ? Q.nbind(res.onPut,this) : undefined ;
+    self._onGet = res.onGet;
+    self._onPost = res.onPost;
+    self._onPatch = res.onPatch;
+    self._onDelete = res.onDelete;
+    self._onPut = res.onPut;
 
     // Add children resources if available
     if ( res.resources ) {
@@ -817,13 +925,21 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     this._outFormat = fmt;
   }
 
+  set outFormat( f: string ) {
+    this._outFormat = f;
+  }
+
+  get resources() {
+    return this._resources;
+  }
+
 
   /*
    * Reads the parameters from a route and store them in the this._parmaters member.
    * Return the number of paramters correcly parsed.
   */
   private _readParameters( path: string[], generateError: boolean = true ) : number {
-    var log = internals.log().child( { func: this._name+'._readParameters'} );
+    var log = internals.log().child( { func: this.name+'._readParameters'} );
     var counter = 0;
     _.each(this._paramterNames, ( parameterName, idx, list) => {
       if ( !path[idx+1] ) {
@@ -864,7 +980,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
                          outFormat: string,
                          deliverAnyFormat: boolean = false ) : void {
     var self = this;
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+')._deliverReply'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self.name+')._deliverReply'} );
     var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
     log.info('Formats: %s', JSON.stringify(mimeTypes));
 
@@ -911,7 +1027,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
           later.resolve( new Embodiment( outFormat, 200, resResponse.data ) );
         }
         else {
-          later.reject(new rxError.RxError( 'output as ('+outFormat+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
+          later.reject(new RxError( 'output as ('+outFormat+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
         }
       }
     }
@@ -928,7 +1044,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   head( route : routing.Route) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var later = Q.defer< Embodiment >();
-    _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
     return later.promise;
   }
 
@@ -940,7 +1056,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   get( route: routing.Route ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').get'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').get'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -949,7 +1065,6 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       var direction = self._getStepDirection( route );
       if ( direction.resource ) {
         var res = <ResourcePlayer>(direction.resource);
-        log.info('GET on resource "%s"',res.name );
         return res.get( direction.route );
       }
       else {
@@ -961,10 +1076,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // 2 - Read the parameters from the route
-    log.info('GET Target Found : %s (requires %d parameters)', self._name, paramCount );
+    log.info('GET Target Found : %s (requires %d parameters)', self.name, paramCount );
     if ( paramCount>0 ) {
       if ( self._readParameters(route.path)<paramCount ) {
-        later.reject( new rxError.RxError('Not enough paramters available in the URI ','GET '+self.name, 404));
+        later.reject( new RxError('Not enough paramters available in the URI ','GET '+self.name, 404));
         return later.promise;
       }
     }
@@ -977,24 +1092,25 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
-      log.info('Invoking onGet()! on %s (%s)', self._name, route.outFormat );
+      log.info('Invoking onGet()! on %s (%s)', self.name, route.outFormat );
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
-      self._onGet( route.query )
-        .then( function( response: ResourceResponse ) {
-          self._updateData(response.data);
-          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat, self._outFormat!==undefined );
-        })
-        .fail( function( rxErr: rxError.RxError ) {
-          later.reject(rxErr);
-        })
-        .catch(function (error) {
-          later.reject(error);
-        });
+      var response = new Response( self );
+      response.onOk( ( resresp: ResourceResponse ) => {
+        self._updateData(resresp.data);
+        self._deliverReply(later, resresp, self._outFormat ? self._outFormat: route.outFormat, self._outFormat!==undefined );
+      });
+      response.onFail( ( rxErr: RxError ) => later.reject(rxErr) );
+      try {
+        self._onGet( route.query, response );
+      }
+      catch( error) {
+        later.reject(error);
+      }
       return later.promise;
     }
 
     // 4 - Perform the default GET that is: deliver the data associated with this resource
-    log.info('Returning static data from %s', self._name);
+    log.info('Returning static data from %s', self.name);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
     self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat );
     return later.promise;
@@ -1007,7 +1123,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   delete( route : routing.Route ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').delete'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').delete'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -1026,31 +1142,35 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // 2 - Read the parameters from the route
-    log.info('DELETE Target Found : %s (requires %d parameters)', self._name, paramCount );
+    log.info('DELETE Target Found : %s (requires %d parameters)', self.name, paramCount );
     if ( paramCount>0 ) {
       if ( self._readParameters(route.path)<paramCount ) {
-        later.reject( new rxError.RxError('Not enough paramters available in the URI ','DELETE '+self.name, 404));
+        later.reject( new RxError('Not enough paramters available in the URI ','DELETE '+self.name, 404));
         return later.promise;
       }
     }
 
     // If the onDelete() is defined use it to invoke a user define delete.
     if ( self._onDelete ) {
-      log.info('call onDelete() for %s',self._name );
+      log.info('call onDelete() for %s',self.name );
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
-      this._onDelete( route.query )
-        .then( function( response: ResourceResponse ) {
-          self._updateData(response.data);
-          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
-        })
-        .fail( function( rxErr: rxError.RxError ) {
-          later.reject(rxErr);
-        });
+      var response = new Response( self );
+      response.onOk( ( resresp: ResourceResponse ) => {
+        self._updateData(resresp.data);
+        self._deliverReply(later, resresp, self._outFormat ? self._outFormat: route.outFormat  );
+      });
+      response.onFail( ( rxErr: RxError ) => later.reject(rxErr) );
+      try {
+        this._onDelete( route.query, response );
+      }
+      catch( err ) {
+        later.reject(err);
+      }
       return later.promise;
     }
 
     // 4 - Perform the default DELETE that is: delete this resource
-    log.info('Default Delete: Removing resource %s',self._name );
+    log.info('Default Delete: Removing resource %s',self.name );
     self.parent.remove(self);
     self.parent = null;
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
@@ -1066,7 +1186,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').post'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').post'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -1084,7 +1204,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // 2 - Read the parameters from the route
-    log.info('POST Target Found : %s (requires %d parameters)', self._name, paramCount );
+    log.info('POST Target Found : %s (requires %d parameters)', self.name, paramCount );
     if ( paramCount>0 ) {
       // In a POST not finding all the paramters expeceted should not fail the call.
       self._readParameters(route.path,false);
@@ -1092,20 +1212,24 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // Call the onPost() for this resource (user code)
     if ( self._onPost ) {
-      log.info('calling onPost() for %s', self._name );
+      log.info('calling onPost() for %s', self.name );
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
-      self._onPost( route.query, body )
-        .then( ( response: ResourceResponse ) => {
-          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
-        })
-        .fail( function( rxErr: rxError.RxError ) {
-          later.reject(rxErr);
-        });
+      var response = new Response( self );
+      response.onOk( ( resresp: ResourceResponse ) => {
+        self._deliverReply(later, resresp, self._outFormat ? self._outFormat: route.outFormat  );
+      });
+      response.onFail( ( rxErr: RxError ) => later.reject(rxErr) );
+      try {
+        self._onPost( route.query, body, response );
+      }
+      catch( err ) {
+        later.reject( new RxError(err) );
+      }
       return later.promise;
     }
 
     // 4 - Perform the default POST that is: set the data directly
-    log.info('Adding data for %s',self._name );
+    log.info('Adding data for %s',self.name );
     self._updateData(body);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
     self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat );
@@ -1119,7 +1243,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').patch'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').patch'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
 
@@ -1137,31 +1261,35 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     }
 
     // 2 - Read the parameters from the route
-    log.info('PATCH Target Found : %s (requires %d parameters)', self._name, paramCount );
+    log.info('PATCH Target Found : %s (requires %d parameters)', self.name, paramCount );
     if ( paramCount>0 ) {
       if ( self._readParameters(route.path)<paramCount ) {
-        later.reject( new rxError.RxError('Not enough paramters available in the URI ','PATCH '+self.name, 404));
+        later.reject( new RxError('Not enough paramters available in the URI ','PATCH '+self.name, 404));
         return later.promise;
       }
     }
 
     // 3 - call the resource defined function to respond to a PATCH request
     if ( self._onPatch ) {
-      log.info('calling onPatch() for %s',self._name );
+      log.info('calling onPatch() for %s',self.name );
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
-      self._onPatch( route.query, body )
-        .then( ( response: ResourceResponse ) => {
-          self._updateData(response.data);
-          self._deliverReply(later, response, self._outFormat ? self._outFormat: route.outFormat  );
-        })
-        .fail( function( rxErr: rxError.RxError ) {
-          later.reject(rxErr);
-        });
+      var response = new Response( self );
+      response.onOk(  ( resresp: ResourceResponse ) => {
+        self._updateData(resresp.data);
+        self._deliverReply(later, resresp, self._outFormat ? self._outFormat: route.outFormat  );
+      })
+      response.onFail( ( rxErr: RxError ) => later.reject(rxErr) );
+      try {
+        self._onPatch( route.query, body, response );
+      }
+      catch( err ) {
+        later.reject( new RxError(err) );
+      }
       return later.promise;
     }
 
     // 4 - Perform the default PATH that is set the data directly
-    log.info('Updating data for %s',self._name );
+    log.info('Updating data for %s',self.name );
     self._updateData(body);
     var responseObj : ResourceResponse = { result: 'ok', httpCode: 200, data: self.data };
     self._deliverReply(later, responseObj, self._outFormat ? self._outFormat: route.outFormat  );
@@ -1176,10 +1304,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   */
   put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
-    var log = internals.log().child( { func: 'ResourcePlayer('+self._name+').put'} );
+    var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').put'} );
 
     var later = Q.defer< Embodiment >();
-    _.defer( () => { later.reject( new rxError.RxError('Not Implemented')) });
+    _.defer( () => { later.reject( new RxError('Not Implemented')) });
     return later.promise;
   }
 

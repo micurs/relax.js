@@ -1,6 +1,6 @@
 /*
- * Relax.js version 0.1.3
- * by Michele Ursino March - 2015
+ * Relax.js version 0.1.4
+ * by Michele Ursino - 2015
  */
 
 ///<reference path='../typings/node/node.d.ts' />
@@ -80,11 +80,6 @@ export class Route {
   }
 }
 
-export class Direction {
-  resource : relaxjs.Container;
-  route: Route;
-  verb: string;
-}
 
 // --------------------------------------------------------------
 // GET /home/users?id=100
