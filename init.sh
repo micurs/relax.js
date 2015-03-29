@@ -25,25 +25,6 @@ sudo npm link --no-bin-link
 
 
 echo .
-echo "= sample02 update and compile"
-cd /examples/sample02
-npm install --no-bin-link
-npm run typings
-
-echo .
-echo "= sample03 update and compile"
-cd /examples/sample03
-npm install --no-bin-link
-npm run typings
-
-echo .
-echo "= sample04 update and compile"
-cd /examples/sample04
-npm install --no-bin-link
-npm run typings
-
-
-echo .
 echo "= Start Redis "
 cd
 redis-server &
