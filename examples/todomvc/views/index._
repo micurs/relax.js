@@ -2,7 +2,7 @@
 <html lang="en" data-framework="react">
 	<head>
 		<meta charset="utf-8">
-		<title>React • Relax.js • TodoMVC • v. <%= data.version %></title>
+		<title>React • relaxjs • TodoMVC • v. <%= data.version %></title>
 		<link rel="stylesheet" href="/bower_components/todomvc-common/base.css">
 	</head>
 	<body>
@@ -10,7 +10,7 @@
 		<footer id="info">
 			<p>Double-click to edit a todo</p>
 			<p>Created by <a href="http://github.com/petehunt/">petehunt</a></p>
-			<p>Adapted for <a href="http://github.com/micurs/relax.js">Relax.js <% data.version %></a> by Michele Ursino</p>
+			<p>Adapted for <a href="http://github.com/micurs/relax.js">relaxjs <%= data.version %></a> by Michele Ursino</p>
 			<p>Part of <a href="http://todomvc.com">TodoMVC</a></p>
 		</footer>
 

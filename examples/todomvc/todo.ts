@@ -31,7 +31,7 @@ var todosite = r.site('todomvc');
 todosite.add( {
   name: 'todo',
   view: 'index',
-  data: { version: '0.1.2' }
+  data: { version: '0.1.4' }
 });
 
 
@@ -39,29 +39,30 @@ todosite.add( {
   name: 'todos',
 
   // Returns all the todos
-  onGet: function( query, respond: r.DataCallback  ) {
+  onGet: function( query: any, resp: r.Response  ) {
     var self = this;
     store.hgetall( 'todos', ( err: Error, items: any ) => {
       console.log(items);
       if ( err ) {
-        self.fail(respond, { error :  JSON.stringify(err) });
+        resp.fail( new r.RxError( 'Could not retrieve Todos',err.message, 404 ) );
       }
       else {
-        var todos = _.map( _.values(items), (item) =>  JSON.parse(item)  );
-        self.ok(respond, { all: todos }  );
+        this.data.version = '0.1.4';
+        this.data.all = _.map( _.values(items), (item) =>  JSON.parse(item)  );
+        resp.ok();
       }
     });
   },
 
   // Update all todos
-  onPatch: function( query, target: any, respond: r.DataCallback ) {
+  onPatch: function( query: any, target: any, resp: r.Response ) {
     var self = this;
     console.log('PATCH ALL >> ============================');
     console.log(target);
     store.hgetall( 'todos', (err: Error, items )=> {
       if ( err ) {
-        var respError = new r.rxError.RxError(err.message,'Redis cannot find Hash "todos"',404);
-        self.fail(respond, respError );
+        var respError = new r.RxError(err.message,'Redis cannot find Hash "todos"',404);
+        resp.fail( respError );
       }
       else {
         var todos = _.map( _.values(items), (item) =>  JSON.parse(item)  );
@@ -77,7 +78,8 @@ todosite.add( {
             store.hset('todos',todo.id, JSON.stringify(todo));
           });
         store.save();
-        self.ok(respond, { all: newTodos } );
+        this.data.all = newTodos;
+        resp.ok();
       }
     });
   },
@@ -88,23 +90,25 @@ todosite.add( {
       urlParameters: [ 'id' ],
 
       // Add a new todo into the store
-      onPost: function( query, todo: any, respond: r.DataCallback  ) {
+      onPost: function( query: any, todo: any, resp: r.Response ) {
         var self = this;
         var newId = genGuid();
         todo.id = newId;
         todo.completed = ( todo.completed == 'true') ? true : false;
         store.hset('todos', newId, JSON.stringify(todo) );
         store.save();
-        self.ok(respond,{ todo: todo });
+        this.data.todo = todo
+        resp.ok();
       },
 
       // Modify an existing todo into the store
-      onPatch: function( query, todo: any, respond: r.DataCallback  ) {
+      onPatch: function( query: any, todo: any, resp: r.Response ) {
         var self = this;
         var idToChange = self._parameters['id'];
         store.hget('todos',idToChange, function( err: Error, item: any ){
           if ( err ) {
-            self.fail(respond, { redis_error : err } );
+            var respError = new r.RxError(err.message,'Could not update the exisitng Todo',404);
+            resp.fail( respError );
           }
           else {
             var savedTodo = JSON.parse(item);
@@ -114,13 +118,14 @@ todosite.add( {
               title: todo.title };
             store.hset('todos', currTodo.id, JSON.stringify(currTodo) );
             store.save();
-            self.ok(respond, { todo: currTodo } );
+            self.data.todo = currTodo;
+            resp.ok();
           }
         });
       },
 
       // Retrieve a specific todo from the store
-      onGet: function( query, respond : r.DataCallback ) {
+      onGet: function( query: any, resp : r.Response ) {
         var self = this;
         var id = self._parameters.id; // query['id'];
         store.hget(
@@ -128,26 +133,28 @@ todosite.add( {
           id,
           ( err: Error, data: string ) => {
             if ( err ) {
-              var respError = new r.rxError.RxError(err.message,'Todo not found',404);
-              self.fail(respond, respError );
+              var respError = new r.RxError(err.message,'Todo not found',404);
+              resp.fail(respError );
             }
             else {
-              self.ok(respond, { todo: JSON.parse(data) } );
+              self.data.todo = JSON.parse(data);
+              resp.ok();
             }
           });
       },
 
       // Delete a specific todo from the strore
-      onDelete: function( query, respond: r.DataCallback  ) {
+      onDelete: function( query: any, resp: r.Response ) {
         var self = this;
         var idToDelete = self._parameters['id'];
         store.hdel('todos',idToDelete, ( err: Error, data: any ) => {
           if ( err ) {
-            var respError = new r.rxError.RxError(err.message,'Todo not found',404);
-            self.fail(respond, respError );
+            var respError = new r.RxError(err.message,'Todo not found',404);
+            resp.fail( respError );
           }
           else {
-            self.ok(respond, { todo: JSON.parse(data) } )
+            self.data.todo = JSON.parse(data);
+            resp.ok()
           }
         });
       }
