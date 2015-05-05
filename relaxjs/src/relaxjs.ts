@@ -382,13 +382,21 @@ export interface FilterResultCB {
  * A filter function is called on every request and can stop the dispatch of the request to the
  * target resource. The call is asyncronous. When complete it must call the resultCall passed
  * as third argument.
- * Note: the filter is called by the Site before evenb attempting to route the request to a
- * resource.
+ * Note: the filter is called by the Site before attempting to route the request to a
+ * resource. Filters can return data that become avaialable to the resource as an array (one element for each filter)
+ * under the filterData member.
  */
 export interface RequestFilter {
-  ( route : routing.Route, body: any, resultCall : FilterResultCB ) : void ;
+  ( route : routing.Route, body: any, resultCall : FilterResultCB ) : any ;
 }
 
+interface RequestFilterDict {
+  [ name: string ] : RequestFilter;
+}
+
+interface FiltersData {
+  [ name: string ] : any;
+}
 
 /*
  * The resource player implement the resource runtime capabilities.
@@ -402,24 +410,24 @@ export interface HttpPlayer {
 
 
   // Asks for the response identical to the one that would correspond to a GET request, but without the response body.
-  head( route : routing.Route) : Q.Promise<Embodiment> ;
+  head( route : routing.Route, filtersData: FiltersData) : Q.Promise<Embodiment> ;
 
   // Requests a representation of the specified resource.
-  get( route : routing.Route ) : Q.Promise<Embodiment> ;
+  get( route : routing.Route, filtersData: FiltersData ) : Q.Promise<Embodiment> ;
 
   // Requests that the server accept the entity enclosed in the request as a new subordinate
   // of the web resource identified by the URI.
-  post( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+  post( route : routing.Route, body: any, filtersData: FiltersData ) : Q.Promise<Embodiment> ;
 
   // Requests that the enclosed entity be stored under the supplied URI.
   // If the URI refers to an already existing resource, it is modified otherwise the resource can be created.
-  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+  put( route : routing.Route, body: any, filtersData: FiltersData ) : Q.Promise<Embodiment> ;
 
   // Deletes the specified resource.
-  delete( route : routing.Route ) : Q.Promise<Embodiment> ;
+  delete( route : routing.Route, filtersData: FiltersData ) : Q.Promise<Embodiment> ;
 
   // Applies partial modifications to a resource.
-  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> ;
+  patch( route : routing.Route, body: any, filtersData: FiltersData ) : Q.Promise<Embodiment> ;
 }
 
 
@@ -517,7 +525,7 @@ export class Site extends Container implements HttpPlayer {
   private _tempDir : string;
   private _pathCache = {};
 
-  private _filters: RequestFilter[] = [];
+  private _filters: RequestFilterDict = {} ;
   public enableFilters: boolean = false;
 
   constructor( siteName:string, parent?: Container ) {
@@ -627,56 +635,53 @@ export class Site extends Container implements HttpPlayer {
   /*
    * Set a user callback function to be executed on every request.
    */
-  addRequestFilter( filterFunction: RequestFilter ) : void {
-    this._filters.push(filterFunction);
+  addRequestFilter( name: string, filterFunction: RequestFilter ) : void {
+    this._filters[name] = filterFunction;
+    console.log('Adding filter', _.keys(this._filters) );
   }
 
-  deleteRequestFilter( filterFunction?: RequestFilter ) : boolean {
-    return ( _.remove( this._filters, (f) => f === filterFunction ) !== undefined );
+  deleteRequestFilter( name: string ) : boolean {
+    if ( name in this._filters ) {
+      delete this._filters[name];
+      return true;
+    }
+    return false;
+    // return ( _.remove( this._filters, (f) => f === filterFunction ) !== undefined );
   }
 
   deleteAllRequestFilters() : boolean {
-    this._filters = [];
+    this._filters = {};
     return true;
   }
 
   /*
-   * Execute the filters.
+   * Execute all the active filters, collect their returned data and post all of them in the returned promise.
   */
-  private _checkFilters( route : routing.Route, body: any, response : http.ServerResponse) : Q.Promise< boolean > {
+  private _checkFilters( route : routing.Route, body: any, response : http.ServerResponse) : Q.Promise< FiltersData > {
     var self = this;
-    var later = Q.defer< boolean> ()
-    if ( !self.enableFilters || self._filters.length === 0 ) {
-      later.resolve(true);
+    var later = Q.defer< FiltersData > ()
+    if ( !self.enableFilters || Object.keys(self._filters).length === 0 ) {
+      later.resolve( {} );
       return later.promise;
     }
-
-    var filtersCalls = _.map( self._filters, (f) => Q.nfcall( f.bind(self,route,body) ) );
-
-    // Filter the request: execute all the filters regarding if the fail or not
+    
+    
+    // All filters call are converted to promise returning functions and stored in an array
+    var filtersCalls = _.map( _.values(self._filters), (f) => Q.nfcall( f.bind(self,route,body) ) );
+    
+    // Filter the request: execute all the filters (the first failing will trigger a fail
+    // not waiting for the rest of the batch)
     Q.all( filtersCalls )
       .then( ( dataArr : any[] ) => {
-
-        // If any filter returns some data we send that back instead of leaving the request to the destination resource.
-        var filterResponse = _.find( dataArr, ( resp ) => resp && resp.data !== undefined );
-
-        if ( !filterResponse ) {
-          later.resolve(true);
-          return;
-        }
-        // One filter had a response. This is what we deliver!
-        internals.createEmbodiment( filterResponse.data, 'application/json' )
-          .then( ( reply: Embodiment ) => {
-            reply.httpCode = filterResponse.httpCode ? filterResponse.httpCode : 200;
-            reply.location = filterResponse.location;
-            reply.cookiesData = filterResponse.cookiesData;
-            reply.serve(response);
-            later.resolve(false);
-          })
-        })
+        console.log('filters data', dataArr );
+        var filterData : FiltersData = {};
+        _.each( _.keys(self._filters), (name,i) => filterData[name] = dataArr[i] );
+        console.log('filters data', filterData );
+        later.resolve(filterData);
+      })
       .fail( ( err : RxError ) => {
         later.reject( err );
-        });
+      });
 
     return later.promise;
   }
@@ -708,20 +713,18 @@ export class Site extends Container implements HttpPlayer {
       internals.parseRequestData(msg,route.inFormat)
         .then( ( bodyData: any ) => {
           self._checkFilters(route,bodyData,response)
-            .then( ( allFilteresPass: boolean ) => {
-              if ( allFilteresPass ) {
-                // Execute the HTTP request
-                site[msg.method.toLowerCase()]( route, bodyData )
-                  .then( ( reply : Embodiment ) => {
-                    reply.serve(response);
-                  })
-                  .fail( (error) => {
-                    if ( error.httpCode >= 300 )
-                      log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
-                    self._outputError(response,error,route.outFormat);
-                  })
-                  .done();
-              }
+            .then( ( allFiltersData: FiltersData ) => {
+              // Execute the HTTP request
+              site[msg.method.toLowerCase()]( route, bodyData, allFiltersData )
+                .then( ( reply : Embodiment ) => {
+                  reply.serve(response);
+                })
+                .fail( (error) => {
+                  if ( error.httpCode >= 300 )
+                    log.error(`HTTP ${msg.method} failed : ${error.httpCode} : ${error.name} - ${error.message}`);
+                  self._outputError(response,error,route.outFormat);
+                })
+                .done();
             })
             .fail( (error: RxError ) => {
               if ( error.httpCode >= 300 )
@@ -748,7 +751,7 @@ export class Site extends Container implements HttpPlayer {
 
   // HTTP Verb functions --------------------
 
-  head( route : routing.Route, body?: any  ) : Q.Promise< Embodiment > {
+  head( route : routing.Route, body: any, filterData : FiltersData = {} ) : Q.Promise< Embodiment > {
     var self = this;
     var log = internals.log().child( { func: 'Site.head'} );
     log.info('route: %s',route.pathname);
@@ -759,7 +762,7 @@ export class Site extends Container implements HttpPlayer {
       }
       route.path = direction.route.path;
       var res = <ResourcePlayer>(direction.resource);
-      return res.head(route);
+      return res.head(route, filterData);
     }
     if ( self._home === '/') {
       return internals.viewDynamic(self.name, this );
@@ -771,7 +774,7 @@ export class Site extends Container implements HttpPlayer {
   }
 
 
-  get( route : routing.Route, body?: any  ) : Q.Promise< Embodiment > {
+  get( route : routing.Route, body: any, filterData : FiltersData = {} ) : Q.Promise< Embodiment > {
     var self = this;
     var log = internals.log().child( { func: 'Site.get'} );
     log.info('route: %s',route.pathname);
@@ -787,7 +790,7 @@ export class Site extends Container implements HttpPlayer {
       }
       route.path = direction.route.path;
       var res = <ResourcePlayer>(direction.resource);
-      return res.get(route);
+      return res.get(route, filterData);
     }
     if ( route.path[0] === 'site' && self._home === '/') {
       return internals.viewDynamic(self.name, this );
@@ -801,7 +804,7 @@ export class Site extends Container implements HttpPlayer {
   }
 
 
-  post( route : routing.Route, body?: any ) : Q.Promise< Embodiment > {
+  post( route : routing.Route, body: any, filterData : FiltersData = {} ) : Q.Promise< Embodiment > {
     var self = this;
     var log = internals.log().child( { func: 'Site.post'} );
     if ( route.path.length > 1 ) {
@@ -811,13 +814,13 @@ export class Site extends Container implements HttpPlayer {
       var res = <ResourcePlayer>(direction.resource);
       log.info('POST on resource "%s"',res.name );
       route.path = direction.route.path;
-      return res.post( direction.route, body );
+      return res.post( direction.route, body, filterData );
     }
     return internals.promiseError(  internals.format('[error] Invalid in request "{0}"', route.pathname ), route.pathname );
   }
 
 
-  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+  patch( route : routing.Route, body: any, filterData : FiltersData = {} ) : Q.Promise<Embodiment> {
     var self = this;
     var log = internals.log().child( { func: 'Site.patch'} );
     if ( route.path.length > 1 ) {
@@ -827,13 +830,13 @@ export class Site extends Container implements HttpPlayer {
       var res = <ResourcePlayer>(direction.resource);
       log.info('PATCH on resource "%s"',res.name );
       route.path = direction.route.path;
-      return res.patch( direction.route, body );
+      return res.patch( direction.route, body, filterData );
     }
     return internals.promiseError(  internals.format('[error] Invalid in request "{0}"', route.pathname ), route.pathname );
   }
 
 
-  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+  put( route : routing.Route, body: any, filterData : FiltersData = {}  ) : Q.Promise<Embodiment> {
     var log = internals.log().child( { func: 'Site.put'} );
     var self = this;
     if ( route.path.length > 1 ) {
@@ -843,13 +846,13 @@ export class Site extends Container implements HttpPlayer {
       var res = <ResourcePlayer>(direction.resource);
       log.info('PUT on resource "%s"',res.name );
       route.path = direction.route.path;
-      return res.put( direction.route, body );
+      return res.put( direction.route, body, filterData );
     }
     return internals.promiseError( internals.format('[error] Invalid PUT request "{0}"', route.pathname ), route.pathname );
   }
 
 
-  delete( route : routing.Route, body?: any  ) : Q.Promise<Embodiment> {
+  delete( route : routing.Route, body: any, filterData : FiltersData = {}   ) : Q.Promise<Embodiment> {
     var self = this;
     var ctx = '['+this.name+'.delete] ';
     if ( route.static ) {
@@ -863,7 +866,7 @@ export class Site extends Container implements HttpPlayer {
       var res = <ResourcePlayer>(direction.resource);
       internals.log().info('%s "%s"',ctx,res.name );
       route.path = direction.route.path;
-      return res.delete( direction.route );
+      return res.delete( direction.route, filterData );
     }
     return internals.promiseError( internals.format('[error] Invalid DELETE request "{0}"', route.pathname ), route.pathname );
   }
@@ -894,6 +897,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
   private _parameters = {};
 
+  public filtersData : FiltersData = {};
+  
   // public data = {};
 
   constructor( res : Resource, parent: Container ) {
@@ -1041,7 +1046,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
    * Resource Player HEAD
    * Get the response as for a GET request, but without the response body.
   */
-  head( route : routing.Route) : Q.Promise<Embodiment> {
+  head( route : routing.Route, filtersData: FiltersData ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var later = Q.defer< Embodiment >();
     _.defer( () => { later.reject( new RxError('Not Implemented')) });
@@ -1054,7 +1059,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
    * This is the resource player GET:
    * it will call a GET to a child resource or the onGet() for the current resource.
   */
-  get( route: routing.Route ) : Q.Promise< Embodiment > {
+  get( route: routing.Route, filtersData: FiltersData ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').get'} );
     var paramCount = self._paramterNames.length;
@@ -1065,7 +1070,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       var direction = self._getStepDirection( route );
       if ( direction.resource ) {
         var res = <ResourcePlayer>(direction.resource);
-        return res.get( direction.route );
+        return res.get( direction.route, filtersData );
       }
       else {
         if ( _.keys(self._resources).length === 0 )
@@ -1093,6 +1098,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
       log.info('Invoking onGet()! on %s (%s)', self.name, route.outFormat );
+      this.filtersData = filtersData;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       var response = new Response( self );
       response.onOk( ( resresp: ResourceResponse ) => {
@@ -1121,7 +1127,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
    * HttpPlayer DELETE
    * Deletes the specified resource (as identified in the URI within the route).
   */
-  delete( route : routing.Route ) : Q.Promise<Embodiment> {
+  delete( route : routing.Route, filtersData: FiltersData ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').delete'} );
     var paramCount = self._paramterNames.length;
@@ -1134,7 +1140,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       if ( direction ) {
         var res = <ResourcePlayer>(direction.resource);
         log.info('DELETE on resource "%s"',res.name );
-        return res.delete( direction.route );
+        return res.delete( direction.route, filtersData );
       }
       else {
         return internals.promiseError( internals.format('[error] Resource not found "{0}"', route.pathname ), route.pathname );
@@ -1154,6 +1160,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( self._onDelete ) {
       log.info('call onDelete() for %s',self.name );
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
+      this.filtersData = filtersData;
       var response = new Response( self );
       response.onOk( ( resresp: ResourceResponse ) => {
         self._updateData(resresp.data);
@@ -1184,7 +1191,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
    * Asks the resource to create a new subordinate of the web resource identified by the URI.
    * The body sent to a post must contain the resource name to be created.
   */
-  post( route: routing.Route, body: any ) : Q.Promise< Embodiment > {
+  post( route: routing.Route, body: any, filtersData: FiltersData ) : Q.Promise< Embodiment > {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').post'} );
     var paramCount = self._paramterNames.length;
@@ -1196,7 +1203,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       if ( direction ) {
         var res = <ResourcePlayer>(direction.resource);
         log.info('POST on resource "%s"',res.name );
-        return res.post( direction.route, body );
+        return res.post( direction.route, body, filtersData );
       }
       else {
         return internals.promiseError( internals.format('[error] Resource not found "{0}"', route.pathname ), route.pathname );
@@ -1213,6 +1220,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // Call the onPost() for this resource (user code)
     if ( self._onPost ) {
       log.info('calling onPost() for %s', self.name );
+      this.filtersData = filtersData;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       var response = new Response( self );
       response.onOk( ( resresp: ResourceResponse ) => {
@@ -1241,7 +1249,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
    * HttpPlayer PATCH
    * Applies partial modifications to a resource (as identified in the URI).
   */
-  patch( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+  patch( route : routing.Route, body: any, filtersData: FiltersData ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').patch'} );
     var paramCount = self._paramterNames.length;
@@ -1253,7 +1261,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       if ( direction ) {
         var res = <ResourcePlayer>(direction.resource);
         log.info('PATCH on resource "%s"',res.name );
-        return res.patch( direction.route, body );
+        return res.patch( direction.route, body, filtersData );
       }
       else {
         return internals.promiseError( internals.format('[error] Resource not found "{0}"', route.pathname ), route.pathname );
@@ -1272,6 +1280,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // 3 - call the resource defined function to respond to a PATCH request
     if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self.name );
+      this.filtersData = filtersData;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       var response = new Response( self );
       response.onOk(  ( resresp: ResourceResponse ) => {
@@ -1302,7 +1311,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
    * Asks that the enclosed entity be stored under the supplied URI.
    * The body sent to a post does not contain the resource name to be stored since that name is the URI.
   */
-  put( route : routing.Route, body: any ) : Q.Promise<Embodiment> {
+  put( route : routing.Route, body: any, filtersData: FiltersData ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').put'} );
 

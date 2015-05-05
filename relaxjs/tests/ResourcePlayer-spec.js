@@ -33,7 +33,8 @@ describe('Test GET responses: ', function() {
       var rp = new relaxjs.ResourcePlayer( {
         name: 'test',
         onGet : function( query, response ) {
-          this.ok(response, { message: "Hello World!" } );
+          this.data = { message: "Hello World!" };
+          response.ok();
         },
         data: { message: "This is now Hello World!" } });
       rp.get( new routing.Route('test') )
@@ -83,7 +84,8 @@ describe('Test GET responses: ', function() {
           data: { items : [ 'first-item', 'second-item', 'third-item' ] },
           onGet : function( query, response ) {
             var idx = this._parameters.idx;
-            this.ok(response, { items: [ this.data.items[idx] ] } );
+            this.data = { items: [ this.data.items[idx] ] };
+            response.ok();
           }
         }]
       });
@@ -126,7 +128,8 @@ describe('Test GET responses: ', function() {
       site.add( {
         name: 'hello',
         onGet : function( query, response ) {
-          this.ok(response, { message: "Hello World!" } );
+          this.data = { message: "Hello World!" };
+          response.ok();
         },
         data: { message: "This is now Hello World!" }
       });
@@ -179,7 +182,8 @@ describe('Test GET responses: ', function() {
           data: { items : [ 'first-item', 'second-item', 'third-item' ] },
           onGet : function( query, response ) {
             var idx = this._parameters.idx;
-            this.ok(response, { items: [ this.data.items[idx] ] } );
+            this.data = { items: [ this.data.items[idx] ] };
+            response.ok();
           }
         }]
       });
@@ -222,7 +226,8 @@ describe('Test GET responses: ', function() {
         name: 'test',
         outFormat: 'text/xml',
         onGet : function( query, response ) {
-          this.ok(response, { message: "This is XML" } );
+          this.data = { message: "This is XML" };
+          response.ok();
         },
         data: { message: "This is now Hello World!" } });
       rp.get( new routing.Route('test') )
@@ -270,8 +275,8 @@ describe('Test POST responses: ', function() {
       var rp = new relaxjs.ResourcePlayer( {
         name: 'test',
         onPost: function(query , data , respond ) {
-          this.data = data;
-          this.ok(respond, { message: 'data has been posted' });
+          this.data = { message: 'data has been posted', postData: data };
+          respond.ok();
         }
       });
       var postData = { posted: 'Hello World!' };
@@ -279,12 +284,12 @@ describe('Test POST responses: ', function() {
         .then( function(emb){ result = emb; } )
         .fail( function (error) { result = error } );
 
-      waitsFor( function() { return result!=undefined } , 'Waited to long for the POST call to be completed.', 1000 );
+      waitsFor( function() { return result!==undefined } , 'Waited to long for the POST call to be completed.', 1000 );
       runs( function() {
         console.log(result.bodyAsJason());
         expect( result ).toBeDefined();
-        expect( result.bodyAsJason() ).toEqual(  { message: 'data has been posted' } );
-        expect( rp.data ).toEqual( { posted:"Hello World!"} );
+        expect( result.bodyAsJason() ).toEqual(  { message: 'data has been posted', postData: { posted: 'Hello World!' } } );
+        expect( rp.data ).toEqual({ message: 'data has been posted', postData: { posted: 'Hello World!' } } );
       });
 
     });
@@ -344,8 +349,8 @@ describe('Test POST responses: ', function() {
       site.add( {
         name: 'test',
         onPost: function(query , data , respond ) {
-          this.data = data;
-          this.ok(respond, { message: "data has been posted" });
+          this.data = { message: "data has been posted", postData: data };
+          respond.ok();
         }
       });
       var postData = { message: 'Hello World!' };
@@ -357,8 +362,8 @@ describe('Test POST responses: ', function() {
       runs( function() {
         // console.log('==== Result');
         expect( result ).toBeDefined();
-        expect( site._resources['test'][0].data ).toEqual( { message:"Hello World!"} );
-        expect( result.bodyAsJason().data, { message: "data has been posted" } );
+        expect( site._resources['test'][0].data ).toEqual( { message:"data has been posted", postData: { message: 'Hello World!' } } );
+        expect( result.bodyAsJason().data,  { message:"data has been posted", postData: { message: 'Hello World!' } } );
       });
 
     });
@@ -407,7 +412,7 @@ describe('Test DELETE responses', function() {
           onDelete: function(query, respond ) {
             var idx = query['idx'];
             this.data.testArray.splice(idx,1);
-            this.ok(respond, this.data );
+            respond.ok();
           }
         }]
       });
@@ -438,7 +443,7 @@ describe('Test DELETE responses', function() {
           onDelete: function( query, respond ) {
             var idx = parseInt( this._parameters.idx );
             this.data.testArray.splice(idx,1);
-            this.ok(respond, this.data );
+            respond.ok();
           }
         }]
       });
@@ -497,7 +502,7 @@ describe('Test DELETE responses', function() {
           onDelete: function(query, respond ) {
             var idx = query['idx'];
             this.data.testArray.splice(idx,1);
-            this.ok(respond, this.data );
+            respond.ok();
           }
         }]
       });
@@ -529,7 +534,7 @@ describe('Test DELETE responses', function() {
           onDelete: function( query, respond ) {
             var idx = parseInt( this._parameters.idx );
             this.data.testArray.splice(idx,1);
-            this.ok(respond, this.data );
+            respond.ok();
           }
         }]
       });

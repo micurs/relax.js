@@ -356,7 +356,7 @@ var Site = (function (_super) {
         this._siteName = 'site';
         this._home = '/';
         this._pathCache = {};
-        this._filters = [];
+        this._filters = {};
         this.enableFilters = false;
         this._siteName = siteName;
         if (Site._instance) {
@@ -465,43 +465,42 @@ var Site = (function (_super) {
     /*
      * Set a user callback function to be executed on every request.
      */
-    Site.prototype.addRequestFilter = function (filterFunction) {
-        this._filters.push(filterFunction);
+    Site.prototype.addRequestFilter = function (name, filterFunction) {
+        this._filters[name] = filterFunction;
+        console.log('Adding filter', _.keys(this._filters));
     };
-    Site.prototype.deleteRequestFilter = function (filterFunction) {
-        return (_.remove(this._filters, function (f) { return f === filterFunction; }) !== undefined);
+    Site.prototype.deleteRequestFilter = function (name) {
+        if (name in this._filters) {
+            delete this._filters[name];
+            return true;
+        }
+        return false;
+        // return ( _.remove( this._filters, (f) => f === filterFunction ) !== undefined );
     };
     Site.prototype.deleteAllRequestFilters = function () {
-        this._filters = [];
+        this._filters = {};
         return true;
     };
     /*
-     * Execute the filters.
+     * Execute all the active filters, collect their returned data and post all of them in the returned promise.
     */
     Site.prototype._checkFilters = function (route, body, response) {
         var self = this;
         var later = Q.defer();
-        if (!self.enableFilters || self._filters.length === 0) {
-            later.resolve(true);
+        if (!self.enableFilters || Object.keys(self._filters).length === 0) {
+            later.resolve({});
             return later.promise;
         }
-        var filtersCalls = _.map(self._filters, function (f) { return Q.nfcall(f.bind(self, route, body)); });
-        // Filter the request: execute all the filters regarding if the fail or not
+        // All filters call are converted to promise returning functions and stored in an array
+        var filtersCalls = _.map(_.values(self._filters), function (f) { return Q.nfcall(f.bind(self, route, body)); });
+        // Filter the request: execute all the filters (the first failing will trigger a fail
+        // not waiting for the rest of the batch)
         Q.all(filtersCalls).then(function (dataArr) {
-            // If any filter returns some data we send that back instead of leaving the request to the destination resource.
-            var filterResponse = _.find(dataArr, function (resp) { return resp && resp.data !== undefined; });
-            if (!filterResponse) {
-                later.resolve(true);
-                return;
-            }
-            // One filter had a response. This is what we deliver!
-            internals.createEmbodiment(filterResponse.data, 'application/json').then(function (reply) {
-                reply.httpCode = filterResponse.httpCode ? filterResponse.httpCode : 200;
-                reply.location = filterResponse.location;
-                reply.cookiesData = filterResponse.cookiesData;
-                reply.serve(response);
-                later.resolve(false);
-            });
+            console.log('filters data', dataArr);
+            var filterData = {};
+            _.each(_.keys(self._filters), function (name, i) { return filterData[name] = dataArr[i]; });
+            console.log('filters data', filterData);
+            later.resolve(filterData);
         }).fail(function (err) {
             later.reject(err);
         });
@@ -529,17 +528,15 @@ var Site = (function (_super) {
             }
             // Parse the data received with this request
             internals.parseRequestData(msg, route.inFormat).then(function (bodyData) {
-                self._checkFilters(route, bodyData, response).then(function (allFilteresPass) {
-                    if (allFilteresPass) {
-                        // Execute the HTTP request
-                        site[msg.method.toLowerCase()](route, bodyData).then(function (reply) {
-                            reply.serve(response);
-                        }).fail(function (error) {
-                            if (error.httpCode >= 300)
-                                log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
-                            self._outputError(response, error, route.outFormat);
-                        }).done();
-                    }
+                self._checkFilters(route, bodyData, response).then(function (allFiltersData) {
+                    // Execute the HTTP request
+                    site[msg.method.toLowerCase()](route, bodyData, allFiltersData).then(function (reply) {
+                        reply.serve(response);
+                    }).fail(function (error) {
+                        if (error.httpCode >= 300)
+                            log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
+                        self._outputError(response, error, route.outFormat);
+                    }).done();
                 }).fail(function (error) {
                     if (error.httpCode >= 300)
                         log.error("HTTP " + msg.method + " failed : " + error.httpCode + " : " + error.name + " - " + error.message);
@@ -560,7 +557,8 @@ var Site = (function (_super) {
         internals.setMultipartDataTempDir(path);
     };
     // HTTP Verb functions --------------------
-    Site.prototype.head = function (route, body) {
+    Site.prototype.head = function (route, body, filterData) {
+        if (filterData === void 0) { filterData = {}; }
         var self = this;
         var log = internals.log().child({ func: 'Site.head' });
         log.info('route: %s', route.pathname);
@@ -571,7 +569,7 @@ var Site = (function (_super) {
             }
             route.path = direction.route.path;
             var res = (direction.resource);
-            return res.head(route);
+            return res.head(route, filterData);
         }
         if (self._home === '/') {
             return internals.viewDynamic(self.name, this);
@@ -581,7 +579,8 @@ var Site = (function (_super) {
             return internals.redirect(self._home);
         }
     };
-    Site.prototype.get = function (route, body) {
+    Site.prototype.get = function (route, body, filterData) {
+        if (filterData === void 0) { filterData = {}; }
         var self = this;
         var log = internals.log().child({ func: 'Site.get' });
         log.info('route: %s', route.pathname);
@@ -596,7 +595,7 @@ var Site = (function (_super) {
             }
             route.path = direction.route.path;
             var res = (direction.resource);
-            return res.get(route);
+            return res.get(route, filterData);
         }
         if (route.path[0] === 'site' && self._home === '/') {
             return internals.viewDynamic(self.name, this);
@@ -607,7 +606,8 @@ var Site = (function (_super) {
         }
         return internals.promiseError(internals.format('[error] Root Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
     };
-    Site.prototype.post = function (route, body) {
+    Site.prototype.post = function (route, body, filterData) {
+        if (filterData === void 0) { filterData = {}; }
         var self = this;
         var log = internals.log().child({ func: 'Site.post' });
         if (route.path.length > 1) {
@@ -617,11 +617,12 @@ var Site = (function (_super) {
             var res = (direction.resource);
             log.info('POST on resource "%s"', res.name);
             route.path = direction.route.path;
-            return res.post(direction.route, body);
+            return res.post(direction.route, body, filterData);
         }
         return internals.promiseError(internals.format('[error] Invalid in request "{0}"', route.pathname), route.pathname);
     };
-    Site.prototype.patch = function (route, body) {
+    Site.prototype.patch = function (route, body, filterData) {
+        if (filterData === void 0) { filterData = {}; }
         var self = this;
         var log = internals.log().child({ func: 'Site.patch' });
         if (route.path.length > 1) {
@@ -631,11 +632,12 @@ var Site = (function (_super) {
             var res = (direction.resource);
             log.info('PATCH on resource "%s"', res.name);
             route.path = direction.route.path;
-            return res.patch(direction.route, body);
+            return res.patch(direction.route, body, filterData);
         }
         return internals.promiseError(internals.format('[error] Invalid in request "{0}"', route.pathname), route.pathname);
     };
-    Site.prototype.put = function (route, body) {
+    Site.prototype.put = function (route, body, filterData) {
+        if (filterData === void 0) { filterData = {}; }
         var log = internals.log().child({ func: 'Site.put' });
         var self = this;
         if (route.path.length > 1) {
@@ -645,11 +647,12 @@ var Site = (function (_super) {
             var res = (direction.resource);
             log.info('PUT on resource "%s"', res.name);
             route.path = direction.route.path;
-            return res.put(direction.route, body);
+            return res.put(direction.route, body, filterData);
         }
         return internals.promiseError(internals.format('[error] Invalid PUT request "{0}"', route.pathname), route.pathname);
     };
-    Site.prototype.delete = function (route, body) {
+    Site.prototype.delete = function (route, body, filterData) {
+        if (filterData === void 0) { filterData = {}; }
         var self = this;
         var ctx = '[' + this.name + '.delete] ';
         if (route.static) {
@@ -662,7 +665,7 @@ var Site = (function (_super) {
             var res = (direction.resource);
             internals.log().info('%s "%s"', ctx, res.name);
             route.path = direction.route.path;
-            return res.delete(direction.route);
+            return res.delete(direction.route, filterData);
         }
         return internals.promiseError(internals.format('[error] Invalid DELETE request "{0}"', route.pathname), route.pathname);
     };
@@ -683,6 +686,7 @@ var ResourcePlayer = (function (_super) {
         _super.call(this, parent);
         this._template = '';
         this._parameters = {};
+        this.filtersData = {};
         var self = this;
         self.setName(res.name);
         self._template = res.view;
@@ -826,7 +830,7 @@ var ResourcePlayer = (function (_super) {
      * Resource Player HEAD
      * Get the response as for a GET request, but without the response body.
     */
-    ResourcePlayer.prototype.head = function (route) {
+    ResourcePlayer.prototype.head = function (route, filtersData) {
         var self = this; // use to consistently access this object.
         var later = Q.defer();
         _.defer(function () {
@@ -839,7 +843,7 @@ var ResourcePlayer = (function (_super) {
      * This is the resource player GET:
      * it will call a GET to a child resource or the onGet() for the current resource.
     */
-    ResourcePlayer.prototype.get = function (route) {
+    ResourcePlayer.prototype.get = function (route, filtersData) {
         var self = this; // use to consistently access this object.
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').get' });
         var paramCount = self._paramterNames.length;
@@ -849,7 +853,7 @@ var ResourcePlayer = (function (_super) {
             var direction = self._getStepDirection(route);
             if (direction.resource) {
                 var res = (direction.resource);
-                return res.get(direction.route);
+                return res.get(direction.route, filtersData);
             }
             else {
                 if (_.keys(self._resources).length === 0)
@@ -873,6 +877,7 @@ var ResourcePlayer = (function (_super) {
         // If the onGet() is defined use id to get dynamic data from the user defined resource.
         if (self._onGet) {
             log.info('Invoking onGet()! on %s (%s)', self.name, route.outFormat);
+            this.filtersData = filtersData;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             var response = new Response(self);
             response.onOk(function (resresp) {
@@ -898,7 +903,7 @@ var ResourcePlayer = (function (_super) {
      * HttpPlayer DELETE
      * Deletes the specified resource (as identified in the URI within the route).
     */
-    ResourcePlayer.prototype.delete = function (route) {
+    ResourcePlayer.prototype.delete = function (route, filtersData) {
         var self = this; // use to consistently access this object.
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').delete' });
         var paramCount = self._paramterNames.length;
@@ -909,7 +914,7 @@ var ResourcePlayer = (function (_super) {
             if (direction) {
                 var res = (direction.resource);
                 log.info('DELETE on resource "%s"', res.name);
-                return res.delete(direction.route);
+                return res.delete(direction.route, filtersData);
             }
             else {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
@@ -927,6 +932,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onDelete) {
             log.info('call onDelete() for %s', self.name);
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
+            this.filtersData = filtersData;
             var response = new Response(self);
             response.onOk(function (resresp) {
                 self._updateData(resresp.data);
@@ -954,7 +960,7 @@ var ResourcePlayer = (function (_super) {
      * Asks the resource to create a new subordinate of the web resource identified by the URI.
      * The body sent to a post must contain the resource name to be created.
     */
-    ResourcePlayer.prototype.post = function (route, body) {
+    ResourcePlayer.prototype.post = function (route, body, filtersData) {
         var self = this; // use to consistently access this object.
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').post' });
         var paramCount = self._paramterNames.length;
@@ -965,7 +971,7 @@ var ResourcePlayer = (function (_super) {
             if (direction) {
                 var res = (direction.resource);
                 log.info('POST on resource "%s"', res.name);
-                return res.post(direction.route, body);
+                return res.post(direction.route, body, filtersData);
             }
             else {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
@@ -980,6 +986,7 @@ var ResourcePlayer = (function (_super) {
         // Call the onPost() for this resource (user code)
         if (self._onPost) {
             log.info('calling onPost() for %s', self.name);
+            this.filtersData = filtersData;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             var response = new Response(self);
             response.onOk(function (resresp) {
@@ -1005,7 +1012,7 @@ var ResourcePlayer = (function (_super) {
      * HttpPlayer PATCH
      * Applies partial modifications to a resource (as identified in the URI).
     */
-    ResourcePlayer.prototype.patch = function (route, body) {
+    ResourcePlayer.prototype.patch = function (route, body, filtersData) {
         var self = this; // use to consistently access this object.
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').patch' });
         var paramCount = self._paramterNames.length;
@@ -1016,7 +1023,7 @@ var ResourcePlayer = (function (_super) {
             if (direction) {
                 var res = (direction.resource);
                 log.info('PATCH on resource "%s"', res.name);
-                return res.patch(direction.route, body);
+                return res.patch(direction.route, body, filtersData);
             }
             else {
                 return internals.promiseError(internals.format('[error] Resource not found "{0}"', route.pathname), route.pathname);
@@ -1033,6 +1040,7 @@ var ResourcePlayer = (function (_super) {
         // 3 - call the resource defined function to respond to a PATCH request
         if (self._onPatch) {
             log.info('calling onPatch() for %s', self.name);
+            this.filtersData = filtersData;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             var response = new Response(self);
             response.onOk(function (resresp) {
@@ -1060,7 +1068,7 @@ var ResourcePlayer = (function (_super) {
      * Asks that the enclosed entity be stored under the supplied URI.
      * The body sent to a post does not contain the resource name to be stored since that name is the URI.
     */
-    ResourcePlayer.prototype.put = function (route, body) {
+    ResourcePlayer.prototype.put = function (route, body, filtersData) {
         var self = this; // use to consistently access this object.
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').put' });
         var later = Q.defer();

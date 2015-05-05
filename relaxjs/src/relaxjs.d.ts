@@ -164,8 +164,9 @@ declare module "relaxjs" {
     setHome( path: string ) : void;
     setTempDirectory( path: string ) : void ;
     getResource( pathname: string ) : Container;
-    addRequestFilter( filterFunction: FilterCB ) : void;
-    deleteRequestFilter( filterFunction?: FilterCB ) : boolean;
+    addRequestFilter( name: string, filterFunction: FilterCB ) : void;
+    deleteRequestFilter( name: string ) : boolean;
+    deleteAllRequestFilters() : boolean ;
 
     /*
     head( route : routing.Route) : Q.Promise<Embodiment> ;
