@@ -10,32 +10,27 @@ site.add({
     name: 'test',
     outFormat: 'application/json',
     onGet: function (q, r) {
-        this.data = { message: "All good ...", count: counter };
+        this.data = { message: "All good ...", count: this.filtersData['reqCounter'].count, filters: this.filtersData };
         r.ok();
     }
 });
-// Filter 1 : count the request. Never fails
-site.addRequestFilter(function (route, body, complete) {
+site.addRequestFilter('pathLength', function (route, body, complete) {
+    console.log('Route len:', route.path.length);
+    complete(null, { route: route.path });
+});
+site.addRequestFilter('noData', function (route, body, complete) {
+    console.log('Filter passing no data');
+    complete();
+});
+// Filter 'reqCounter' keep count of the number of requests and stop everu request after 10 
+// --------------------------------------------------------------------------------------------
+site.addRequestFilter('reqCounter', function (route, body, complete) {
     counter++;
-    complete(); // Filter pass
-});
-// Filter 2 : reply with a warning 1 step befaore failinig
-site.addRequestFilter(function (route, body, complete) {
-    if (counter == 9) {
-        // Filter the request sending back a warning message.
-        complete(null, { data: { message: "Next call will fail!!", count: counter } });
-    }
-    else {
-        complete(); // Filter pass
-    }
-});
-// Filter 3 : fails if the request counter pass 10
-site.addRequestFilter(function (route, body, complete) {
     if (counter >= 10) {
         complete(new relaxjs.RxError('The maximum number of requests was reached!', 'This call cannot go to requested Resource'), null);
     }
     else {
-        complete(); // Filter pass
+        complete(null, { count: counter }); // Filter pass
     }
 });
 site.enableFilters = true;
