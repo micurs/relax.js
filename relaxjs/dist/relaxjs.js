@@ -111,6 +111,9 @@ var Container = (function () {
         enumerable: true,
         configurable: true
     });
+    Container.prototype.resetOutgoingCookies = function () {
+        this._cookiesData = [];
+    };
     /*
      * Remove a child resource from this container
     */
@@ -839,6 +842,7 @@ var ResourcePlayer = (function (_super) {
     ResourcePlayer.prototype.head = function (route, filtersData) {
         var self = this; // use to consistently access this object.
         var later = Q.defer();
+        this.resetOutgoingCookies();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
         });
@@ -854,6 +858,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').get' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        this.resetOutgoingCookies();
         // Dives in and navigates through the path to find the child resource that can answer this GET call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
@@ -914,6 +919,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').delete' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        this.resetOutgoingCookies();
         // 1 - Dives in and navigates through the path to find the child resource that can answer this DELETE call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
@@ -971,6 +977,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').post' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        this.resetOutgoingCookies();
         // Dives in and navigates through the path to find the child resource that can answer this POST call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
@@ -1023,6 +1030,7 @@ var ResourcePlayer = (function (_super) {
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').patch' });
         var paramCount = self._paramterNames.length;
         var later = Q.defer();
+        this.resetOutgoingCookies();
         // 1 - Dives in and navigates through the path to find the child resource that can answer this POST call
         if (route.path.length > (1 + paramCount)) {
             var direction = self._getStepDirection(route);
@@ -1078,6 +1086,7 @@ var ResourcePlayer = (function (_super) {
         var self = this; // use to consistently access this object.
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ').put' });
         var later = Q.defer();
+        this.resetOutgoingCookies();
         _.defer(function () {
             later.reject(new RxError('Not Implemented'));
         });

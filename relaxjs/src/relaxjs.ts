@@ -146,6 +146,10 @@ export class Container {
   get cookiesData() : string[] {
     return this._cookiesData;
   }
+  
+  resetOutgoingCookies() {
+    this._cookiesData = [];
+  }
 
 
 
@@ -1057,6 +1061,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   head( route : routing.Route, filtersData: FiltersData ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var later = Q.defer< Embodiment >();
+    this.resetOutgoingCookies();
+
     _.defer( () => { later.reject( new RxError('Not Implemented')) });
     return later.promise;
   }
@@ -1071,7 +1077,8 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').get'} );
     var paramCount = self._paramterNames.length;
-    var later = Q.defer< Embodiment >();
+    var later = Q.defer< Embodiment >()
+    this.resetOutgoingCookies();
 
     // Dives in and navigates through the path to find the child resource that can answer this GET call
     if ( route.path.length > ( 1+paramCount ) ) {
@@ -1140,6 +1147,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').delete'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
+    this.resetOutgoingCookies();
 
 
     // 1 - Dives in and navigates through the path to find the child resource that can answer this DELETE call
@@ -1204,6 +1212,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').post'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
+    this.resetOutgoingCookies();
 
     // Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
@@ -1262,6 +1271,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').patch'} );
     var paramCount = self._paramterNames.length;
     var later = Q.defer< Embodiment >();
+    this.resetOutgoingCookies();
 
     // 1 - Dives in and navigates through the path to find the child resource that can answer this POST call
     if ( route.path.length > ( 1+paramCount ) ) {
@@ -1322,8 +1332,10 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   put( route : routing.Route, body: any, filtersData: FiltersData ) : Q.Promise<Embodiment> {
     var self = this; // use to consistently access this object.
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+').put'} );
-
     var later = Q.defer< Embodiment >();
+    this.resetOutgoingCookies();
+
+
     _.defer( () => { later.reject( new RxError('Not Implemented')) });
     return later.promise;
   }
