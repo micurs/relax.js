@@ -492,9 +492,9 @@ export class Embodiment {
     if ( this.location )
       headers['Location'] = this.location;
 
-    // Add the cookies set to the header
-    _.each( this.cookiesData, (cookie) => response.setHeader('Set-Cookie', cookie ) );
-
+    // Add the cookies set to the header (pass the full array to allow writing multiple cookies)
+    response.setHeader('Set-Cookie', <any>(this.cookiesData) );
+    
     response.writeHead( this.httpCode, headers );
     if ( this.body ) {
       response.write(this.body);
