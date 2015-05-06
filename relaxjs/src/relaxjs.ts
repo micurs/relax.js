@@ -988,6 +988,12 @@ export class ResourcePlayer extends Container implements HttpPlayer {
                          deliverAnyFormat: boolean = false ) : void {
     var self = this;
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+')._deliverReply'} );
+    
+    // Force application/json out format for redirect responses
+    if ( resResponse.httpCode===303 &&  resResponse.httpCode===307 ) {
+      outFormat = 'application/json';
+    }
+    
     var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
     log.info('Formats: %s', JSON.stringify(mimeTypes));
 
