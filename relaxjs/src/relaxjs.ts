@@ -990,7 +990,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+')._deliverReply'} );
     
     // Force application/json out format for redirect responses
-    if ( resResponse.httpCode===303 &&  resResponse.httpCode===307 ) {
+    if ( resResponse.httpCode===303 || resResponse.httpCode===307 ) {
       outFormat = 'application/json';
     }
     

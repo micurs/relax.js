@@ -771,7 +771,7 @@ var ResourcePlayer = (function (_super) {
         var self = this;
         var log = internals.log().child({ func: 'ResourcePlayer(' + self.name + ')._deliverReply' });
         // Force application/json out format for redirect responses
-        if (resResponse.httpCode === 303 && resResponse.httpCode === 307) {
+        if (resResponse.httpCode === 303 || resResponse.httpCode === 307) {
             outFormat = 'application/json';
         }
         var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
