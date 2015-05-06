@@ -669,14 +669,16 @@ export class Site extends Container implements HttpPlayer {
     // All filters call are converted to promise returning functions and stored in an array
     var filtersCalls = _.map( _.values(self._filters), (f) => Q.nfcall( f.bind(self,route,body) ) );
     
-    // Filter the request: execute all the filters (the first failing will trigger a fail
+    // Filter the request: execute all the filters (the first failing will trigger a fail and it will
     // not waiting for the rest of the batch)
     Q.all( filtersCalls )
       .then( ( dataArr : any[] ) => {
-        console.log('filters data', dataArr );
         var filterData : FiltersData = {};
-        _.each( _.keys(self._filters), (name,i) => filterData[name] = dataArr[i] );
-        console.log('filters data', filterData );
+        _.each( _.keys(self._filters), (name,i) => {
+          if ( dataArr[i] ) 
+            filterData[name] = dataArr[i];
+        });
+        // console.log('filters data', filterData );
         later.resolve(filterData);
       })
       .fail( ( err : RxError ) => {
