@@ -71,6 +71,7 @@ var Container = (function () {
         this._cookiesData = []; // Outgoing cookies to be set
         this._cookies = []; // Received cookies unparsed
         this._resources = {};
+        this._headers = {};
         this.data = {};
         this._parent = parent;
     }
@@ -98,6 +99,18 @@ var Container = (function () {
     Container.prototype.setName = function (newName) {
         this._name = newName;
     };
+    Object.defineProperty(Container.prototype, "headers", {
+        get: function () {
+            return this._headers;
+        },
+        // Add the given headers to the one already set
+        set: function (h) {
+            var self = this;
+            _.forOwn(h, function (value, key) { return self._headers[key] = value; });
+        },
+        enumerable: true,
+        configurable: true
+    });
     Container.prototype.setCookie = function (cookie) {
         this._cookiesData.push(cookie);
     };
@@ -274,14 +287,15 @@ var Response = (function () {
     // Helper function to call the response callback with a succesful code 'ok'
     Response.prototype.ok = function () {
         var respObj = { result: 'ok', httpCode: 200, cookiesData: this._resource.cookiesData };
-        respObj['data'] = this._resource.data;
+        respObj.data = this._resource.data;
+        respObj.headers = this._resource.headers;
         if (this._onOk)
             this._onOk(respObj);
     };
     // Helper function to call the response callback with a redirect code 303
     Response.prototype.redirect = function (where) {
         var respObj = { result: 'ok', httpCode: 303, location: where, cookiesData: this._resource.cookiesData };
-        respObj['data'] = this._resource.data;
+        respObj.data = this._resource.data;
         if (this._onOk)
             this._onOk(respObj);
     };
@@ -309,6 +323,7 @@ var Embodiment = (function () {
     function Embodiment(mimeType, code, body) {
         if (code === void 0) { code = 200; }
         this.cookiesData = []; // example a cookie valie would be ["type=ninja", "language=javascript"]
+        this.additionalHeaders = {};
         this.httpCode = code;
         this.body = body;
         this.mimeType = mimeType;
@@ -317,6 +332,9 @@ var Embodiment = (function () {
     Embodiment.prototype.addSetCookie = function (cookie) {
         this.cookiesData.push(cookie);
     };
+    Embodiment.prototype.setAdditionalHeaders = function (headers) {
+        this.additionalHeaders = headers;
+    };
     Embodiment.prototype.serve = function (response) {
         var log = internals.log().child({ func: 'Embodiment.serve' });
         var headers = { 'content-type': this.mimeType };
@@ -324,6 +342,10 @@ var Embodiment = (function () {
             headers['content-length'] = this.body.length;
         if (this.location)
             headers['Location'] = this.location;
+        // Add the additionalHeaders to the response
+        _.forOwn(this.additionalHeaders, function (value, key) {
+            response.setHeader(key, value);
+        });
         // Add the cookies set to the header (pass the full array to allow writing multiple cookies)
         response.setHeader('Set-Cookie', (this.cookiesData));
         response.writeHead(this.httpCode, headers);
@@ -469,8 +491,9 @@ var Site = (function (_super) {
      * Set a user callback function to be executed on every request.
      */
     Site.prototype.addRequestFilter = function (name, filterFunction) {
+        var log = internals.log().child({ func: 'Site.addRequestFilter' });
         this._filters[name] = filterFunction;
-        console.log('Adding filter', _.keys(this._filters));
+        log.info('filters', _.keys(this._filters));
     };
     Site.prototype.deleteRequestFilter = function (name) {
         if (name in this._filters) {
@@ -489,11 +512,14 @@ var Site = (function (_super) {
     */
     Site.prototype._checkFilters = function (route, body, response) {
         var self = this;
+        var log = internals.log().child({ func: 'Site._checkFilters' });
         var later = Q.defer();
         if (!self.enableFilters || Object.keys(self._filters).length === 0) {
+            log.info("no filters executed ");
             later.resolve({});
             return later.promise;
         }
+        log.info("executing filters ");
         // All filters call are converted to promise returning functions and stored in an array
         var filtersCalls = _.map(_.values(self._filters), function (f) { return Q.nfcall(f.bind(self, route, body)); });
         // Filter the request: execute all the filters (the first failing will trigger a fail and it will
@@ -504,9 +530,10 @@ var Site = (function (_super) {
                 if (dataArr[i])
                     filterData[name] = dataArr[i];
             });
-            // console.log('filters data', filterData );
+            log.info("all " + dataArr.length + " filters passed ");
             later.resolve(filterData);
         }).fail(function (err) {
+            log.warn("filters not passed " + err.message);
             later.reject(err);
         });
         return later.promise;
@@ -533,6 +560,7 @@ var Site = (function (_super) {
             }
             // Parse the data received with this request
             internals.parseRequestData(msg, route.inFormat).then(function (bodyData) {
+                log.info('check filters');
                 self._checkFilters(route, bodyData, response).then(function (allFiltersData) {
                     // Execute the HTTP request
                     site[msg.method.toLowerCase()](route, bodyData, allFiltersData).then(function (reply) {
@@ -591,7 +619,7 @@ var Site = (function (_super) {
         log.info('route: %s', route.pathname);
         //log.info(' FORMAT: %s', route.outFormat);
         if (route.static) {
-            return internals.viewStatic(route.pathname);
+            return internals.viewStatic(route.pathname, route.headers);
         }
         if (route.path.length > 1) {
             var direction = self._getDirection(route, 'GET');
@@ -606,7 +634,7 @@ var Site = (function (_super) {
             return internals.viewDynamic(self.name, this);
         }
         if (self._home !== '/') {
-            log.info('GET is redirecting to "%s"', self._home);
+            log.info('GET is redirecting to home "%s"', self._home);
             return internals.redirect(self._home);
         }
         return internals.promiseError(internals.format('[error] Root Resource not found or invalid in request "{0}"', route.pathname), route.pathname);
@@ -788,6 +816,7 @@ var ResourcePlayer = (function (_super) {
                 reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
                 reply.location = resResponse.location;
                 reply.cookiesData = resResponse.cookiesData;
+                reply.additionalHeaders = self.headers;
                 later.resolve(reply);
             }).fail(function (err) {
                 later.reject(err);
@@ -819,6 +848,7 @@ var ResourcePlayer = (function (_super) {
                     reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
                     reply.location = resResponse.location;
                     reply.cookiesData = resResponse.cookiesData;
+                    reply.additionalHeaders = resResponse.headers;
                     later.resolve(reply);
                 }).fail(function (err) {
                     later.reject(err);
@@ -826,7 +856,11 @@ var ResourcePlayer = (function (_super) {
             }
             else {
                 if (deliverAnyFormat) {
-                    later.resolve(new Embodiment(outFormat, 200, resResponse.data));
+                    log.info("Deliver anyformat: " + outFormat);
+                    var reply = new Embodiment(outFormat, 200, resResponse.data);
+                    reply.cookiesData = resResponse.cookiesData;
+                    reply.additionalHeaders = resResponse.headers;
+                    later.resolve(reply);
                 }
                 else {
                     later.reject(new RxError('output as (' + outFormat + ') is not available for this resource', 'Unsupported Media Type', 415)); // 415 Unsupported Media Type
@@ -887,8 +921,9 @@ var ResourcePlayer = (function (_super) {
         var dyndata = {};
         // If the onGet() is defined use id to get dynamic data from the user defined resource.
         if (self._onGet) {
-            log.info('Invoking onGet()! on %s (%s)', self.name, route.outFormat);
+            log.info('Invoking GET on %s (%s)', self.name, route.outFormat);
             this.filtersData = filtersData;
+            this._headers = route.headers;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             var response = new Response(self);
             response.onOk(function (resresp) {
@@ -943,6 +978,7 @@ var ResourcePlayer = (function (_super) {
         // If the onDelete() is defined use it to invoke a user define delete.
         if (self._onDelete) {
             log.info('call onDelete() for %s', self.name);
+            this._headers = route.headers;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             this.filtersData = filtersData;
             var response = new Response(self);
@@ -1000,6 +1036,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onPost) {
             log.info('calling onPost() for %s', self.name);
             this.filtersData = filtersData;
+            this._headers = route.headers;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             var response = new Response(self);
             response.onOk(function (resresp) {
@@ -1055,6 +1092,7 @@ var ResourcePlayer = (function (_super) {
         if (self._onPatch) {
             log.info('calling onPatch() for %s', self.name);
             this.filtersData = filtersData;
+            this._headers = route.headers;
             this._cookies = route.cookies; // The client code can retrieved the cookies using this.getCookies();
             var response = new Response(self);
             response.onOk(function (resresp) {

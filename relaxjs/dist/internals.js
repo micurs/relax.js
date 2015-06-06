@@ -176,7 +176,8 @@ exports.redirect = redirect;
  * Realize a view from a generic get for a static file
  * Return a promise that will return the full content of the view.
 */
-function viewStatic(filename) {
+function viewStatic(filename, headers) {
+    if (headers === void 0) { headers = {}; }
     var fname = '[view static]';
     var log = _log.child({ func: 'internals.viewStatic' });
     var mtype = mime.lookup(filename);
@@ -189,7 +190,9 @@ function viewStatic(filename) {
             laterAction.reject(new relaxjs.RxError(filename + ' not found', 'File Not Found', 404));
         }
         else {
-            laterAction.resolve(new relaxjs.Embodiment(mtype, 200, content));
+            var reply = new relaxjs.Embodiment(mtype, 200, content);
+            reply.additionalHeaders = headers;
+            laterAction.resolve(reply);
         }
     });
     return laterAction.promise;

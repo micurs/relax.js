@@ -33,6 +33,7 @@ export class Route {
   cookies: string[]; // Unparsed cookies received withing the request.
   request: http.ServerRequest;
   response: http.ServerResponse;
+  headers: relaxjs.ResponseHeaders = {}; // Additional headers filters or resources may set before returning an answer.
 
   constructor( uri?: string, outFormat?: string, inFormat?: string ) {
     if ( uri ) {
@@ -77,6 +78,10 @@ export class Route {
   getNextStep() : string {
     // console.log('[Route.nextStep] '+this.path[0] );
     return this.path[0];
+  }
+
+  addResponseHeaders( h: relaxjs.ResponseHeaders ) {
+    _.merge(this.headers,h);
   }
 }
 

@@ -9,6 +9,7 @@ var _ = require("lodash");
 var Route = (function () {
     function Route(uri, outFormat, inFormat) {
         this.static = true; // if true it means this rout is mapping to a file
+        this.headers = {}; // Additional headers filters or resources may set before returning an answer.
         if (uri) {
             var parsedUrl = url.parse(uri, true);
             var extension = path.extname(parsedUrl.pathname);
@@ -48,6 +49,9 @@ var Route = (function () {
     Route.prototype.getNextStep = function () {
         // console.log('[Route.nextStep] '+this.path[0] );
         return this.path[0];
+    };
+    Route.prototype.addResponseHeaders = function (h) {
+        _.merge(this.headers, h);
     };
     return Route;
 })();

@@ -12,6 +12,7 @@ site.add({
         var self = this;
         fs.readFile('image.jpg', function (err, content) {
             self.data = content;
+            self.headers = { 'Cache-Control': 'no-transform,public,max-age=300,s-maxage=900' };
             respond.ok();
         });
     }

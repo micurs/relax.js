@@ -4,7 +4,6 @@
 ///<reference path='/usr/lib/node_modules/relaxjs/dist/relaxjs.d.ts' />
 var counter = 0;
 var relaxjs = require('relaxjs');
-// Create the application by assembling the resources
 var site = relaxjs.site('sample1.com');
 site.add({
     name: 'first',
@@ -27,24 +26,19 @@ site.add({
         r.ok();
     }
 });
-// Filter 'pathLength' pass the lenght of the path as received to the resource being called. 
 site.addRequestFilter('pathLength', function (route, body, complete) {
     console.log('Route len:', route.path.length);
     complete(null, { route: route.path });
 });
-// Filter 'noData' with no data passed to the resource being called. 
-site.addRequestFilter('noData', function (route, body, complete) {
+site.addRequestFilter('addHeaders', function (route, body, complete) {
     console.log('Filter passing no data');
     complete();
 });
-// Filter 'reqCounter' keep count of the number of requests  
 site.addRequestFilter('reqCounter', function (route, body, complete) {
     counter++;
-    complete(null, { count: counter }); // Filter pass
+    complete(null, { count: counter });
 });
 site.enableFilters = true;
 site.setHome('/first');
-// Create the application server for the site
 var appSrv = site.serve();
-// Listen
 appSrv.listen(3000);

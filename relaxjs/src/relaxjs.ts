@@ -93,6 +93,9 @@ export interface ResourceMap {
   [name: string]: Container [];
 }
 
+export interface ResponseHeaders {
+  [ headerName: string ] : string;
+}
 
 /*
  * Type definition for the response callback function to use on the HTTP verb function
@@ -115,6 +118,7 @@ export class Container {
   protected _cookiesData : string[] = [];   // Outgoing cookies to be set
   protected _cookies: string[] = [];        // Received cookies unparsed
   protected _resources: ResourceMap = {};
+  protected _headers: ResponseHeaders = {};
 
   public data : any = {};
 
@@ -136,6 +140,16 @@ export class Container {
     this._name = newName;
   }
 
+  // Add the given headers to the one already set
+  set headers( h: ResponseHeaders ) {
+    var self = this;
+    _.forOwn( h, (value, key ) => self._headers[key] = value );
+  }
+
+  get headers() : ResponseHeaders {
+    return this._headers;
+  }
+
   setCookie( cookie: string ) {
     this._cookiesData.push(cookie);
   }
@@ -146,7 +160,7 @@ export class Container {
   get cookiesData() : string[] {
     return this._cookiesData;
   }
-  
+
   resetOutgoingCookies() {
     this._cookiesData = [];
   }
@@ -311,6 +325,8 @@ export class Container {
 
 }
 
+
+
 /*
  * Response definition: every resource generate an instance of ResourceResponse
  * by calling a response function ( ok(), fail() or redirect() ) from a response object
@@ -322,6 +338,7 @@ export interface ResourceResponse {
   httpCode?: number;
   location?: string;
   cookiesData?: string[];
+  headers?: ResponseHeaders;
 }
 
 /*
@@ -349,7 +366,8 @@ export class Response {
   // Helper function to call the response callback with a succesful code 'ok'
   ok() : void {
     var respObj : ResourceResponse = { result: 'ok', httpCode: 200, cookiesData: this._resource.cookiesData };
-    respObj['data'] = this._resource.data;
+    respObj.data = this._resource.data;
+    respObj.headers = this._resource.headers;
     if (this._onOk)
       this._onOk( respObj );
   }
@@ -357,7 +375,7 @@ export class Response {
   // Helper function to call the response callback with a redirect code 303
   redirect( where: string ) : void {
     var respObj : ResourceResponse = { result: 'ok', httpCode: 303, location: where, cookiesData: this._resource.cookiesData  };
-    respObj['data'] = this._resource.data;
+    respObj.data = this._resource.data;
     if (this._onOk)
       this._onOk( respObj );
   }
@@ -451,6 +469,7 @@ export interface Resource {
   resources?: Resource[];
   urlParameters?: string[];
   outFormat?: string;
+  headers?: ResponseHeaders;
   onHead?: ( query: any, respond: Response ) => void;
   onGet?: ( query: any, respond: Response ) => void;
   onPost?: ( query: any, body: any, respond: Response) => void;
@@ -472,6 +491,7 @@ export class Embodiment {
   public mimeType : string;
   public body : Buffer;
   public cookiesData: string[] = []; // example a cookie valie would be ["type=ninja", "language=javascript"]
+  public additionalHeaders : ResponseHeaders = {};
 
   constructor(  mimeType: string, code: number = 200, body?: Buffer ) {
     this.httpCode = code;
@@ -484,6 +504,10 @@ export class Embodiment {
     this.cookiesData.push(cookie);
   }
 
+  setAdditionalHeaders( headers: any ) {
+    this.additionalHeaders = headers;
+  }
+
   serve(response: http.ServerResponse) : void {
     var log = internals.log().child( { func: 'Embodiment.serve'} );
     var headers = { 'content-type' : this.mimeType };
@@ -492,9 +516,14 @@ export class Embodiment {
     if ( this.location )
       headers['Location'] = this.location;
 
+    // Add the additionalHeaders to the response
+    _.forOwn( this.additionalHeaders, (value, key ) => {
+      response.setHeader(key, value);
+    });
+
     // Add the cookies set to the header (pass the full array to allow writing multiple cookies)
     response.setHeader('Set-Cookie', <any>(this.cookiesData) );
-    
+
     response.writeHead( this.httpCode, headers );
     if ( this.body ) {
       response.write(this.body);
@@ -640,8 +669,9 @@ export class Site extends Container implements HttpPlayer {
    * Set a user callback function to be executed on every request.
    */
   addRequestFilter( name: string, filterFunction: RequestFilter ) : void {
+    var log = internals.log().child( { func: 'Site.addRequestFilter'} );
     this._filters[name] = filterFunction;
-    console.log('Adding filter', _.keys(this._filters) );
+    log.info('filters', _.keys(this._filters) );
   }
 
   deleteRequestFilter( name: string ) : boolean {
@@ -661,31 +691,35 @@ export class Site extends Container implements HttpPlayer {
   /*
    * Execute all the active filters, collect their returned data and post all of them in the returned promise.
   */
-  private _checkFilters( route : routing.Route, body: any, response : http.ServerResponse) : Q.Promise< FiltersData > {
+  private _checkFilters( route : routing.Route, body: any, response : http.ServerResponse ) : Q.Promise< FiltersData > {
     var self = this;
+    var log = internals.log().child( { func: 'Site._checkFilters'} );
     var later = Q.defer< FiltersData > ()
     if ( !self.enableFilters || Object.keys(self._filters).length === 0 ) {
+      log.info(`no filters executed `);
       later.resolve( {} );
       return later.promise;
     }
-    
-    
+
+    log.info(`executing filters `);
+
     // All filters call are converted to promise returning functions and stored in an array
     var filtersCalls = _.map( _.values(self._filters), (f) => Q.nfcall( f.bind(self,route,body) ) );
-    
+
     // Filter the request: execute all the filters (the first failing will trigger a fail and it will
     // not waiting for the rest of the batch)
     Q.all( filtersCalls )
       .then( ( dataArr : any[] ) => {
         var filterData : FiltersData = {};
         _.each( _.keys(self._filters), (name,i) => {
-          if ( dataArr[i] ) 
+          if ( dataArr[i] )
             filterData[name] = dataArr[i];
         });
-        // console.log('filters data', filterData );
+        log.info(`all ${dataArr.length} filters passed `);
         later.resolve(filterData);
       })
       .fail( ( err : RxError ) => {
+        log.warn(`filters not passed ${err.message}`);
         later.reject( err );
       });
 
@@ -718,7 +752,8 @@ export class Site extends Container implements HttpPlayer {
       // Parse the data received with this request
       internals.parseRequestData(msg,route.inFormat)
         .then( ( bodyData: any ) => {
-          self._checkFilters(route,bodyData,response)
+          log.info('check filters');
+          self._checkFilters(route,bodyData,response )
             .then( ( allFiltersData: FiltersData ) => {
               // Execute the HTTP request
               site[msg.method.toLowerCase()]( route, bodyData, allFiltersData )
@@ -787,8 +822,10 @@ export class Site extends Container implements HttpPlayer {
     //log.info(' FORMAT: %s', route.outFormat);
 
     if ( route.static ) {
-      return internals.viewStatic( route.pathname );
+      return internals.viewStatic( route.pathname, route.headers );
     }
+
+
     if ( route.path.length > 1 ) {
       var direction = self._getDirection( route, 'GET' );
       if ( direction === undefined ) {
@@ -798,11 +835,12 @@ export class Site extends Container implements HttpPlayer {
       var res = <ResourcePlayer>(direction.resource);
       return res.get(route, filterData);
     }
+
     if ( route.path[0] === 'site' && self._home === '/') {
       return internals.viewDynamic(self.name, this );
     }
     if ( self._home !== '/' ) {
-      log.info('GET is redirecting to "%s"',self._home );
+      log.info('GET is redirecting to home "%s"',self._home );
       return internals.redirect( self._home );
     }
 
@@ -904,7 +942,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
   private _parameters = {};
 
   public filtersData : FiltersData = {};
-  
+
   // public data = {};
 
   constructor( res : Resource, parent: Container ) {
@@ -992,12 +1030,12 @@ export class ResourcePlayer extends Container implements HttpPlayer {
                          deliverAnyFormat: boolean = false ) : void {
     var self = this;
     var log = internals.log().child( { func: 'ResourcePlayer('+self.name+')._deliverReply'} );
-    
+
     // Force application/json out format for redirect responses
     if ( resResponse.httpCode===303 || resResponse.httpCode===307 ) {
       outFormat = 'application/json';
     }
-    
+
     var mimeTypes = outFormat ? outFormat.split(/[\s,;]+/) : ['application/json'];
     log.info('Formats: %s', JSON.stringify(mimeTypes));
 
@@ -1012,6 +1050,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
           reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
           reply.location = resResponse.location;
           reply.cookiesData = resResponse.cookiesData;
+          reply.additionalHeaders = self.headers;
           later.resolve(reply);
         })
         .fail( (err) => {
@@ -1033,6 +1072,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
             reply.httpCode = resResponse.httpCode ? resResponse.httpCode : 200;
             reply.location = resResponse.location;
             reply.cookiesData = resResponse.cookiesData;
+            reply.additionalHeaders = resResponse.headers;
             later.resolve(reply);
           })
           .fail( (err) => {
@@ -1041,7 +1081,11 @@ export class ResourcePlayer extends Container implements HttpPlayer {
       }
       else {
         if ( deliverAnyFormat ) {
-          later.resolve( new Embodiment( outFormat, 200, resResponse.data ) );
+          log.info(`Deliver anyformat: ${outFormat}`)
+          var reply = new Embodiment( outFormat, 200, resResponse.data );
+          reply.cookiesData = resResponse.cookiesData;
+          reply.additionalHeaders = resResponse.headers;
+          later.resolve(reply);
         }
         else {
           later.reject(new RxError( 'output as ('+outFormat+') is not available for this resource','Unsupported Media Type',415) ); // 415 Unsupported Media Type
@@ -1112,8 +1156,9 @@ export class ResourcePlayer extends Container implements HttpPlayer {
 
     // If the onGet() is defined use id to get dynamic data from the user defined resource.
     if ( self._onGet ) {
-      log.info('Invoking onGet()! on %s (%s)', self.name, route.outFormat );
+      log.info('Invoking GET on %s (%s)', self.name, route.outFormat );
       this.filtersData = filtersData;
+      this._headers = route.headers;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       var response = new Response( self );
       response.onOk( ( resresp: ResourceResponse ) => {
@@ -1175,6 +1220,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     // If the onDelete() is defined use it to invoke a user define delete.
     if ( self._onDelete ) {
       log.info('call onDelete() for %s',self.name );
+      this._headers = route.headers;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       this.filtersData = filtersData;
       var response = new Response( self );
@@ -1238,6 +1284,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( self._onPost ) {
       log.info('calling onPost() for %s', self.name );
       this.filtersData = filtersData;
+      this._headers = route.headers;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       var response = new Response( self );
       response.onOk( ( resresp: ResourceResponse ) => {
@@ -1299,6 +1346,7 @@ export class ResourcePlayer extends Container implements HttpPlayer {
     if ( self._onPatch ) {
       log.info('calling onPatch() for %s',self.name );
       this.filtersData = filtersData;
+      this._headers = route.headers;
       this._cookies = route.cookies;  // The client code can retrieved the cookies using this.getCookies();
       var response = new Response( self );
       response.onOk(  ( resresp: ResourceResponse ) => {

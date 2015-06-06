@@ -37,29 +37,29 @@ site.add(  {
 });
 
 
-// Filter 'pathLength' pass the lenght of the path as received to the resource being called. 
+// Filter 'pathLength' pass the lenght of the path as received to the resource being called.
 site.addRequestFilter( 'pathLength',
-                       function( route : relaxjs.routing.Route, 
-                                 body: any, 
+                       function( route : relaxjs.routing.Route,
+                                 body: any,
                                  complete : relaxjs.FilterResultCB )  {
   console.log('Route len:', route.path.length );
   complete(null, { route: route.path } );
 });
 
-// Filter 'noData' with no data passed to the resource being called. 
-site.addRequestFilter( 'noData',
-                       function( route : relaxjs.routing.Route, 
-                                 body: any, 
+// Filter 'noData' with no data passed to the resource being called.
+site.addRequestFilter( 'addHeaders',
+                       function( route : relaxjs.routing.Route,
+                                 body: any,
                                  complete : relaxjs.FilterResultCB )  {
   console.log('Filter passing no data' );
   complete();
 });
 
 
-// Filter 'reqCounter' keep count of the number of requests  
+// Filter 'reqCounter' keep count of the number of requests
 site.addRequestFilter( 'reqCounter',
-                       function( route : relaxjs.routing.Route, 
-                                 body: any, 
+                       function( route : relaxjs.routing.Route,
+                                 body: any,
                                  complete : relaxjs.FilterResultCB )  {
   counter++;
   complete( null , { count: counter });  // Filter pass

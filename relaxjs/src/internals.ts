@@ -200,7 +200,7 @@ export function redirect( location: string ) : Q.Promise< relaxjs.Embodiment > {
  * Realize a view from a generic get for a static file
  * Return a promise that will return the full content of the view.
 */
-export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment > {
+export function viewStatic( filename: string, headers: relaxjs.ResponseHeaders  = {} ) : Q.Promise< relaxjs.Embodiment > {
   var fname = '[view static]';
   var log = _log.child( { func: 'internals.viewStatic'} );
 
@@ -214,7 +214,9 @@ export function viewStatic( filename: string ) : Q.Promise< relaxjs.Embodiment >
       laterAction.reject( new relaxjs.RxError( filename + ' not found', 'File Not Found', 404 ) );
     }
     else {
-      laterAction.resolve( new relaxjs.Embodiment( mtype, 200, content ) );
+      var reply = new relaxjs.Embodiment( mtype, 200, content );
+      reply.additionalHeaders = headers;
+      laterAction.resolve( reply );
     }
   });
   return laterAction.promise;

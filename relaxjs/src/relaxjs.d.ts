@@ -48,6 +48,8 @@ declare module "relaxjs" {
       constructor( uri?: string );
       stepThrough( stpes: number ) : Route;
       getNextStep() : string;
+      addResponseHeaders( h: ResponseHeaders );
+
     }
     export class Direction {
       resource : HttpPlayer;
@@ -111,6 +113,10 @@ declare module "relaxjs" {
 
   export interface ResourceMap {
     [name: string]: ResourcePlayer;
+  }
+
+  export interface ResponseHeaders {
+    [ headerName: string ] : string;
   }
 
   export class Container {
