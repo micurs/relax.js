@@ -1,3 +1,13 @@
+# Obsolete!
+
+The repo has changed. 
+I will remove this repository shortly. Please check the links below to access the latest relaxjs code.
+
+The latest version of relaxjs is here: https://github.com/micurs/relaxjs
+I am also creating examples for using the library here: https://github.com/micurs/relaxjs-examples
+
+Thanks
+
 # Relax.js: the framework and samples
 
 Welcome to the Relax.js node project. This framework is still under development and it is not ready for any use in a production environment.
